@@ -1,3 +1,4 @@
 The contents of this file reflect significant pull requests developed prior to the open-sourcing of this codebase; the author of each line is the original contributor of that part of the code, which may be helpful in referencing who may be knowledgeable about which parts of the project.
 
 - First pass at Peft prompt tuning module | Author(s): alex-jw-brooks, gkumbhat
+- Initial PEFT integration with caikit runtime | Author(s): evaline-ju
