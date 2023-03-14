@@ -3,3 +3,4 @@ The contents of this file reflect significant pull requests developed prior to t
 - First pass at Peft prompt tuning module | Author(s): alex-jw-brooks, gkumbhat
 - Initial PEFT integration with caikit runtime | Author(s): evaline-ju
 - Add & integrate base resource abstractions | Author(s): gabe-l-hart
+- Add health probe to /usr/local/bin | Author(s): gabe-l-hart
