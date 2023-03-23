@@ -6,3 +6,4 @@ The contents of this file reflect significant pull requests developed prior to t
 - Add health probe to /usr/local/bin | Author(s): gabe-l-hart
 - Implement tgis-backend prompt tuning module | Author(s): alex-jw-brooks
 - Add unique prompt id logic | Author(s): gkumbhat
+- Rebase prompt tuning module onto Causal LM | Author(s): fplk, alex-jw-brooks, gkumbhat
