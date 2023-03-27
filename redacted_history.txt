@@ -7,3 +7,4 @@ The contents of this file reflect significant pull requests developed prior to t
 - Implement tgis-backend prompt tuning module | Author(s): alex-jw-brooks
 - Add unique prompt id logic | Author(s): gkumbhat
 - Rebase prompt tuning module onto Causal LM | Author(s): fplk, alex-jw-brooks, gkumbhat
+- Fix Causal LM module lookup & base model config | Author(s): gkumbhat
