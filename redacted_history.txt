@@ -12,3 +12,4 @@ The contents of this file reflect significant pull requests developed prior to t
 - Implement .run() for prompt tuning module | Author(s): alex-jw-brooks
 - Support local cache | Author(s): gabe-l-hart
 - Rebase MPT, slim dependencies, use streams in examples | Author(s): gkumbhat
+- Add EOS experiments | Author(s): alex-jw-brooks
