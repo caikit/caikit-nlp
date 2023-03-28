@@ -13,3 +13,4 @@ The contents of this file reflect significant pull requests developed prior to t
 - Support local cache | Author(s): gabe-l-hart
 - Rebase MPT, slim dependencies, use streams in examples | Author(s): gkumbhat
 - Add EOS experiments | Author(s): alex-jw-brooks
+- Add verbalizer support | Author(s): alex-jw-brooks, gkumbhat
