@@ -9,3 +9,4 @@ The contents of this file reflect significant pull requests developed prior to t
 - Rebase prompt tuning module onto Causal LM | Author(s): fplk, alex-jw-brooks, gkumbhat
 - Fix Causal LM module lookup & base model config | Author(s): gkumbhat
 - Preliminary multiprompt tuning integration with existing peft module | Author(s): fplk
+- Implement .run() for prompt tuning module | Author(s): alex-jw-brooks
