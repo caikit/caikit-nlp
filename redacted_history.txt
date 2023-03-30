@@ -14,3 +14,4 @@ The contents of this file reflect significant pull requests developed prior to t
 - Rebase MPT, slim dependencies, use streams in examples | Author(s): gkumbhat
 - Add EOS experiments | Author(s): alex-jw-brooks
 - Add verbalizer support | Author(s): alex-jw-brooks, gkumbhat
+- Add Unit Tests for basically everything | Author(s): alex-jw-brooks
