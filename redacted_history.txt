@@ -17,3 +17,4 @@ The contents of this file reflect significant pull requests developed prior to t
 - Add Unit Tests for basically everything | Author(s): alex-jw-brooks
 - Generalize .save() to Seq2Seq Models | Author(s): alex-jw-brooks
 - Enable Seq2Seq In Addition To CLM | Author(s): fplk
+- Add flatten dir path option | Author(s): gkumbhat
