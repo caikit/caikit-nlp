@@ -15,3 +15,4 @@ The contents of this file reflect significant pull requests developed prior to t
 - Add EOS experiments | Author(s): alex-jw-brooks
 - Add verbalizer support | Author(s): alex-jw-brooks, gkumbhat
 - Add Unit Tests for basically everything | Author(s): alex-jw-brooks
+- Generalize .save() to Seq2Seq Models | Author(s): alex-jw-brooks
