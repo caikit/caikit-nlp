@@ -20,3 +20,4 @@ The contents of this file reflect significant pull requests developed prior to t
 - Add flatten dir path option | Author(s): gkumbhat
 - Fix .load() and .save() in prompt tuning module | Author(s): alex-jw-brooks
 - Add config param filtering based on prompt type selected | Author(s): gkumbhat
+- Prompt Tuning API simplification | Author(s): gkumbhat
