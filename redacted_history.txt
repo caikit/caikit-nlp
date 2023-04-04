@@ -22,3 +22,4 @@ The contents of this file reflect significant pull requests developed prior to t
 - Add config param filtering based on prompt type selected | Author(s): gkumbhat
 - Prompt Tuning API simplification | Author(s): gkumbhat
 - Add configurable dtype support to prompt tuning module | Author(s): alex-jw-brooks
+- Add experimental prefix tuning support | Author(s): alex-jw-brooks
