@@ -24,3 +24,4 @@ The contents of this file reflect significant pull requests developed prior to t
 - Add configurable dtype support to prompt tuning module | Author(s): alex-jw-brooks
 - Add experimental prefix tuning support | Author(s): alex-jw-brooks
 - Add torch cleanup | Author(s): gkumbhat
+- Segregate functions to specific modules | Author(s): gkumbhat
