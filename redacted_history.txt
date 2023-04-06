@@ -25,3 +25,4 @@ The contents of this file reflect significant pull requests developed prior to t
 - Add experimental prefix tuning support | Author(s): alex-jw-brooks
 - Add torch cleanup | Author(s): gkumbhat
 - Segregate functions to specific modules | Author(s): gkumbhat
+- Enable source prompt use in prompt tuning module | Author(s): gkumbhat
