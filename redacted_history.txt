@@ -29,3 +29,4 @@ The contents of this file reflect significant pull requests developed prior to t
 - Runtime memory fixes | Author(s): gabe-l-hart
 - First pass at right padding in causal LM tokenization | Author(s): alex-jw-brooks
 - Implement unset dtype fallback behavior | Author(s): alex-jw-brooks
+- Remove support for prefix, p tuning, lora | Author(s): gkumbhat
