@@ -31,3 +31,4 @@ The contents of this file reflect significant pull requests developed prior to t
 - Implement unset dtype fallback behavior | Author(s): alex-jw-brooks
 - Remove support for prefix, p tuning, lora | Author(s): gkumbhat
 - Fix padding and device mismatch issue in text inference for SEQ2SEQLM | Author(s): gkumbhat
+- Fix .save() for multiprompt tuning | Author(s): alex-jw-brooks
