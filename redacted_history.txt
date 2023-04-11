@@ -34,3 +34,4 @@ The contents of this file reflect significant pull requests developed prior to t
 - Fix .save() for multiprompt tuning | Author(s): alex-jw-brooks
 - Add parameter selection guidance | Author(s): gkumbhat
 - Replace model_type argument with HF auto model | Author(s): gkumbhat
+- Add logs for MPT initialization | Author(s): alex-jw-brooks
