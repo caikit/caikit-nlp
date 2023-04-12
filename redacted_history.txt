@@ -36,3 +36,4 @@ The contents of this file reflect significant pull requests developed prior to t
 - Replace model_type argument with HF auto model | Author(s): gkumbhat
 - Add logs for MPT initialization | Author(s): alex-jw-brooks
 - Handle empty str for default protobuf dtype handling | Author(s): alex-jw-brooks
+- Add tiny models for fast unit tests | Author(s): alex-jw-brooks
