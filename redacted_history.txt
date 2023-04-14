@@ -40,3 +40,4 @@ The contents of this file reflect significant pull requests developed prior to t
 - Consolidate scripts into common example | Author(s): alex-jw-brooks
 - Update parameter selection guidance / default values for PT | Author(s): gkumbhat
 - Enable output_model_types for better compatibility  | Author(s): gkumbhat
+- Document output_model_types for parameter_selection | Author(s): gkumbhat
