@@ -38,3 +38,4 @@ The contents of this file reflect significant pull requests developed prior to t
 - Handle empty str for default protobuf dtype handling | Author(s): alex-jw-brooks
 - Add tiny models for fast unit tests | Author(s): alex-jw-brooks
 - Consolidate scripts into common example | Author(s): alex-jw-brooks
+- Update parameter selection guidance / default values for PT | Author(s): gkumbhat
