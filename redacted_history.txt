@@ -37,3 +37,4 @@ The contents of this file reflect significant pull requests developed prior to t
 - Add logs for MPT initialization | Author(s): alex-jw-brooks
 - Handle empty str for default protobuf dtype handling | Author(s): alex-jw-brooks
 - Add tiny models for fast unit tests | Author(s): alex-jw-brooks
+- Consolidate scripts into common example | Author(s): alex-jw-brooks
