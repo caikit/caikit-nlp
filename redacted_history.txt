@@ -41,3 +41,4 @@ The contents of this file reflect significant pull requests developed prior to t
 - Update parameter selection guidance / default values for PT | Author(s): gkumbhat
 - Enable output_model_types for better compatibility  | Author(s): gkumbhat
 - Document output_model_types for parameter_selection | Author(s): gkumbhat
+- Fix prompt tuning init method configuration for Peft | Author(s): gkumbhat
