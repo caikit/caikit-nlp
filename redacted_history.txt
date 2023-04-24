@@ -46,3 +46,4 @@ The contents of this file reflect significant pull requests developed prior to t
 - Add scripts for evaluation, Few Shot Training, text inference container killer | Author(s): alex-jw-brooks
 - Fix target max length | Author(s): gkumbhat
 - Add support for gradient accumulation | Author(s): alex-jw-brooks
+- Add Glue/RTE support in examples | Author(s): alex-jw-brooks, gkumbhat
