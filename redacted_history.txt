@@ -47,3 +47,4 @@ The contents of this file reflect significant pull requests developed prior to t
 - Fix target max length | Author(s): gkumbhat
 - Add support for gradient accumulation | Author(s): alex-jw-brooks
 - Add Glue/RTE support in examples | Author(s): alex-jw-brooks, gkumbhat
+- Add support for Glue/MRPC | Author(s): alex-jw-brooks
