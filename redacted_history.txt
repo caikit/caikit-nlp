@@ -45,3 +45,4 @@ The contents of this file reflect significant pull requests developed prior to t
 - Rename Source/Target fields -> Input/Output | Author(s): alex-jw-brooks
 - Add scripts for evaluation, Few Shot Training, text inference container killer | Author(s): alex-jw-brooks
 - Fix target max length | Author(s): gkumbhat
+- Add support for gradient accumulation | Author(s): alex-jw-brooks
