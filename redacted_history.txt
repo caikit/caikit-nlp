@@ -49,3 +49,4 @@ The contents of this file reflect significant pull requests developed prior to t
 - Add Glue/RTE support in examples | Author(s): alex-jw-brooks, gkumbhat
 - Add support for Glue/MRPC | Author(s): alex-jw-brooks
 - Export evaluation results to file in examples | Author(s): alex-jw-brooks
+- Rename & expose length params | Author(s): alex-jw-brooks
