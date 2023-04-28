@@ -51,3 +51,4 @@ The contents of this file reflect significant pull requests developed prior to t
 - Export evaluation results to file in examples | Author(s): alex-jw-brooks
 - Rename & expose length params | Author(s): alex-jw-brooks
 - Fix build infrastructure | Author(s): gkumbhat
+- Dependency updates | Author(s): evaline-ju
