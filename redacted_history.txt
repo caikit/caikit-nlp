@@ -52,3 +52,4 @@ The contents of this file reflect significant pull requests developed prior to t
 - Rename & expose length params | Author(s): alex-jw-brooks
 - Fix build infrastructure | Author(s): gkumbhat
 - Dependency updates | Author(s): evaline-ju
+- Add financial phrasebank dataset for evaluation & add log for model loss | Author(s): gkumbhat
