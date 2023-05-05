@@ -53,3 +53,4 @@ The contents of this file reflect significant pull requests developed prior to t
 - Fix build infrastructure | Author(s): gkumbhat
 - Dependency updates | Author(s): evaline-ju
 - Add financial phrasebank dataset for evaluation & add log for model loss | Author(s): gkumbhat
+- Use new caikit config and caikit-tgis-backend | Author(s): evaline-ju
