@@ -56,3 +56,4 @@ The contents of this file reflect significant pull requests developed prior to t
 - Use new caikit config and caikit-tgis-backend | Author(s): evaline-ju
 - Linting and README update | Author(s): evaline-ju
 - Update config env vars | Author(s): evaline-ju
+- Update default tuning params | Author(s): gkumbhat
