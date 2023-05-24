@@ -1,1 +1,1 @@
-# Caikit PT
+# Caikit PT (Caikit prompt tuning)
