@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# This script is primarily meant for illustrative purposes; if we don't have 
+# the text-generation-launcher command locally available, but we do have a Docker
+# container, we add this script onto our path so when the TGIS backend in caikit
+# tries to start the server, it runs this script instead.
+#
+# NOTE: 
+#    - Model ID, directories, etc are hardcoded to our example, params from the backend,
+#      e.g., shard configuration, are ignored.
+#
+#    - We need to export port 3000 (for probes in core distributed), and we forward 8033->50055
+#      so that our gRPC server is exposed on the expected port for local TGIS.
+TGIS_MODEL="${MODEL_NAME:-bigscience/bloom-560m}"
+echo "Running TGIS with model: $TGIS_MODEL"
+
+docker run --rm \
+    --gpus '"device=0"' \
+    -p 8090:8090 \
+    -p 8085:8085 \
+    -p 8060:8060 \
+    -p 8087:8087 \
+    -p 50055:8033 \
+    -p 3000:3000 \
+    -v $(pwd)/models:/models \
+    -v $(pwd)/../runtime_config.yaml:/conf/runtime_config.yaml \
+    -v $(pwd)/transformers_cache:/shared_model_storage/transformers_cache \
+    -v $(pwd)/prompt_prefixes:/prompt_prefixes \
+    -e LOG_LEVEL=debug3 \
+    -e ACCEPT_LICENSE=true \
+    -e INFERENCE_PLUGIN_MODEL_MESH_MAX_MODEL_CONCURRENCY=10 \
+    -e RUNTIME_SERVER_THREAD_POOL_SIZE=10 \
+    -e INFERENCE_PLUGIN_MODEL_MESH_CAPACITY=28000000000 \
+    -e INFERENCE_PLUGIN_MODEL_MESH_DEFAULT_MODEL_SIZE=1773741824 \
+    -e CONFIG_FILES="/conf/runtime_config.yaml" \
+    -e RUNTIME_LOCAL_MODELS_DIR="/models/" \
+    -e MAX_BATCH_SIZE=8 \
+    -e MAX_SEQUENCE_LENGTH=2048 \
+    -e NUM_GPUS=1 \
+    -e TRANSFORMERS_CACHE="/shared_model_storage/transformers_cache" \
+    -e HUGGINGFACE_HUB_CACHE="/shared_model_storage/transformers_cache" \
+    -e MAX_CONCURRENT_REQUESTS=64 \
+    -e GATEWAY_PORT=8060 \
+    -e RUNTIME_PORT=8087 \
+    -e MODEL_NAME=$TGIS_MODEL \
+    -e PREFIX_STORE_PATH="/prompt_prefixes" \
+    --user root \
+    text-gen-server:server-release_ubi8_py38

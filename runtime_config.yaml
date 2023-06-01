@@ -1,0 +1,24 @@
+# its contents configure the TGIS server & caikit
+jvm_options: []
+
+runtime:
+  batching:
+    standalone-model:
+      size: 0 # Set to batch size for batching
+
+module_backends:
+  enabled: true
+  priority:
+    - TGIS
+  configs:
+    tgis:
+      local:
+        load_timeout: 120
+        grpc_port: null
+        http_port: null
+        health_poll_delay: 1.0
+      connection:
+        hostname: "localhost:8033"
+        ca_cert_file: null
+        client_cert_file: null
+        client_key_file: null

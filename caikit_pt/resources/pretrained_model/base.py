@@ -1,0 +1,243 @@
+# Copyright The Caikit Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Standard
+from abc import ABC, abstractmethod
+from typing import List, Optional, Type
+import json
+import os
+
+# Third Party
+import torch
+from transformers import AutoTokenizer
+from transformers.models.auto.auto_factory import _BaseAutoModelClass
+
+# First Party
+from caikit import get_config
+from caikit.core import ResourceBase
+from caikit.core.module import ModuleConfig, ModuleSaver
+from caikit.core.toolkit import error_handler
+import alog
+
+# Local
+from ...data_model import PromptOutputModelType
+from ...toolkits.data_type_utils import get_torch_dtype, str_to_torch_dtype
+
+log = alog.use_channel("HFRBAS")
+error = error_handler.get(log)
+
+
+class PretrainedModelBase(ABC, ResourceBase):
+    """Common abstractions and requirements for pretrained model resources"""
+
+    _TOK_ARTIFACTS_CONFIG_KEY = "tokenizer_artifacts"
+    _MODEL_ARTIFACTS_CONFIG_KEY = "model_artifacts"
+    _LEFT_PAD_MODEL_TYPES = ("gpt", "opt", "bloom")
+
+    ## Abstract Interface ######################################################
+
+    @classmethod
+    @property
+    @abstractmethod
+    def MODEL_TYPE(cls) -> Type[_BaseAutoModelClass]:
+        """All classes must have a class property declaring the type of HF model
+        they support
+        """
+
+    @classmethod
+    @property
+    @abstractmethod
+    def TASK_TYPE(cls) -> str:
+        """All classes must have indicate the PEFT task type that they use"""
+
+    @classmethod
+    @property
+    @abstractmethod
+    def SUPPORTED_MODEL_TYPES(cls) -> str:
+        """All classes must indicate the model types supported by the resource"""
+
+    ## Shared Implementation ###################################################
+
+    def __init__(
+        self,
+        tokenizer: AutoTokenizer,
+        model: _BaseAutoModelClass,
+        model_name: str,
+        torch_dtype: torch.dtype,
+    ):
+        """Initialize with an in-memory handle to a model"""
+        super().__init__()
+        self._tokenizer = tokenizer
+        self._model = model
+        self._model_name = model_name
+        self._torch_dtype = torch_dtype
+
+    @property
+    def model(self) -> _BaseAutoModelClass:
+        """Get access to the underlying causal LM"""
+        return self._model
+
+    @property
+    def tokenizer(self) -> AutoTokenizer:
+        """Get access to the underlying tokenizer"""
+        return self._tokenizer
+
+    def get_config(self):
+        """Function to return model config from transformer model"""
+        # This funky json.load step is just to make sure any non-string
+        # keys gets converted to string automatically otherwise
+        # it will throw error when we try to save them using ModuleSaver.
+        # if it was not for this, we could have just used self._module.config.to_dict()
+        return json.loads(self.model.config.to_json_string())
+
+    @classmethod
+    def bootstrap(
+        cls,
+        model_name: str,
+        tokenizer_name: Optional[str] = None,
+        padding_side: Optional[str] = None,
+        torch_dtype: Optional[torch.dtype] = None,
+        **kwargs,
+    ) -> "HFAutoSequenceClassifier":
+        """Bootstrap from a huggingface model
+
+        This method takes the raw HF model name / path and bootstraps the
+        tokenizer in memory. If downloads are enabled, the model name can be any
+        model name from HF, otherwise it must be a path to an on-disk model or
+        the name of a pre-cached model.
+
+        Args:
+            model_name (str)
+                The name/path of the HF sequence classifier model
+            tokenizer_name (Optional[str])
+                The name/path of the HF tokenizer model (matches model_name if
+                not given)
+            padding_side (Optional[str])
+                The padding side for the tokenizer. Found by convention if not
+                given.
+            torch_dtype: (Optional[Union[torch.dtype, str]])
+                Data type to load the model as; if no value is provided, we pull
+                torch_dtype from config.
+            **kwargs
+                Additional keyword args to pass to from_pretrained
+                (e.g. return_dict=True)
+
+        Returns:
+            model HFAutoSequenceClassifier
+                The loaded resource model
+        """
+        # Default tokenizer to model if downloading with a model name rather
+        # than a path
+        error.value_check(
+            "<FPT12813423E>",
+            not os.path.isdir(model_name) or tokenizer_name is not None,
+            "Must provide path to tokenizer if model_name is a path",
+        )
+        torch_dtype = get_torch_dtype(torch_dtype)
+        if tokenizer_name is None:
+            tokenizer_name = model_name
+        if not os.path.isdir(tokenizer_name) and tokenizer_name != model_name:
+            log.warning(
+                "Bootstrapping with mismatched tokenizer (%s) / model (%s)",
+                tokenizer_name,
+                model_name,
+            )
+
+        # Figure out the right padding side based on the name of the HF model
+        # NOTE: This matches models whose name includes the left-pad types as a
+        #   substring and not just as an exact match.
+        if padding_side is None:
+            padding_side = (
+                "left"
+                if any(k in model_name for k in cls._LEFT_PAD_MODEL_TYPES)
+                else "right"
+            )
+
+        # Load the tokenizer and set up the pad token if needed
+        tokenizer = AutoTokenizer.from_pretrained(
+            tokenizer_name,
+            local_files_only=not get_config().allow_downloads,
+            padding_side=padding_side,
+        )
+        if tokenizer.pad_token_id is None:
+            tokenizer.pad_token_id = tokenizer.eos_token_id
+
+        # Load the model
+        model = cls.MODEL_TYPE.from_pretrained(
+            model_name,
+            local_files_only=not get_config().allow_downloads,
+            torch_dtype=torch_dtype,
+            **kwargs,
+        )
+        log.debug4("Model Details: %s", model)
+
+        # Create the class instance
+        inst_model_name = os.path.split(model_name)[-1]
+        return cls(
+            tokenizer=tokenizer,
+            model=model,
+            model_name=inst_model_name,
+            torch_dtype=torch_dtype,
+        )
+
+    @classmethod
+    def load(cls, model_path: str) -> Type["PretrainedModelBase"]:
+        """Load from a saved resource model"""
+        model_path = os.path.abspath(model_path)
+        config = ModuleConfig.load(model_path)
+        tok_abs_path = os.path.join(model_path, config[cls._TOK_ARTIFACTS_CONFIG_KEY])
+        model_abs_path = os.path.join(
+            model_path, config[cls._MODEL_ARTIFACTS_CONFIG_KEY]
+        )
+        error.dir_check("<FPT12813455E>", tok_abs_path)
+        error.dir_check("<FPT12813443E>", model_abs_path)
+        res = cls.bootstrap(
+            tokenizer_name=tok_abs_path,
+            model_name=model_abs_path,
+            padding_side=config.padding_side,
+            torch_dtype=str_to_torch_dtype(config.torch_dtype),
+        )
+        return res
+
+    def save(self, model_path: str):
+        """Save the in-memory model to the given path"""
+        saver = ModuleSaver(
+            self,
+            model_path=model_path,
+        )
+        tok_dirname = "tokenizer_artifacts"
+        model_dirname = "model_artifacts"
+        tok_rel_path, tok_abs_path = saver.add_dir(tok_dirname)
+        model_rel_path, model_abs_path = saver.add_dir(model_dirname)
+        with saver:
+            saver.update_config(
+                {
+                    self._TOK_ARTIFACTS_CONFIG_KEY: tok_rel_path,
+                    self._MODEL_ARTIFACTS_CONFIG_KEY: model_rel_path,
+                    "padding_side": self.tokenizer.padding_side,
+                    "model_name": self._model_name,
+                    # Grab the torch property for the dtype so that we can rebuild from a str.
+                    "torch_dtype": str(self._torch_dtype).rsplit(".", maxsplit=1)[-1],
+                }
+            )
+            self.tokenizer.save_pretrained(tok_abs_path)
+            self.model.save_pretrained(model_abs_path)
+
+    # pylint: disable=unused-argument
+    @classmethod
+    def get_num_transformers_submodules(
+        cls, output_model_types: List[PromptOutputModelType]
+    ):
+        """Return number of applicable transformer submodules"""
+        return 1

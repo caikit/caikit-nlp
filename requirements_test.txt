@@ -1,0 +1,8 @@
+# NOTE: pytest version is pinned to resolve the "`py` is not a package error issue"
+pytest==7.1.3
+pytest-cov
+pylint
+pre-commit
+pytest-html==3.1.1
+# Currently used for sample scripts etc.
+evaluate

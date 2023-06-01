@@ -1,0 +1,7 @@
+venv
+docker_build_scripts
+htmlcov
+reports
+.pytest_cache
+models
+*.md

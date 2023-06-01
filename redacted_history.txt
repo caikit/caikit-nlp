@@ -1,0 +1,59 @@
+The contents of this file reflect significant pull requests developed prior to the open-sourcing of this codebase; the author of each line is the original contributor of that part of the code, which may be helpful in referencing who may be knowledgeable about which parts of the project.
+
+- First pass at Peft prompt tuning module | Author(s): Alex-Brooks, Gaurav-Kumbhat
+- Initial PEFT integration with caikit runtime | Author(s): evaline-ju
+- Add & integrate base resource abstractions | Author(s): ghart
+- Add health probe to /usr/local/bin | Author(s): ghart
+- Implement tgis-backend prompt tuning module | Author(s): Alex-Brooks
+- Add unique prompt id logic | Author(s): Gaurav-Kumbhat
+- Rebase prompt tuning module onto Causal LM | Author(s): Falk-P, Alex-Brooks, Gaurav-Kumbhat
+- Fix Causal LM module lookup & base model config | Author(s): Gaurav-Kumbhat
+- Preliminary multiprompt tuning integration with existing peft module | Author(s): Falk-P
+- Implement .run() for prompt tuning module | Author(s): Alex-Brooks
+- Support local cache | Author(s): ghart
+- Rebase MPT, slim dependencies, use streams in examples | Author(s): Gaurav-Kumbhat
+- Add EOS experiments | Author(s): Alex-Brooks
+- Add verbalizer support | Author(s): Alex-Brooks, Gaurav-Kumbhat
+- Add Unit Tests for basically everything | Author(s): Alex-Brooks
+- Generalize .save() to Seq2Seq Models | Author(s): Alex-Brooks
+- Enable Seq2Seq In Addition To CLM | Author(s): Falk-P
+- Add flatten dir path option | Author(s): Gaurav-Kumbhat
+- Fix .load() and .save() in prompt tuning module | Author(s): Alex-Brooks
+- Add config param filtering based on prompt type selected | Author(s): Gaurav-Kumbhat
+- Prompt Tuning API simplification | Author(s): Gaurav-Kumbhat
+- Add configurable dtype support to prompt tuning module | Author(s): Alex-Brooks
+- Add experimental prefix tuning support | Author(s): Alex-Brooks
+- Add torch cleanup | Author(s): Gaurav-Kumbhat
+- Segregate functions to specific modules | Author(s): Gaurav-Kumbhat
+- Enable source prompt use in prompt tuning module | Author(s): Gaurav-Kumbhat
+- Runtime memory fixes | Author(s): ghart
+- First pass at right padding in causal LM tokenization | Author(s): Alex-Brooks
+- Implement unset dtype fallback behavior | Author(s): Alex-Brooks
+- Remove support for prefix, p tuning, lora | Author(s): Gaurav-Kumbhat
+- Fix padding and device mismatch issue in text inference for SEQ2SEQLM | Author(s): Gaurav-Kumbhat
+- Fix .save() for multiprompt tuning | Author(s): Alex-Brooks
+- Add parameter selection guidance | Author(s): Gaurav-Kumbhat
+- Replace model_type argument with HF auto model | Author(s): Gaurav-Kumbhat
+- Add logs for MPT initialization | Author(s): Alex-Brooks
+- Handle empty str for default protobuf dtype handling | Author(s): Alex-Brooks
+- Add tiny models for fast unit tests | Author(s): Alex-Brooks
+- Consolidate scripts into common example | Author(s): Alex-Brooks
+- Update parameter selection guidance / default values for PT | Author(s): Gaurav-Kumbhat
+- Enable output_model_types for better compatibility  | Author(s): Gaurav-Kumbhat
+- Document output_model_types for parameter_selection | Author(s): Gaurav-Kumbhat
+- Fix prompt tuning init method configuration for Peft | Author(s): Gaurav-Kumbhat
+- Rename Source/Target fields -> Input/Output | Author(s): Alex-Brooks
+- Add scripts for evaluation, Few Shot Training, text inference container killer | Author(s): Alex-Brooks
+- Fix target max length | Author(s): Gaurav-Kumbhat
+- Add support for gradient accumulation | Author(s): Alex-Brooks
+- Add Glue/RTE support in examples | Author(s): Alex-Brooks, Gaurav-Kumbhat
+- Add support for Glue/MRPC | Author(s): Alex-Brooks
+- Export evaluation results to file in examples | Author(s): Alex-Brooks
+- Rename & expose length params | Author(s): Alex-Brooks
+- Fix build infrastructure | Author(s): Gaurav-Kumbhat
+- Dependency updates | Author(s): evaline-ju
+- Add financial phrasebank dataset for evaluation & add log for model loss | Author(s): Gaurav-Kumbhat
+- Use new caikit config and caikit-tgis-backend | Author(s): evaline-ju
+- Linting and README update | Author(s): evaline-ju
+- Update config env vars | Author(s): evaline-ju
+- Update default tuning params | Author(s): Gaurav-Kumbhat
