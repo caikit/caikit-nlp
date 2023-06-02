@@ -11,7 +11,7 @@ import tempfile
 import pytest
 
 # Local
-from caikit_pt.blocks.text_generation import PeftPromptTuningTGIS
+from caikit_nlp.blocks.text_generation import PeftPromptTuningTGIS
 from tests.fixtures import causal_lm_dummy_model, causal_lm_train_kwargs
 
 

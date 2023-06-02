@@ -214,7 +214,7 @@ class PeftPromptTuning(BlockBase):
         to refine a text generation model.
 
         Args:
-            base_model:  Union[str, caikit_pt.resources.pretrained_model.base.PretrainedModelBase]
+            base_model:  Union[str, caikit_nlp.resources.pretrained_model.base.PretrainedModelBase]
                 Base resource model used for underlying generation.
             train_stream: DataStream[GenerationTrainRecord]
                 Data to be used for training the prompt vectors of the generation model.
@@ -673,7 +673,7 @@ class PeftPromptTuning(BlockBase):
     @classmethod
     def create_dataloaders_from_stream(
         cls,
-        base_model: "caikit_pt.resources.pretrained_model.base.PretrainedModelBase",
+        base_model: "caikit_nlp.resources.pretrained_model.base.PretrainedModelBase",
         task_type: str,
         train_stream: DataStream[GenerationTrainRecord],
         verbalizer: str,
@@ -686,7 +686,7 @@ class PeftPromptTuning(BlockBase):
         """Build PyTorch data loaders around training and (optionally) evaluation DataStreams.
 
         Args:
-            base_model: caikit_pt.resources.pretrained_model.base.PretrainedModelBase
+            base_model: caikit_nlp.resources.pretrained_model.base.PretrainedModelBase
                 Base resource model used for underlying generation.
             task_type: str
                 Str indicating which task is being accomplished; currently used for determining

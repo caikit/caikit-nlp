@@ -21,7 +21,7 @@ from utils import (
 )
 
 # Local
-from caikit_pt.toolkits.verbalizer_utils import render_verbalizer
+from caikit_nlp.toolkits.verbalizer_utils import render_verbalizer
 
 
 def parse_args() -> argparse.Namespace:

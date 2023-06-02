@@ -16,8 +16,8 @@ import transformers
 import caikit
 
 # Local
-from caikit_pt.resources.pretrained_model import HFAutoCausalLM, HFAutoSeq2SeqLM
-import caikit_pt
+from caikit_nlp.resources.pretrained_model import HFAutoCausalLM, HFAutoSeq2SeqLM
+import caikit_nlp
 
 ### Constants used in fixtures
 FIXTURES_DIR = os.path.join(os.path.dirname(__file__))
@@ -83,7 +83,7 @@ def causal_lm_train_kwargs():
         ),
         "train_stream": caikit.core.data_model.DataStream.from_iterable([]),
         "num_epochs": 0,
-        "tuning_config": caikit_pt.data_model.TuningConfig(
+        "tuning_config": caikit_nlp.data_model.TuningConfig(
             num_virtual_tokens=8, prompt_tuning_init_text="hello world"
         ),
     }
@@ -93,7 +93,7 @@ def causal_lm_train_kwargs():
 @pytest.fixture
 def causal_lm_dummy_model(causal_lm_train_kwargs):
     """Train a Causal LM dummy model."""
-    return caikit_pt.blocks.text_generation.PeftPromptTuning.train(
+    return caikit_nlp.blocks.text_generation.PeftPromptTuning.train(
         **causal_lm_train_kwargs
     )
 
@@ -108,7 +108,7 @@ def seq2seq_lm_train_kwargs():
         ),
         "train_stream": caikit.core.data_model.DataStream.from_iterable([]),
         "num_epochs": 0,
-        "tuning_config": caikit_pt.data_model.TuningConfig(
+        "tuning_config": caikit_nlp.data_model.TuningConfig(
             num_virtual_tokens=16, prompt_tuning_init_text="hello world"
         ),
     }
@@ -118,7 +118,7 @@ def seq2seq_lm_train_kwargs():
 @pytest.fixture
 def seq2seq_lm_dummy_model(seq2seq_lm_train_kwargs):
     """Train a Seq2Seq LM dummy model."""
-    return caikit_pt.blocks.text_generation.PeftPromptTuning.train(
+    return caikit_nlp.blocks.text_generation.PeftPromptTuning.train(
         **seq2seq_lm_train_kwargs
     )
 

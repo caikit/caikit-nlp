@@ -4,10 +4,10 @@
 import pytest
 
 # Local
-from caikit_pt.toolkits.verbalizer_utils import is_valid_verbalizer, render_verbalizer
-import caikit_pt
+from caikit_nlp.toolkits.verbalizer_utils import is_valid_verbalizer, render_verbalizer
+import caikit_nlp
 
-SAMPLE_DM = caikit_pt.data_model.GenerationTrainRecord(
+SAMPLE_DM = caikit_nlp.data_model.GenerationTrainRecord(
     input="my input text", output="my output text"
 )
 SAMPLE_DICT = SAMPLE_DM.to_dict()

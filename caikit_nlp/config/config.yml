@@ -22,8 +22,8 @@ torch_dtype: float32
 source_prompt_base: ""
 
 runtime:
-  library: caikit_pt
+  library: caikit_nlp
   service_generation:
     primitive_data_model_types:
       - GenerationTrainRecord
-      - caikit_pt.data_model.TuningConfig
+      - caikit_nlp.data_model.TuningConfig
