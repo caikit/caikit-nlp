@@ -335,7 +335,7 @@ class PeftPromptTuning(BlockBase):
                 "<FPT36947542E>",
                 tuning_config.output_model_types in base_model.PROMPT_OUTPUT_TYPES,
                 "{} not supported for base model type {}".format(
-                    tuning_config.output_model_type, base_model.model_type
+                    tuning_config.output_model_types, base_model.model_type
                 ),
             )
             output_model_types = tuning_config.output_model_types
