@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: Build Caikit PT Library
+name: Build Caikit NLP Library
 
 on:
   push:
@@ -26,13 +26,11 @@ jobs:
     strategy:
       matrix:
         python-version:
-          # NOTE: TGIS does not support 3.8
+          # NOTE: TGIS does not support 3.8 or 3.11
           - setup: "3.9"
             tox: "py39"
           - setup: "3.10"
             tox: "py310"
-          - setup: "3.11"
-            tox: "py311"
 
     steps:
       - uses: actions/checkout@v3
