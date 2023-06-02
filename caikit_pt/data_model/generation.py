@@ -14,14 +14,15 @@
 """Data structures for text generation representations
 """
 # Standard
-from typing import List
 from enum import Enum
+from typing import List
+
+# First Party
+from caikit.core import DataObjectBase
 
 # First party
 import alog
 import caikit
-from caikit.core import DataObjectBase
-
 
 log = alog.use_channel("DATAM")
 

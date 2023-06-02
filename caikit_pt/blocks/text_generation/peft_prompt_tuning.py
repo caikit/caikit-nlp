@@ -18,31 +18,30 @@ for convenience.
 """
 # Standard
 from enum import Enum
-import json
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 import gc
+import json
 import os
-from typing import Any, Callable, Dict, List, Optional, Union, Tuple
 
 # Third Party
 from accelerate import Accelerator
 from peft import (
-    get_peft_model,
     MultitaskPromptTuningConfig,
     MultitaskPromptTuningInit,
+    PeftConfig,
     PeftModel,
     PeftType,
     PromptTuningConfig,
     TaskType,
-    PeftConfig,
+    get_peft_model,
 )
-import torch
 from torch.optim import AdamW
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-from transformers import default_data_collator
-from transformers import AutoConfig, AutoModelForCausalLM
-from transformers.optimization import get_linear_schedule_with_warmup
+from transformers import AutoConfig, AutoModelForCausalLM, default_data_collator
 from transformers.models.auto.tokenization_auto import AutoTokenizer
+from transformers.optimization import get_linear_schedule_with_warmup
+import torch
 
 # First Party
 from caikit import get_config
@@ -54,8 +53,8 @@ import alog
 
 # Local
 from ...data_model import (
-    GenerationTrainRecord,
     GeneratedResult,
+    GenerationTrainRecord,
     PromptOutputModelType,
     TuningConfig,
 )
@@ -64,9 +63,9 @@ from ...resources.pretrained_model import (
     HFAutoSeq2SeqLM,
     PretrainedModelBase,
 )
-from ...toolkits.verbalizer_utils import render_verbalizer, is_valid_verbalizer
-from ...toolkits.data_type_utils import get_torch_dtype, str_to_torch_dtype
 from ...toolkits.data_stream_wrapper import SimpleIterableStreamWrapper
+from ...toolkits.data_type_utils import get_torch_dtype, str_to_torch_dtype
+from ...toolkits.verbalizer_utils import is_valid_verbalizer, render_verbalizer
 
 log = alog.use_channel("PEFT_PROMPT")
 error = error_handler.get(log)
@@ -633,15 +632,23 @@ class PeftPromptTuning(BlockBase):
             # of the shared prompt vector and the task learned component for Task ID 0,
             # I.e., the only task.
             prompt_tokens = (
-                model.prompt_tokens[cls._ADAPTER_NAME].unsqueeze(0).expand(1, -1).to(model.device)
+                model.prompt_tokens[cls._ADAPTER_NAME]
+                .unsqueeze(0)
+                .expand(1, -1)
+                .to(model.device)
             )
 
             log.info("Calculating single target task prompt vector")
             # Since this is running essentially an dummy forward, pass in
             # task ids as zero Tensor to forward function
-            task_ids = torch.zeros(prompt_tokens.shape[0], dtype=torch.long).to(model.device)
+            task_ids = torch.zeros(prompt_tokens.shape[0], dtype=torch.long).to(
+                model.device
+            )
             prompt_vector = torch.squeeze(
-                model.prompt_encoder[cls._ADAPTER_NAME].forward(prompt_tokens, task_ids=task_ids), dim=0
+                model.prompt_encoder[cls._ADAPTER_NAME].forward(
+                    prompt_tokens, task_ids=task_ids
+                ),
+                dim=0,
             )
         # Ensure that our prompt vector is on the same device as our model
         prompt_vector = prompt_vector.to(model.device)

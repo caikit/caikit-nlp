@@ -7,36 +7,40 @@ Supported model types:
 - Causal LM
 - Seq2Seq LM
 """
-from utils import (
-    ALOG_OPTS,
-    DatasetInfo,
-    SUPPORTED_DATASETS,
-    print_colored,
-    configure_random_seed_and_logging,
-)
-
-import argparse
+# Standard
 from collections import namedtuple
+from typing import Any, Tuple
+import argparse
 import os
 import pathlib
 import random
 import shutil
 import time
-from typing import Tuple, Any
 
+# Third Party
+from peft.tuners.multitask_prompt_tuning import MultitaskPromptTuningInit
+from peft.tuners.prompt_tuning import PromptTuningInit
+from transformers import AutoConfig
+from utils import (
+    ALOG_OPTS,
+    SUPPORTED_DATASETS,
+    DatasetInfo,
+    configure_random_seed_and_logging,
+    print_colored,
+)
+import datasets
+
+# First Party
+from caikit.core.data_model import DataStream
 import alog
 import caikit
-from caikit.core.data_model import DataStream
-from caikit_pt.data_model import GenerationTrainRecord, TuningConfig
+
+# Local
 from caikit_pt.blocks.text_generation.peft_prompt_tuning import (
     PeftPromptTuning,
     TuningType,
 )
-import datasets
-from peft.tuners.multitask_prompt_tuning import MultitaskPromptTuningInit
-from peft.tuners.prompt_tuning import PromptTuningInit
-from transformers import AutoConfig
-
+from caikit_pt.data_model import GenerationTrainRecord, TuningConfig
 from caikit_pt.resources.pretrained_model import (
     HFAutoCausalLM,
     HFAutoSeq2SeqLM,

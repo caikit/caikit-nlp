@@ -19,9 +19,9 @@ from typing import Optional, Union
 import torch
 
 # First Party
-import alog
 from caikit import get_config
 from caikit.core.toolkit import error_handler
+import alog
 
 log = alog.use_channel("DATA_UTIL")
 error = error_handler.get(log)

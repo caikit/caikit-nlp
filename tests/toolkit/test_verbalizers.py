@@ -4,9 +4,8 @@
 import pytest
 
 # Local
+from caikit_pt.toolkits.verbalizer_utils import is_valid_verbalizer, render_verbalizer
 import caikit_pt
-from caikit_pt.toolkits.verbalizer_utils import render_verbalizer, is_valid_verbalizer
-
 
 SAMPLE_DM = caikit_pt.data_model.GenerationTrainRecord(
     input="my input text", output="my output text"

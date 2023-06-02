@@ -8,16 +8,19 @@ In a nutshell, this does the following:
 - Load the model through caikit
 - Run an inference text generation request and dump the (garbage) output back to the console
 """
+# Standard
+from shutil import which
 import os
 import subprocess
 import sys
-from shutil import which
+
+# First Party
+from caikit.core.module_backend_config import _CONFIGURED_BACKENDS, configure
+from caikit_tgis_backend import TGISBackend
 import alog
 import caikit
-from caikit_tgis_backend import TGISBackend
-from caikit.core.module_backend_config import configure
-from caikit.core.module_backend_config import _CONFIGURED_BACKENDS
 
+# Local
 import caikit_pt
 
 alog.configure("debug4")

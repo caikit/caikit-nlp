@@ -19,9 +19,9 @@ import json
 import os
 
 # Third Party
-import torch
 from transformers import AutoTokenizer
 from transformers.models.auto.auto_factory import _BaseAutoModelClass
+import torch
 
 # First Party
 from caikit import get_config

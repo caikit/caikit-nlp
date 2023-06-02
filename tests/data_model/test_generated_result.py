@@ -15,7 +15,6 @@
 # Local
 from caikit_pt import data_model as dm
 
-
 ## Setup #########################################################################
 
 dummy_generated_response = dm.GeneratedResult(

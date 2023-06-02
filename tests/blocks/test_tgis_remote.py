@@ -2,17 +2,18 @@
 TGIS client and do NOT actually start/hit a TGIS server instance.
 """
 # Standard
+from unittest import mock
+from unittest.mock import patch
 import os
 import tempfile
-from unittest.mock import patch
-from unittest import mock
 
 # Third Party
 import pytest
 
 # Local
 from caikit_pt.blocks.text_generation import PeftPromptTuningTGIS
-from tests.fixtures import causal_lm_train_kwargs, causal_lm_dummy_model
+from tests.fixtures import causal_lm_dummy_model, causal_lm_train_kwargs
+
 
 ### Helper stubs / mocks; we use these to patch caikit so that we don't actually
 # test the TGIS backend directly, and instead stub the client and inspect the

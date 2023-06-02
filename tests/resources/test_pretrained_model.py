@@ -9,20 +9,16 @@ NOTE: If the subclasses become sufficiently complex, this test file should be sp
 from unittest.mock import patch
 
 # Third Party
-import torch
 from transformers import AutoModelForCausalLM
 import pytest
+import torch
 
 # First Party
 import aconfig
 
 # Local
 from caikit_pt.resources.pretrained_model import HFAutoCausalLM
-from tests.fixtures import (
-    temp_cache_dir,
-    CAUSAL_LM_MODEL,
-    models_cache_dir,
-)
+from tests.fixtures import CAUSAL_LM_MODEL, models_cache_dir, temp_cache_dir
 
 
 def test_boostrap_causal_lm(models_cache_dir):

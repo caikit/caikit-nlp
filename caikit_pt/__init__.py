@@ -13,22 +13,21 @@
 # limitations under the License.
 """Caikit prompt tuning library
 """
+# Standard
 import os
+
+# First Party
+from caikit.core.model_manager import *
 
 # Import the model management semantics from the core
 import caikit
-from caikit.core.model_manager import *
 
+# Local
 # Import subpackages
-from . import config
-from . import data_model
-
-# from . import toolkit
-
+from . import config, data_model
+from .blocks import *
 from .config import *
 from .data_model import *
-
-from .blocks import *
 from .resources import *
 
 # Configure the library with library-specific configuration file

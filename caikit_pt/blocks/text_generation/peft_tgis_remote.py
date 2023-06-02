@@ -18,18 +18,23 @@ prompt vectors in TGIS generation requests.
 import os
 
 # First Party
-from caikit_tgis_backend import TGISBackend
-from caikit_tgis_backend.protobufs import generation_pb2
-from caikit.core import ModuleBase, ModuleConfig, ModuleSaver, block
-from caikit.core import module_backend_config
+from caikit.core import (
+    ModuleBase,
+    ModuleConfig,
+    ModuleSaver,
+    block,
+    module_backend_config,
+)
 from caikit.core.module_backends import backend_types
 from caikit.core.toolkit import error_handler
+from caikit_tgis_backend import TGISBackend
+from caikit_tgis_backend.protobufs import generation_pb2
 import alog
 
 # Local
-from . import PeftPromptTuning
 from ...data_model.generation import GeneratedResult
 from ...toolkits.verbalizer_utils import render_verbalizer
+from . import PeftPromptTuning
 
 log = alog.use_channel("PEFT_PROMPT_REMOTE")
 error = error_handler.get(log)
