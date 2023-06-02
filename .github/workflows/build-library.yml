@@ -16,9 +16,9 @@ name: Build Caikit PT Library
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
 
 jobs:
   build:
@@ -27,12 +27,12 @@ jobs:
       matrix:
         python-version:
           # NOTE: TGIS does not support 3.8
-          - setup: '3.9'
-            tox: 'py39'
-          - setup: '3.10'
-            tox: 'py310'
-          - setup: '3.11'
-            tox: 'py311'
+          - setup: "3.9"
+            tox: "py39"
+          - setup: "3.10"
+            tox: "py310"
+          - setup: "3.11"
+            tox: "py311"
 
     steps:
       - uses: actions/checkout@v3

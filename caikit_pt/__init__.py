@@ -33,7 +33,6 @@ from .resources import *
 # from . import toolkit
 
 
-
 # Configure the library with library-specific configuration file
 CONFIG_PATH = os.path.realpath(
     os.path.join(os.path.dirname(__file__), "config", "config.yml")

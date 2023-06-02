@@ -1,0 +1,11 @@
+#####################################################
+#
+# List of approvers for caikit/caikit-nlp repository
+#
+#####################################################
+#
+# Learn about CODEOWNERS file format:
+#  https://help.github.com/en/articles/about-code-owners
+#
+
+*  @alex-jw-brooks @gkumbhat @gabe-l-hart @evaline-ju

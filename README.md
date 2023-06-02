@@ -1,4 +1,4 @@
-# Caikit Prompt Tuning (PT)
+# Caikit NLP
 
 `caikit_pt` is a [Caikit](https://github.com/caikit/caikit) library that currently provides [PEFT prompt tuning](https://github.com/huggingface/peft) and MPT (multi-task prompt tuning) functionalities.
 
