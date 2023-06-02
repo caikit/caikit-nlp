@@ -6,9 +6,9 @@ if we start running the tests on CPUs in our CI; we'll likely want
 to separate these in the future.
 """
 # Standard
+from unittest import mock
 import os
 import tempfile
-from unittest import mock
 
 # Third Party
 import pytest
@@ -18,15 +18,15 @@ import torch
 import caikit
 
 # Local
-import caikit_pt
-from caikit_pt.blocks.text_generation.peft_prompt_tuning import TuningType
 from caikit_pt.blocks.text_generation import PeftPromptTuning
+from caikit_pt.blocks.text_generation.peft_prompt_tuning import TuningType
 from tests.fixtures import (
-    causal_lm_train_kwargs,
     causal_lm_dummy_model,
-    seq2seq_lm_train_kwargs,
+    causal_lm_train_kwargs,
     seq2seq_lm_dummy_model,
+    seq2seq_lm_train_kwargs,
 )
+import caikit_pt
 
 # Indexes into the peft config dictionary to get the actual prompt tuning config
 DEFAULT_ADAPTER = "default"

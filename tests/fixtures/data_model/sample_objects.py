@@ -1,13 +1,5 @@
 # First Party
-from caikit.core.data_model import enums
-from caikit.core.data_model import GeneratedResult
-
-# Local
-from tests import EXTENSION
-
-# Grab a handle to the data model of this extension module
-extension_dm = EXTENSION.data_model
-
+from caikit.core.data_model import GeneratedResult, enums
 
 generated_response = GeneratedResult(
     generated_token_count=2, text="foo bar", stop_reason=enums.StopReason.STOP_SEQUENCE

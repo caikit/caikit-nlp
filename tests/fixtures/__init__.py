@@ -16,8 +16,8 @@ import transformers
 import caikit
 
 # Local
-import caikit_pt
 from caikit_pt.resources.pretrained_model import HFAutoCausalLM, HFAutoSeq2SeqLM
+import caikit_pt
 
 ### Constants used in fixtures
 FIXTURES_DIR = os.path.join(os.path.dirname(__file__))
