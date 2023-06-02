@@ -1,16 +1,20 @@
 # Utils imports should always come first, because they ensure caikit_pt
 # is added to the syspath if not running inside of a container.
-from utils import load_model, SUPPORTED_DATASETS
-
+# Standard
 import json
 import time
 
-import caikit
+# Third Party
 from datasets import load_dataset
+from utils import SUPPORTED_DATASETS, load_model
 import torch
 
-import caikit_pt
+# First Party
+import caikit
+
+# Local
 from caikit_pt import data_model
+import caikit_pt
 
 NUM_SAMPLES_TO_RUN = 100
 

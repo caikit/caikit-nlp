@@ -27,9 +27,8 @@ from caikit.core.toolkit import error_handler
 import alog
 
 # Local
-from .base import PretrainedModelBase
 from ...data_model import PromptOutputModelType
-
+from .base import PretrainedModelBase
 
 log = alog.use_channel("HFRBAS")
 error = error_handler.get(log)

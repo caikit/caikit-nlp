@@ -12,8 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import alog
+# Standard
 from pathlib import Path
+
+# First Party
+import alog
 import caikit
 
 log = alog.use_channel("CONFIG_INIT")

@@ -1,28 +1,34 @@
 """This module holds references to common util functions and constants used for training
 and evaluating models.
 """
+# Standard
 import os
 import sys
 
 # Hack for relative imports outside of containerized environments
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
-import math
+# Standard
 from collections import namedtuple
 from shutil import which
-from typing import Any, Tuple, Callable
+from typing import Any, Callable, Tuple
+import math
 import random
 
-import alog
+# Third Party
 import datasets
-import caikit
-from caikit_tgis_backend import TGISBackend
-from caikit.core.module_backend_config import configure
-from caikit.core.module_backend_config import _CONFIGURED_BACKENDS
 import evaluate
 import numpy as np
 import torch
 import transformers
+
+# First Party
+from caikit.core.module_backend_config import _CONFIGURED_BACKENDS, configure
+from caikit_tgis_backend import TGISBackend
+import alog
+import caikit
+
+# Local
 from caikit_pt.data_model import GenerationTrainRecord
 
 # Silence noisy import time tensorflow warnings
@@ -101,6 +107,7 @@ def load_model(is_distributed: bool, model_path: str):
 
     """
     # Ensure caikit_pt is locally imported, otherwise it'll be missing in out registry
+    # Local
     import caikit_pt
 
     # Validate that this model is something we actually know how to load

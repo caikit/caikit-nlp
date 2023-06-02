@@ -15,7 +15,8 @@
 Resources holding pretrained models of various types
 """
 
+# Local
+from .base import PretrainedModelBase
+from .hf_auto_causal_lm import HFAutoCausalLM
 from .hf_auto_seq2seq_lm import HFAutoSeq2SeqLM
 from .hf_auto_seq_classifier import HFAutoSequenceClassifier
-from .hf_auto_causal_lm import HFAutoCausalLM
-from .base import PretrainedModelBase

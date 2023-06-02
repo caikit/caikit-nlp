@@ -1,22 +1,26 @@
 """Given a trained model, which was presumably created by run_peft_tuning.py,
 load it and run evaluation.
 """
-from utils import (
-    configure_random_seed_and_logging,
-    load_model,
-    SUPPORTED_DATASETS,
-    SUPPORTED_METRICS,
-    print_colored,
-    get_wrapped_evaluate_metric,
-    string_to_float,
-    is_float,
-    kill_tgis_container_if_exists,
-)
-
+# Standard
 import argparse
 import json
 import pathlib
+
+# Third Party
 from tqdm import tqdm
+from utils import (
+    SUPPORTED_DATASETS,
+    SUPPORTED_METRICS,
+    configure_random_seed_and_logging,
+    get_wrapped_evaluate_metric,
+    is_float,
+    kill_tgis_container_if_exists,
+    load_model,
+    print_colored,
+    string_to_float,
+)
+
+# Local
 from caikit_pt.toolkits.verbalizer_utils import render_verbalizer
 
 

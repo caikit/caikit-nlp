@@ -23,8 +23,8 @@ from transformers.models.auto import modeling_auto
 from caikit.core import resource
 
 # Local
-from .base import PretrainedModelBase
 from ...data_model import PromptOutputModelType
+from .base import PretrainedModelBase
 
 
 @resource(
