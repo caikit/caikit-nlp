@@ -18,15 +18,15 @@ import torch
 import caikit
 
 # Local
-from caikit_pt.blocks.text_generation import PeftPromptTuning
-from caikit_pt.blocks.text_generation.peft_prompt_tuning import TuningType
+from caikit_nlp.blocks.text_generation import PeftPromptTuning
+from caikit_nlp.blocks.text_generation.peft_prompt_tuning import TuningType
 from tests.fixtures import (
     causal_lm_dummy_model,
     causal_lm_train_kwargs,
     seq2seq_lm_dummy_model,
     seq2seq_lm_train_kwargs,
 )
-import caikit_pt
+import caikit_nlp
 
 # Indexes into the peft config dictionary to get the actual prompt tuning config
 DEFAULT_ADAPTER = "default"
@@ -40,9 +40,11 @@ def test_save_and_reload_with_base_model(causal_lm_dummy_model):
         # We should have an exported decoder, but no encoder]
         assert os.path.isfile(os.path.join(model_dir, reloaded_config.DECODER))
         assert reloaded_config.ENCODER == ""
-        reloaded_model = caikit_pt.load(model_dir, torch_dtype="float16")
+        reloaded_model = caikit_nlp.load(model_dir, torch_dtype="float16")
         assert reloaded_model.model.dtype is torch.float16
-    assert isinstance(reloaded_model, caikit_pt.blocks.text_generation.PeftPromptTuning)
+    assert isinstance(
+        reloaded_model, caikit_nlp.blocks.text_generation.PeftPromptTuning
+    )
 
 
 def test_save_and_reload_without_base_model(causal_lm_dummy_model):
@@ -51,13 +53,13 @@ def test_save_and_reload_without_base_model(causal_lm_dummy_model):
         causal_lm_dummy_model.save(model_dir, save_base_model=False)
         # For now, if we are missing the base model at load time, we throw ValueError
         with pytest.raises(ValueError):
-            reloaded_model = caikit_pt.load(model_dir)
+            reloaded_model = caikit_nlp.load(model_dir)
 
 
 def test_run_model(causal_lm_dummy_model):
     """Ensure that we can run a model and get the right type out."""
     pred = causal_lm_dummy_model.run("This text doesn't matter")
-    assert isinstance(pred, caikit_pt.data_model.GeneratedResult)
+    assert isinstance(pred, caikit_nlp.data_model.GeneratedResult)
 
 
 def test_verbalizer_rendering(causal_lm_dummy_model):
@@ -89,7 +91,7 @@ def test_verbalizer_cannot_be_static(causal_lm_train_kwargs):
     }
     causal_lm_train_kwargs.update(patch_kwargs)
     with pytest.raises(ValueError):
-        caikit_pt.blocks.text_generation.PeftPromptTuning.train(
+        caikit_nlp.blocks.text_generation.PeftPromptTuning.train(
             **causal_lm_train_kwargs
         )
 
@@ -101,10 +103,10 @@ def test_train_model(causal_lm_train_kwargs):
         "verbalizer": "Tweet text : {{input}} Label : ",
         "train_stream": caikit.core.data_model.DataStream.from_iterable(
             [
-                caikit_pt.data_model.GenerationTrainRecord(
+                caikit_nlp.data_model.GenerationTrainRecord(
                     input="@foo what a cute dog!", output="no complaint"
                 ),
-                caikit_pt.data_model.GenerationTrainRecord(
+                caikit_nlp.data_model.GenerationTrainRecord(
                     input="@bar this is the worst idea ever.", output="complaint"
                 ),
             ]
@@ -113,14 +115,14 @@ def test_train_model(causal_lm_train_kwargs):
         "device": "cpu",
     }
     causal_lm_train_kwargs.update(patch_kwargs)
-    model = caikit_pt.blocks.text_generation.PeftPromptTuning.train(
+    model = caikit_nlp.blocks.text_generation.PeftPromptTuning.train(
         **causal_lm_train_kwargs
     )
     # Test fallback to float32 behavior if this machine doesn't support bfloat16
     assert model.model.dtype is torch.float32
     # Ensure that we can get something out of it
     pred = model.run("@bar what a cute cat!")
-    assert isinstance(pred, caikit_pt.data_model.GeneratedResult)
+    assert isinstance(pred, caikit_nlp.data_model.GeneratedResult)
 
 
 ### Implementation details

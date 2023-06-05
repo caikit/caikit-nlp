@@ -13,7 +13,7 @@
 # limitations under the License.
 
 # Local
-from caikit_pt import data_model as dm
+from caikit_nlp import data_model as dm
 
 ## Setup #########################################################################
 

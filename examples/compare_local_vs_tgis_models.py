@@ -1,4 +1,4 @@
-# Utils imports should always come first, because they ensure caikit_pt
+# Utils imports should always come first, because they ensure caikit_nlp
 # is added to the syspath if not running inside of a container.
 # Standard
 import json
@@ -13,8 +13,8 @@ import torch
 import caikit
 
 # Local
-from caikit_pt import data_model
-import caikit_pt
+from caikit_nlp import data_model
+import caikit_nlp
 
 NUM_SAMPLES_TO_RUN = 100
 

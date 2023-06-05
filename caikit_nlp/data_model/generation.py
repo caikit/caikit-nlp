@@ -32,7 +32,7 @@ class PromptOutputModelType(Enum):
     DECODER = "DECODER"
 
 
-@caikit.core.dataobject(package="caikit_data_model.caikit_pt")
+@caikit.core.dataobject(package="caikit_data_model.caikit_nlp")
 class StopReason(Enum):
     NOT_FINISHED = 0
     MAX_TOKENS = 1
@@ -42,7 +42,7 @@ class StopReason(Enum):
     STOP_SEQUENCE = 5
 
 
-@caikit.core.dataobject(package="caikit_data_model.caikit_pt")
+@caikit.core.dataobject(package="caikit_data_model.caikit_nlp")
 class GeneratedResult(DataObjectBase):
     generated_token_count: int
     text: str
@@ -50,13 +50,13 @@ class GeneratedResult(DataObjectBase):
     producer_id: caikit.core.data_model.ProducerId
 
 
-@caikit.core.dataobject(package="caikit_data_model.caikit_pt")
+@caikit.core.dataobject(package="caikit_data_model.caikit_nlp")
 class GenerationTrainRecord(DataObjectBase):
     input: str
     output: str
 
 
-@caikit.core.dataobject(package="caikit_data_model.caikit_pt")
+@caikit.core.dataobject(package="caikit_data_model.caikit_nlp")
 class TuningConfig(DataObjectBase):
     # If prompt_tuning_init_text is not provided, then random would be used
     # but since random is not supported currently, we want to keep text to be

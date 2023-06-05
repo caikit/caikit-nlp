@@ -17,7 +17,7 @@ import torch
 import aconfig
 
 # Local
-from caikit_pt.resources.pretrained_model import HFAutoCausalLM
+from caikit_nlp.resources.pretrained_model import HFAutoCausalLM
 from tests.fixtures import CAUSAL_LM_MODEL, models_cache_dir, temp_cache_dir
 
 
@@ -62,7 +62,7 @@ def test_boostrap_causal_lm_download_disabled(mock_tok_from_pretrained, temp_cac
 def test_boostrap_causal_lm_download_enabled(mock_tok_from_pretrained, temp_cache_dir):
     """Ensure that we can try to download if downloads are enabled."""
     with patch(
-        "caikit_pt.resources.pretrained_model.base.get_config",
+        "caikit_nlp.resources.pretrained_model.base.get_config",
         return_value=aconfig.Config({"allow_downloads": True}),
     ):
         mock_tok_from_pretrained.side_effect = RuntimeError("It's a mock")

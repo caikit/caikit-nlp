@@ -21,7 +21,7 @@ import alog
 import caikit
 
 # Local
-import caikit_pt
+import caikit_nlp
 
 alog.configure("debug4")
 

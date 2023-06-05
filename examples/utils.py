@@ -29,7 +29,7 @@ import alog
 import caikit
 
 # Local
-from caikit_pt.data_model import GenerationTrainRecord
+from caikit_nlp.data_model import GenerationTrainRecord
 
 # Silence noisy import time tensorflow warnings
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
@@ -106,14 +106,14 @@ def load_model(is_distributed: bool, model_path: str):
     instance of TGIS.
 
     """
-    # Ensure caikit_pt is locally imported, otherwise it'll be missing in out registry
+    # Ensure caikit_nlp is locally imported, otherwise it'll be missing in out registry
     # Local
-    import caikit_pt
+    import caikit_nlp
 
     # Validate that this model is something we actually know how to load
     if is_distributed:
         return get_distributed_model(model_path)
-    return caikit_pt.load(model_path)
+    return caikit_nlp.load(model_path)
 
 
 ### Dataset specific loader funcs
