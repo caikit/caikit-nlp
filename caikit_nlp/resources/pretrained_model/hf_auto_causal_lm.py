@@ -20,20 +20,20 @@ from transformers import AutoModelForCausalLM
 from transformers.models.auto import modeling_auto
 
 # First Party
-from caikit.core import resource
+from caikit.core.modules import module
 
 # Local
 from ...data_model import PromptOutputModelType
 from .base import PretrainedModelBase
 
 
-@resource(
+@module(
     id="6759e891-287b-405b-bd8b-54a4a4d51c24",
     name="HF Transformers Auto Causal LM",
     version="0.1.0",
 )
 class HFAutoCausalLM(PretrainedModelBase):
-    """This resource wraps a handle to a Huggingface AutoModelForCausalLM"""
+    """This resource (module) wraps a handle to a Huggingface AutoModelForCausalLM"""
 
     MODEL_TYPE = AutoModelForCausalLM
     SUPPORTED_MODEL_TYPES = modeling_auto.MODEL_FOR_CAUSAL_LM_MAPPING_NAMES

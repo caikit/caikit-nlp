@@ -5,7 +5,7 @@
     - **Description**: Path to the base model or `caikit.Resource` object of the base model to be used for tuning. A model-name string may also be provided. In this case, the Transformers API will automatically load it up from Hugging Face model cache if the model is locally available. If it is not available, the model may be downloaded by setting the `ALLOW_DOWNLOADS` environment variable to `true`.
     - **Accepted values**:
         - The model needs to be of type causal-lm or seq2seq, thus loadable via HuggingFace `AutoModelForCausalLM` or `AutoModelForSeq2SeqLM` loading methods.
-- `tuning_type`: (`str` or `caikit_nlp.blocks.text_generation.TuningType`)
+- `tuning_type`: (`str` or `caikit_nlp.modules.text_generation.TuningType`)
     - Type of Peft Tuning config which we would like to build.
     - **Accepted values**: `PROMPT_TUNING` and `MULTITASK_PROMPT_TUNING`
     - **Default**: `PROMPT_TUNING`

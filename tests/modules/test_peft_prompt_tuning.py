@@ -18,8 +18,8 @@ import torch
 import caikit
 
 # Local
-from caikit_nlp.blocks.text_generation import PeftPromptTuning
-from caikit_nlp.blocks.text_generation.peft_prompt_tuning import TuningType
+from caikit_nlp.modules.text_generation import PeftPromptTuning
+from caikit_nlp.modules.text_generation.peft_prompt_tuning import TuningType
 from tests.fixtures import (
     causal_lm_dummy_model,
     causal_lm_train_kwargs,
@@ -43,7 +43,7 @@ def test_save_and_reload_with_base_model(causal_lm_dummy_model):
         reloaded_model = caikit_nlp.load(model_dir, torch_dtype="float16")
         assert reloaded_model.model.dtype is torch.float16
     assert isinstance(
-        reloaded_model, caikit_nlp.blocks.text_generation.PeftPromptTuning
+        reloaded_model, caikit_nlp.modules.text_generation.PeftPromptTuning
     )
 
 
@@ -91,7 +91,7 @@ def test_verbalizer_cannot_be_static(causal_lm_train_kwargs):
     }
     causal_lm_train_kwargs.update(patch_kwargs)
     with pytest.raises(ValueError):
-        caikit_nlp.blocks.text_generation.PeftPromptTuning.train(
+        caikit_nlp.modules.text_generation.PeftPromptTuning.train(
             **causal_lm_train_kwargs
         )
 
@@ -115,7 +115,7 @@ def test_train_model(causal_lm_train_kwargs):
         "device": "cpu",
     }
     causal_lm_train_kwargs.update(patch_kwargs)
-    model = caikit_nlp.blocks.text_generation.PeftPromptTuning.train(
+    model = caikit_nlp.modules.text_generation.PeftPromptTuning.train(
         **causal_lm_train_kwargs
     )
     # Test fallback to float32 behavior if this machine doesn't support bfloat16

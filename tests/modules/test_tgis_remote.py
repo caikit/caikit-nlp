@@ -10,8 +10,11 @@ import tempfile
 # Third Party
 import pytest
 
+# First party
+from caikit_tgis_backend import TGISBackend
+
 # Local
-from caikit_nlp.blocks.text_generation import PeftPromptTuningTGIS
+from caikit_nlp.modules.text_generation import PeftPromptTuningTGIS
 from tests.fixtures import causal_lm_dummy_model, causal_lm_train_kwargs
 
 
@@ -27,22 +30,22 @@ class StubClient:
 
 
 class StubBackend:
+    backend_type = TGISBackend.backend_type
+
     def get_client(self, base_model_name):
         return StubClient(base_model_name)
 
 
-@patch("caikit.core.module_backend_config.get_backend")
-def test_load_and_run(mock_get_backend, causal_lm_dummy_model):
+def test_load_and_run(causal_lm_dummy_model):
     """Ensure we can export an in memory model, load it, and (mock) run it with the right text & prefix ID."""
     # Patch our stub backend into caikit so that we don't actually try to start TGIS
-    mock_get_backend.return_value = StubBackend()
     causal_lm_dummy_model.verbalizer = "hello distributed {{input}}"
 
     # Save the local model & reload it a TGIS backend distributed module
     # Also, save the name of the dir + prompt ID, which is the path TGIS expects for the prefix ID
     with tempfile.TemporaryDirectory() as model_dir:
         causal_lm_dummy_model.save(model_dir)
-        mock_tgis_model = PeftPromptTuningTGIS.load(model_dir)
+        mock_tgis_model = PeftPromptTuningTGIS.load(model_dir, StubBackend())
         model_prompt_dir = os.path.split(model_dir)[-1]
 
     # Run an inference request, which is wrapped around our mocked Generate call

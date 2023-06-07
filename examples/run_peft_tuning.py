@@ -36,7 +36,7 @@ import alog
 import caikit
 
 # Local
-from caikit_nlp.blocks.text_generation.peft_prompt_tuning import (
+from caikit_nlp.modules.text_generation.peft_prompt_tuning import (
     PeftPromptTuning,
     TuningType,
 )
