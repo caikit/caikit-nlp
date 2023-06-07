@@ -22,10 +22,10 @@ from caikit.core import (
     ModuleBase,
     ModuleConfig,
     ModuleSaver,
-    modules,
     module_backend_config,
+    modules,
 )
-from caikit.core.module_backends import backend_types, BackendBase
+from caikit.core.module_backends import BackendBase, backend_types
 from caikit.core.toolkit import error_handler
 from caikit_tgis_backend import TGISBackend
 from caikit_tgis_backend.protobufs import generation_pb2

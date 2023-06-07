@@ -51,7 +51,6 @@ from caikit.core.toolkit import error_handler
 import alog
 
 # Local
-from .text_generation_task import TextGenerationTask
 from ...data_model import (
     GeneratedResult,
     GenerationTrainRecord,
@@ -66,6 +65,7 @@ from ...resources.pretrained_model import (
 from ...toolkits.data_stream_wrapper import SimpleIterableStreamWrapper
 from ...toolkits.data_type_utils import get_torch_dtype, str_to_torch_dtype
 from ...toolkits.verbalizer_utils import is_valid_verbalizer, render_verbalizer
+from .text_generation_task import TextGenerationTask
 
 log = alog.use_channel("PEFT_PROMPT")
 error = error_handler.get(log)

@@ -25,9 +25,9 @@ import caikit
 # Local
 # Import subpackages
 from . import config, data_model
-from .modules import *
 from .config import *
 from .data_model import *
+from .modules import *
 from .resources import *
 
 # Configure the library with library-specific configuration file
