@@ -93,7 +93,7 @@ def causal_lm_train_kwargs():
 @pytest.fixture
 def causal_lm_dummy_model(causal_lm_train_kwargs):
     """Train a Causal LM dummy model."""
-    return caikit_nlp.blocks.text_generation.PeftPromptTuning.train(
+    return caikit_nlp.modules.text_generation.PeftPromptTuning.train(
         **causal_lm_train_kwargs
     )
 
@@ -118,7 +118,7 @@ def seq2seq_lm_train_kwargs():
 @pytest.fixture
 def seq2seq_lm_dummy_model(seq2seq_lm_train_kwargs):
     """Train a Seq2Seq LM dummy model."""
-    return caikit_nlp.blocks.text_generation.PeftPromptTuning.train(
+    return caikit_nlp.modules.text_generation.PeftPromptTuning.train(
         **seq2seq_lm_train_kwargs
     )
 

@@ -20,19 +20,19 @@ from transformers import AutoModelForSequenceClassification
 from transformers.models.auto import modeling_auto
 
 # First Party
-from caikit.core import resource
+from caikit.core.modules import module
 
 # Local
 from .base import PretrainedModelBase
 
 
-@resource(
+@module(
     id="6759e891-287b-405b-bd8b-54a4a4d51c23",
     name="HF Transformers Auto Sequence Classifier",
     version="0.1.0",
 )
 class HFAutoSequenceClassifier(PretrainedModelBase):
-    """This resource wraps a handle to a huggingface
+    """This resource (module) wraps a handle to a huggingface
     AutoModelForSequenceClassification
     """
 

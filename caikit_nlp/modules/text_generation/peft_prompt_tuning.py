@@ -11,11 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""This module contains a block for prompt tuning through PEFT. Currently,
-we are using this to validate our abstractions and design additional necessary
-infrastructure, but the block will like remain in this repository indefinitely
-for convenience.
-"""
+"""This module contains prompt tuning through PEFT"""
 # Standard
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
@@ -45,9 +41,8 @@ import torch
 
 # First Party
 from caikit import get_config
-from caikit.core import BlockBase, block
 from caikit.core.data_model import DataStream
-from caikit.core.module import ModuleConfig, ModuleSaver
+from caikit.core.modules import ModuleBase, ModuleConfig, ModuleSaver, module
 from caikit.core.toolkit import error_handler
 import alog
 
@@ -63,9 +58,10 @@ from ...resources.pretrained_model import (
     HFAutoSeq2SeqLM,
     PretrainedModelBase,
 )
-from ...toolkits.data_stream_wrapper import SimpleIterableStreamWrapper
-from ...toolkits.data_type_utils import get_torch_dtype, str_to_torch_dtype
-from ...toolkits.verbalizer_utils import is_valid_verbalizer, render_verbalizer
+from ...toolkit.data_stream_wrapper import SimpleIterableStreamWrapper
+from ...toolkit.data_type_utils import get_torch_dtype, str_to_torch_dtype
+from ...toolkit.verbalizer_utils import is_valid_verbalizer, render_verbalizer
+from .text_generation_task import TextGenerationTask
 
 log = alog.use_channel("PEFT_PROMPT")
 error = error_handler.get(log)
@@ -93,12 +89,13 @@ class TuningType(str, Enum):
 
 # TODO: try to refactor this into a smaller module
 # pylint: disable=too-many-lines,too-many-instance-attributes
-@block(
+@module(
     id="6655831b-960a-4dc5-8df4-867026e2cd41",
     name="Peft generation",
     version="0.1.0",
+    task=TextGenerationTask,
 )
-class PeftPromptTuning(BlockBase):
+class PeftPromptTuning(ModuleBase):
 
     _DETECT_DEVICE = "__DETECT__"
     _ENCODER_KEY = PromptOutputModelType.ENCODER
@@ -304,7 +301,7 @@ class PeftPromptTuning(BlockBase):
                 )
 
         # Coerce the passed model into a resource; if we have one, this is a noop
-        # TODO: When splitting up this mono-block, use the configured resource
+        # TODO: When splitting up this mono-module, use the configured resource
         #   type of the concrete class to bootstrap
         torch_dtype = get_torch_dtype(torch_dtype)
         if isinstance(base_model, str):

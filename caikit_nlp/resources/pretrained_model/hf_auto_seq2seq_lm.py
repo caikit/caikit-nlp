@@ -22,7 +22,7 @@ from transformers import AutoModelForSeq2SeqLM
 from transformers.models.auto import modeling_auto
 
 # First Party
-from caikit.core import resource
+from caikit.core.modules import module
 from caikit.core.toolkit import error_handler
 import alog
 
@@ -34,13 +34,13 @@ log = alog.use_channel("HFRBAS")
 error = error_handler.get(log)
 
 
-@resource(
+@module(
     id="6759e891-287b-405b-bd8b-54a4a4d51c25",
     name="HF Transformers Auto Seq2Seq LM",
     version="0.1.0",
 )
 class HFAutoSeq2SeqLM(PretrainedModelBase):
-    """This resource wraps a handle to a Huggingface
+    """This resource (module) wraps a handle to a Huggingface
     AutoModelForSeq2SeqLM
     """
 

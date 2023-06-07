@@ -4,7 +4,7 @@
 from caikit.core.data_model import DataStream
 
 # Local
-from caikit_nlp.toolkits.data_stream_wrapper import SimpleIterableStreamWrapper
+from caikit_nlp.toolkit.data_stream_wrapper import SimpleIterableStreamWrapper
 from tests.fixtures import requires_determinism
 
 # Sample data to load via PyTorch
