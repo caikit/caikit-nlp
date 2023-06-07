@@ -25,20 +25,19 @@ import torch
 
 # First Party
 from caikit import get_config
-from caikit.core import ResourceBase
-from caikit.core.module import ModuleConfig, ModuleSaver
+from caikit.core.modules import ModuleBase, ModuleConfig, ModuleSaver
 from caikit.core.toolkit import error_handler
 import alog
 
 # Local
 from ...data_model import PromptOutputModelType
-from ...toolkits.data_type_utils import get_torch_dtype, str_to_torch_dtype
+from ...toolkit.data_type_utils import get_torch_dtype, str_to_torch_dtype
 
 log = alog.use_channel("HFRBAS")
 error = error_handler.get(log)
 
 
-class PretrainedModelBase(ABC, ResourceBase):
+class PretrainedModelBase(ABC, ModuleBase):
     """Common abstractions and requirements for pretrained model resources"""
 
     _TOK_ARTIFACTS_CONFIG_KEY = "tokenizer_artifacts"

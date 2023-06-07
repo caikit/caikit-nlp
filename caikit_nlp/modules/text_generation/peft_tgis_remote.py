@@ -18,14 +18,8 @@ prompt vectors in TGIS generation requests.
 import os
 
 # First Party
-from caikit.core import (
-    ModuleBase,
-    ModuleConfig,
-    ModuleSaver,
-    block,
-    module_backend_config,
-)
-from caikit.core.module_backends import backend_types
+from caikit.core import ModuleBase, ModuleConfig, ModuleSaver, modules
+from caikit.core.module_backends import BackendBase, backend_types
 from caikit.core.toolkit import error_handler
 from caikit_tgis_backend import TGISBackend
 from caikit_tgis_backend.protobufs import generation_pb2
@@ -33,31 +27,44 @@ import alog
 
 # Local
 from ...data_model.generation import GeneratedResult
-from ...toolkits.verbalizer_utils import render_verbalizer
+from ...toolkit.verbalizer_utils import render_verbalizer
 from . import PeftPromptTuning
 
 log = alog.use_channel("PEFT_PROMPT_REMOTE")
 error = error_handler.get(log)
 
 
-@block(backend_type=TGISBackend.backend_type, base_module=PeftPromptTuning)
+@modules.module(backend_type=TGISBackend.backend_type, base_module=PeftPromptTuning)
 class PeftPromptTuningTGIS(ModuleBase):
     SUPPORTED_LOAD_BACKENDS = [TGISBackend.backend_type, backend_types.LOCAL]
     ## Module Interface ##
 
-    def __init__(self, base_model_name, prompt_cache_id, eos_token, verbalizer) -> None:
+    def __init__(
+        self,
+        base_model_name,
+        prompt_cache_id,
+        eos_token,
+        verbalizer,
+        enable_backend=True,
+        tgis_backend=None,
+    ) -> None:
         super().__init__()
         # Configure the internal client
-        self._client = module_backend_config.get_backend(
-            TGISBackend.backend_type
-        ).get_client(base_model_name)
+        # NOTE: This is made optional for the cases where we do not need to execute `.run` function
+        # for example, bootstrapping a model to caikit format and saving.
+        if enable_backend:
+            # get_client will also launch a local TGIS process and get the model
+            # loaded when using the local TGIS backend
+            self._client = tgis_backend.get_client(base_model_name)
+
         self.base_model_name = base_model_name
         self._prompt_cache_id = prompt_cache_id
         self.eos_token = eos_token
         self.verbalizer = verbalizer
+        self.enable_backend = enable_backend
 
     @classmethod
-    def load(cls, model_path: str) -> "PeftPromptTuningTGIS":
+    def load(cls, model_path: str, load_backend: BackendBase) -> "PeftPromptTuningTGIS":
         """Load a TGIS Peft Prompt Tuning distributed module. Note that we do not
         leverage artifacts stored within the model here, and we assume that the
         prompt vector is already available at a place that the TGIS server can pick it
@@ -66,10 +73,13 @@ class PeftPromptTuningTGIS(ModuleBase):
         Args:
             model_path: str
                 Path to the model to be loaded.
+            load_backend: BackendBase
+                Backend object to be used to run inference with.
         Returns:
             PeftPromptTuningTGIS
                 Instance of this class built from the on disk model.
         """
+        error.type_check("<FPT85069377E>", TGISBackend, load_backend=load_backend)
         config = ModuleConfig.load(model_path)
         eos_token = config.eos_token
         verbalizer = config.verbalizer
@@ -87,7 +97,13 @@ class PeftPromptTuningTGIS(ModuleBase):
         # we convert make it valid json compatible dict (aka doesn't have non string keys)
         log.debug("Prompt ID: %s", prompt_cache_id)
         log.debug("TGIS model ID: %s", base_model_name)
-        return cls(base_model_name, prompt_cache_id, eos_token, verbalizer)
+        return cls(
+            base_model_name,
+            prompt_cache_id,
+            eos_token,
+            verbalizer,
+            tgis_backend=load_backend,
+        )
 
     def save(self, model_path: str):
         """Export the config for this model.
@@ -125,6 +141,11 @@ class PeftPromptTuningTGIS(ModuleBase):
             GeneratedResult
                 Generated text result produced by TGIS.
         """
+        error.value_check(
+            "<FPT87360638E>",
+            self.enable_backend,
+            "Backend must be configured and loaded with this module before executing `run` call.",
+        )
         verbalized_text = render_verbalizer(self.verbalizer, {"input": text})
         log.debug("Building protobuf request to send to TGIS")
         res_options = generation_pb2.ResponseOptions(

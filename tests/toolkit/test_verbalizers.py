@@ -4,7 +4,7 @@
 import pytest
 
 # Local
-from caikit_nlp.toolkits.verbalizer_utils import is_valid_verbalizer, render_verbalizer
+from caikit_nlp.toolkit.verbalizer_utils import is_valid_verbalizer, render_verbalizer
 import caikit_nlp
 
 SAMPLE_DM = caikit_nlp.data_model.GenerationTrainRecord(

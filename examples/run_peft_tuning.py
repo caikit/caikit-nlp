@@ -36,11 +36,11 @@ import alog
 import caikit
 
 # Local
-from caikit_nlp.blocks.text_generation.peft_prompt_tuning import (
+from caikit_nlp.data_model import GenerationTrainRecord, TuningConfig
+from caikit_nlp.modules.text_generation.peft_prompt_tuning import (
     PeftPromptTuning,
     TuningType,
 )
-from caikit_nlp.data_model import GenerationTrainRecord, TuningConfig
 from caikit_nlp.resources.pretrained_model import (
     HFAutoCausalLM,
     HFAutoSeq2SeqLM,
