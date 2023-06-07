@@ -18,13 +18,7 @@ prompt vectors in TGIS generation requests.
 import os
 
 # First Party
-from caikit.core import (
-    ModuleBase,
-    ModuleConfig,
-    ModuleSaver,
-    module_backend_config,
-    modules,
-)
+from caikit.core import ModuleBase, ModuleConfig, ModuleSaver, modules
 from caikit.core.module_backends import BackendBase, backend_types
 from caikit.core.toolkit import error_handler
 from caikit_tgis_backend import TGISBackend
@@ -33,7 +27,7 @@ import alog
 
 # Local
 from ...data_model.generation import GeneratedResult
-from ...toolkits.verbalizer_utils import render_verbalizer
+from ...toolkit.verbalizer_utils import render_verbalizer
 from . import PeftPromptTuning
 
 log = alog.use_channel("PEFT_PROMPT_REMOTE")
@@ -56,15 +50,18 @@ class PeftPromptTuningTGIS(ModuleBase):
     ) -> None:
         super().__init__()
         # Configure the internal client
+        # NOTE: This is made optional for the cases where we do not need to execute `.run` function
+        # for example, bootstrapping a model to caikit format and saving.
         if enable_backend:
             # get_client will also launch a local TGIS process and get the model
-            # loaded when using the local tgis backend
+            # loaded when using the local TGIS backend
             self._client = tgis_backend.get_client(base_model_name)
 
         self.base_model_name = base_model_name
         self._prompt_cache_id = prompt_cache_id
         self.eos_token = eos_token
         self.verbalizer = verbalizer
+        self.enable_backend = enable_backend
 
     @classmethod
     def load(cls, model_path: str, load_backend: BackendBase) -> "PeftPromptTuningTGIS":
@@ -82,6 +79,7 @@ class PeftPromptTuningTGIS(ModuleBase):
             PeftPromptTuningTGIS
                 Instance of this class built from the on disk model.
         """
+        error.type_check("<FPT85069377E>", TGISBackend, load_backend=load_backend)
         config = ModuleConfig.load(model_path)
         eos_token = config.eos_token
         verbalizer = config.verbalizer
@@ -143,6 +141,11 @@ class PeftPromptTuningTGIS(ModuleBase):
             GeneratedResult
                 Generated text result produced by TGIS.
         """
+        error.value_check(
+            "<FPT87360638E>",
+            self.enable_backend,
+            "Backend must be configured and loaded with this module before executing `run` call.",
+        )
         verbalized_text = render_verbalizer(self.verbalizer, {"input": text})
         log.debug("Building protobuf request to send to TGIS")
         res_options = generation_pb2.ResponseOptions(

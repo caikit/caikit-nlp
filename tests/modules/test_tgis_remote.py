@@ -30,9 +30,7 @@ class StubClient:
     Generate = mock.Mock(side_effect=RuntimeError("TGIS client is a mock!"))
 
 
-class StubBackend:
-    backend_type = TGISBackend.backend_type
-
+class StubBackend(TGISBackend):
     def get_client(self, base_model_name):
         return StubClient(base_model_name)
 

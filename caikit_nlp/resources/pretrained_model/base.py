@@ -31,7 +31,7 @@ import alog
 
 # Local
 from ...data_model import PromptOutputModelType
-from ...toolkits.data_type_utils import get_torch_dtype, str_to_torch_dtype
+from ...toolkit.data_type_utils import get_torch_dtype, str_to_torch_dtype
 
 log = alog.use_channel("HFRBAS")
 error = error_handler.get(log)

@@ -58,9 +58,9 @@ from ...resources.pretrained_model import (
     HFAutoSeq2SeqLM,
     PretrainedModelBase,
 )
-from ...toolkits.data_stream_wrapper import SimpleIterableStreamWrapper
-from ...toolkits.data_type_utils import get_torch_dtype, str_to_torch_dtype
-from ...toolkits.verbalizer_utils import is_valid_verbalizer, render_verbalizer
+from ...toolkit.data_stream_wrapper import SimpleIterableStreamWrapper
+from ...toolkit.data_type_utils import get_torch_dtype, str_to_torch_dtype
+from ...toolkit.verbalizer_utils import is_valid_verbalizer, render_verbalizer
 from .text_generation_task import TextGenerationTask
 
 log = alog.use_channel("PEFT_PROMPT")
