@@ -5,7 +5,7 @@ import pytest
 import torch
 
 # Local
-from caikit_nlp.toolkits.data_type_utils import get_torch_dtype, str_to_torch_dtype
+from caikit_nlp.toolkit.data_type_utils import get_torch_dtype, str_to_torch_dtype
 
 ### Tests for converting from strings / types / None -> torch data types
 
