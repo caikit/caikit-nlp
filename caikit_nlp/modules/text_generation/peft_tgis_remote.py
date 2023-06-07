@@ -46,14 +46,14 @@ class PeftPromptTuningTGIS(ModuleBase):
     ## Module Interface ##
 
     def __init__(
-            self,
-            base_model_name,
-            prompt_cache_id,
-            eos_token,
-            verbalizer,
-            enable_backend=True,
-            tgis_backend=None,
-        ) -> None:
+        self,
+        base_model_name,
+        prompt_cache_id,
+        eos_token,
+        verbalizer,
+        enable_backend=True,
+        tgis_backend=None,
+    ) -> None:
         super().__init__()
         # Configure the internal client
         if enable_backend:
@@ -99,7 +99,13 @@ class PeftPromptTuningTGIS(ModuleBase):
         # we convert make it valid json compatible dict (aka doesn't have non string keys)
         log.debug("Prompt ID: %s", prompt_cache_id)
         log.debug("TGIS model ID: %s", base_model_name)
-        return cls(base_model_name, prompt_cache_id, eos_token, verbalizer, tgis_backend=load_backend,)
+        return cls(
+            base_model_name,
+            prompt_cache_id,
+            eos_token,
+            verbalizer,
+            tgis_backend=load_backend,
+        )
 
     def save(self, model_path: str):
         """Export the config for this model.
