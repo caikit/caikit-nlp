@@ -209,16 +209,14 @@ class PretrainedModelBase(ABC, ModuleBase):
         )
         return res
 
-    def save(self, model_path: str):
+    def save(self, model_path: str, tokenizer_dirname: str = "", base_model_dirname: str = ""):
         """Save the in-memory model to the given path"""
         saver = ModuleSaver(
             self,
             model_path=model_path,
         )
-        tok_dirname = "tokenizer_artifacts"
-        model_dirname = "model_artifacts"
-        tok_rel_path, tok_abs_path = saver.add_dir(tok_dirname)
-        model_rel_path, model_abs_path = saver.add_dir(model_dirname)
+        tok_rel_path, tok_abs_path = saver.add_dir(tokenizer_dirname)
+        model_rel_path, model_abs_path = saver.add_dir(base_model_dirname)
         with saver:
             saver.update_config(
                 {
