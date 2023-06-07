@@ -15,41 +15,38 @@
 
 # Standard
 import os
-from typing import Optional, Union
 
 # Third Party
 from transformers import AutoConfig
 
 # First Party
+from caikit.core.module_backends import BackendBase, backend_types
+from caikit.core.modules import ModuleBase, ModuleConfig, ModuleSaver, module
+from caikit.core.toolkit import error_handler
 from caikit_tgis_backend import TGISBackend
 from caikit_tgis_backend.protobufs import generation_pb2
-from caikit.core import BlockBase, block
-from caikit.core.data_model import DataStream
-from caikit.core import module_backend_config
-from caikit.core.module_backends import backend_types
-from caikit.core.module import ModuleConfig, ModuleSaver
-from caikit.core.toolkit import error_handler
 import alog
 
 # Local
 from ...data_model import GeneratedResult
-from ...resources.pretrained_model import (
-    HFAutoCausalLM,
-    HFAutoSeq2SeqLM,
-)
+from ...resources.pretrained_model import HFAutoCausalLM, HFAutoSeq2SeqLM
+from .text_generation_task import TextGenerationTask
 
 log = alog.use_channel("TXT_GEN")
 error = error_handler.get(log)
 
 
-@block(
+@module(
     id="f9181353-4ccf-4572-bd1e-f12bcda26792",
     name="Text Generation",
     version="0.1.0",
     backend_type=TGISBackend.backend_type,
+    task=TextGenerationTask,
 )
-class TextGeneration(BlockBase):
+class TextGeneration(ModuleBase):
     """Module to provide text generation capabilities"""
+
+    SUPPORTED_LOAD_BACKENDS = [TGISBackend.backend_type, backend_types.LOCAL]
 
     supported_resources = [HFAutoCausalLM, HFAutoSeq2SeqLM]
 
@@ -61,7 +58,7 @@ class TextGeneration(BlockBase):
         sep_token=None,
         eos_token=None,
         pad_token=None,
-        enable_backend=True,
+        tgis_backend=None,
         *args,
         **kwargs,
     ):
@@ -73,11 +70,15 @@ class TextGeneration(BlockBase):
         error.type_check("<FPT53511308E>", str, allow_none=True, pad_token=pad_token)
         self.base_model = base_model
         self.base_model_name = base_model_name
+
+        # Set _model_loaded as False by default. This will only get set to True if
+        # we enable the tgis_backend and we are able to fetch the client successfully.
+        self._model_loaded = False
         # Configure the internal client
-        if enable_backend:
-            self._client = module_backend_config.get_backend(
-                TGISBackend.backend_type
-            ).get_client(base_model_name)
+        # NOTE: This is made optional for the cases where we do not need to execute `.run` function
+        # for example, bootstrapping a model to caikit format and saving.
+        if tgis_backend:
+            self._client = tgis_backend.get_client(base_model_name)
             # mark that the model is loaded so that we can unload it later
             self._model_loaded = True
 
@@ -92,18 +93,18 @@ class TextGeneration(BlockBase):
             self.get_backend().unload_model(self._model_path)
 
     @classmethod
-    def bootstrap(cls, base_model_path: str, enable_backend=False):
+    def bootstrap(cls, base_model_path: str, load_backend: BackendBase = None):
         """Function to bootstrap a pre-trained transformers model and
         get a caikit text-generation 'model'.
 
         Args:
             base_model_path: str
                 Path to transformers model
-            enable_backend: bool
-                Enable loading the model in shared backend.
-                # NOTE: this is required for inferencing. It is
+                NOTE: Model path needs to contain tokenizer as well
+            load_backend: BackendBase
+                Backend object to be used to run inference with.
+                NOTE: this is required for inferencing. It is
                 made optional just in provide support for model conversion use-case
-
         Returns:
             caikit_nlp.blocks.text_generation.TextGeneration
                 Object of TextGeneration class (model)
@@ -124,7 +125,9 @@ class TextGeneration(BlockBase):
                 ),
             )
         log.debug("Bootstrapping base resource [%s]", base_model_path)
-        base_model = resource_type.bootstrap(base_model_path)
+        base_model = resource_type.bootstrap(
+            base_model_path, tokenizer_name=base_model_path
+        )
         bos_token = base_model._tokenizer.bos_token
         sep_token = base_model._tokenizer.sep_token
         eos_token = base_model._tokenizer.eos_token or None
@@ -136,7 +139,7 @@ class TextGeneration(BlockBase):
             sep_token=sep_token,
             eos_token=eos_token,
             pad_token=pad_token,
-            enable_backend=enable_backend,
+            tgis_backend=load_backend,
         )
 
     def save(self, artifact_path):
@@ -166,21 +169,24 @@ class TextGeneration(BlockBase):
                 # This will save both tokenizer and base model
                 self.base_model.save(
                     artifact_path,
-                    tok_dirname=artifacts_dir,
-                    model_dirname=artifacts_dir,
+                    tokenizer_dirname=artifacts_dir,
+                    base_model_dirname=artifacts_dir,
                 )
 
     @classmethod
-    def load(cls, model_path: str) -> "TextGeneration":
+    def load(cls, model_path: str, load_backend: BackendBase) -> "TextGeneration":
         """Function to load text-generation model
 
         Args:
             model_path: str
                 Path to the model to be loaded.
+            load_backend: BackendBase
+                Backend object to be used to run inference with.
         Returns:
             TextGeneration
                 Instance of this class built from the on disk model.
         """
+        error.type_check("<FPT03521359E>", TGISBackend, load_backend=load_backend)
 
         config = ModuleConfig.load(model_path)
         base_model_path = config.get("artifact_path", "")
@@ -191,6 +197,7 @@ class TextGeneration(BlockBase):
             bos_token=config.bos_token,
             sep_token=config.sep_token,
             eos_token=config.eos_token,
+            tgis_backend=load_backend,
         )
 
     def run(self, text, preserve_input_text=False):
