@@ -11,11 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""This module contains prompt tuning through PEFT. Currently,
-we are using this to validate our abstractions and design additional necessary
-infrastructure, but the module will like remain in this repository indefinitely
-for convenience.
-"""
+"""This module contains prompt tuning through PEFT"""
 # Standard
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
