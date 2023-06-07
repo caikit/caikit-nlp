@@ -209,7 +209,9 @@ class PretrainedModelBase(ABC, ModuleBase):
         )
         return res
 
-    def save(self, model_path: str, tokenizer_dirname: str = "", base_model_dirname: str = ""):
+    def save(
+        self, model_path: str, tokenizer_dirname: str = "", base_model_dirname: str = ""
+    ):
         """Save the in-memory model to the given path"""
         saver = ModuleSaver(
             self,
