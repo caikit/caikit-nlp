@@ -18,7 +18,7 @@ dependencies = [
     "caikit-tgis-backend>=0.1.6,<0.2.0",
 
     # TODO: loosen dependencies
-    "accelerate==0.18.0",
+    "accelerate==0.20.3",
     "datasets>=2.4.0",
     "huggingface-hub",
     "numpy==1.22.4",
