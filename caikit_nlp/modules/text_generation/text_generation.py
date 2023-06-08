@@ -36,6 +36,7 @@ log = alog.use_channel("TXT_GEN")
 error = error_handler.get(log)
 
 
+# pylint: disable=too-many-lines,too-many-instance-attributes
 @module(
     id="f9181353-4ccf-4572-bd1e-f12bcda26792",
     name="Text Generation",
@@ -53,13 +54,13 @@ class TextGeneration(ModuleBase):
     def __init__(
         self,
         base_model_name,
+        *args,
         base_model=None,
         bos_token=None,
         sep_token=None,
         eos_token=None,
         pad_token=None,
         tgis_backend=None,
-        *args,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
@@ -109,6 +110,7 @@ class TextGeneration(ModuleBase):
             caikit_nlp.blocks.text_generation.TextGeneration
                 Object of TextGeneration class (model)
         """
+        # pylint: disable=duplicate-code
         model_config = AutoConfig.from_pretrained(base_model_path)
 
         resource_type = None
@@ -142,22 +144,22 @@ class TextGeneration(ModuleBase):
             tgis_backend=load_backend,
         )
 
-    def save(self, artifact_path):
+    def save(self, model_path):
         """Save caikit model
 
         Args:
-            artifact_path: str
+            model_path: str
                 Folder to save text-generation caikit model
         """
         saver = ModuleSaver(
             self,
-            model_path=artifact_path,
+            model_path=model_path,
         )
         with saver:
             artifacts_dir = "artifacts"
             saver.update_config(
                 {
-                    "artifact_path": artifacts_dir,
+                    "model_path": artifacts_dir,
                     "bos_token": self._bos_token,
                     "sep_token": self._sep_token,
                     "eos_token": self._eos_token,
@@ -168,7 +170,7 @@ class TextGeneration(ModuleBase):
             if self.base_model:
                 # This will save both tokenizer and base model
                 self.base_model.save(
-                    artifact_path,
+                    model_path,
                     tokenizer_dirname=artifacts_dir,
                     base_model_dirname=artifacts_dir,
                 )
@@ -189,7 +191,7 @@ class TextGeneration(ModuleBase):
         error.type_check("<FPT03521359E>", TGISBackend, load_backend=load_backend)
 
         config = ModuleConfig.load(model_path)
-        base_model_path = config.get("artifact_path", "")
+        base_model_path = config.get("model_path", "")
         base_model_path = os.path.join(model_path, base_model_path)
         error.dir_check("<DWC20623231E>", base_model_path)
         return cls(
@@ -215,6 +217,7 @@ class TextGeneration(ModuleBase):
                 Generated text result produced by TGIS.
         """
         log.debug("Building protobuf request to send to TGIS")
+        # pylint: disable=duplicate-code
         if self._model_loaded:
             res_options = generation_pb2.ResponseOptions(
                 input_text=preserve_input_text,
@@ -242,8 +245,9 @@ class TextGeneration(ModuleBase):
             with alog.ContextTimer(log.trace, "TGIS request duration: "):
                 batch_response = self._client.Generate(request)
 
+            # pylint: disable=duplicate-code
             error.value_check(
-                "<FPT45587981E>",
+                "<FPT38899018E>",
                 len(batch_response.responses) == 1,
                 f"Got {len(batch_response.responses)} responses for a single request",
             )

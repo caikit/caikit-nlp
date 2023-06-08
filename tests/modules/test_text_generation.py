@@ -13,10 +13,10 @@ import pytest
 from caikit_tgis_backend import TGISBackend
 
 # Local
-from caikit_nlp.modules.text_generation import TextGeneration
 from caikit_nlp.data_model.generation import GeneratedResult
-
+from caikit_nlp.modules.text_generation import TextGeneration
 from tests.fixtures import CAUSAL_LM_MODEL, SEQ2SEQ_LM_MODEL
+
 
 ### Helper stubs / mocks; we use these to patch caikit so that we don't actually
 # test the TGIS backend directly, and instead stub the client and inspect the
@@ -52,6 +52,7 @@ def test_bootstrap_and_run_seq2seq():
     sample_text = "Hello stub"
     with pytest.raises(RuntimeError):
         model.run(sample_text, preserve_input_text=True)
+
 
 def test_bootstrap_and_save_model():
     """Check if we can bootstrap and save the model successfully"""
