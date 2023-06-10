@@ -29,7 +29,11 @@ import alog
 
 # Local
 from ...data_model import GeneratedResult
-from ...resources.pretrained_model import HFAutoCausalLM, HFAutoSeq2SeqLM
+from ...resources.pretrained_model import (
+    HFAutoCausalLM,
+    HFAutoSeq2SeqLM,
+    PretrainedModelBase,
+)
 from .text_generation_task import TextGenerationTask
 
 log = alog.use_channel("TXT_GEN")
@@ -53,17 +57,15 @@ class TextGeneration(ModuleBase):
 
     def __init__(
         self,
-        base_model_name,
-        *args,
-        base_model=None,
-        bos_token=None,
-        sep_token=None,
-        eos_token=None,
-        pad_token=None,
-        tgis_backend=None,
-        **kwargs,
+        base_model_name: str,
+        base_model: PretrainedModelBase = None,
+        bos_token: str = None,
+        sep_token: str = None,
+        eos_token: str = None,
+        pad_token: str = None,
+        tgis_backend: TGISBackend = None,
     ):
-        super().__init__(*args, **kwargs)
+        super().__init__()
 
         error.type_check("<FPT00609194E>", str, allow_none=True, bos_token=bos_token)
         error.type_check("<FPT72469403E>", str, allow_none=True, sep_token=sep_token)
@@ -159,12 +161,10 @@ class TextGeneration(ModuleBase):
             artifacts_dir = "artifacts"
             saver.update_config(
                 {
-                    "model_path": artifacts_dir,
+                    "artifact_path": artifacts_dir,
                     "bos_token": self._bos_token,
                     "sep_token": self._sep_token,
                     "eos_token": self._eos_token,
-                    # "truncate_input_tokens": self._truncate_input_tokens,
-                    # "stop_sequences": self._stop_sequences,
                 }
             )
             if self.base_model:
@@ -191,7 +191,7 @@ class TextGeneration(ModuleBase):
         error.type_check("<FPT03521359E>", TGISBackend, load_backend=load_backend)
 
         config = ModuleConfig.load(model_path)
-        base_model_path = config.get("model_path", "")
+        base_model_path = config.get("artifact_path", "")
         base_model_path = os.path.join(model_path, base_model_path)
         error.dir_check("<DWC20623231E>", base_model_path)
         return cls(
