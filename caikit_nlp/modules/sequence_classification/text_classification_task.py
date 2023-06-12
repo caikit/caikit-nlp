@@ -11,10 +11,18 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Common data model containing all data structures that are passed in and out of blocks.
+"""Temporary! We will likely use consolidated interfaces from caikit/caikit
 """
+# First Party
+from caikit.core import TaskBase, task
 
 # Local
-from . import classification, generation
-from .classification import *
-from .generation import *
+from ...data_model import TextClassification
+
+
+@task(
+    required_parameters={"text": str},
+    output_type=TextClassification,
+)
+class TextClassificationTask(TaskBase):
+    pass
