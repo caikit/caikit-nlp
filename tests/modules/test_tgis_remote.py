@@ -2,37 +2,15 @@
 TGIS client and do NOT actually start/hit a TGIS server instance.
 """
 # Standard
-from unittest import mock
-from unittest.mock import patch
 import os
 import tempfile
 
 # Third Party
 import pytest
 
-# First Party
-# First party
-from caikit_tgis_backend import TGISBackend
-
 # Local
 from caikit_nlp.modules.text_generation import PeftPromptTuningTGIS
-from tests.fixtures import causal_lm_dummy_model, causal_lm_train_kwargs
-
-
-### Helper stubs / mocks; we use these to patch caikit so that we don't actually
-# test the TGIS backend directly, and instead stub the client and inspect the
-# args that we pass to it.
-class StubClient:
-    def __init__(self, base_model_name):
-        pass
-
-    # Generation calls on this class are a mock that explodes when invoked
-    Generate = mock.Mock(side_effect=RuntimeError("TGIS client is a mock!"))
-
-
-class StubBackend(TGISBackend):
-    def get_client(self, base_model_name):
-        return StubClient(base_model_name)
+from tests.fixtures import StubBackend, StubClient, causal_lm_dummy_model, causal_lm_train_kwargs
 
 
 def test_load_and_run(causal_lm_dummy_model):
