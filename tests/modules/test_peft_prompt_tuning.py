@@ -124,6 +124,33 @@ def test_train_model(causal_lm_train_kwargs):
     pred = model.run("@bar what a cute cat!")
     assert isinstance(pred, caikit_nlp.data_model.GeneratedResult)
 
+def test_train_model_classification_record(causal_lm_train_kwargs):
+    """Ensure that we can train a model on some toy data for 1+ steps & run inference."""
+    patch_kwargs = {
+        "num_epochs": 1,
+        "verbalizer": "Tweet text : {{input}} Label : ",
+        "train_stream": caikit.core.data_model.DataStream.from_iterable(
+            [
+                caikit_nlp.data_model.ClassificationTrainRecord(
+                    input="@foo what a cute dog!", labels=["no complaint"]
+                ),
+                caikit_nlp.data_model.ClassificationTrainRecord(
+                    input="@bar this is the worst idea ever.", labels=["complaint"]
+                ),
+            ]
+        ),
+        "torch_dtype": torch.bfloat16,
+        "device": "cpu",
+    }
+    causal_lm_train_kwargs.update(patch_kwargs)
+    model = caikit_nlp.modules.text_generation.PeftPromptTuning.train(
+        **causal_lm_train_kwargs
+    )
+    # Test fallback to float32 behavior if this machine doesn't support bfloat16
+    assert model.model.dtype is torch.float32
+    # Ensure that we can get something out of it
+    pred = model.run("@bar what a cute cat!")
+    assert isinstance(pred, caikit_nlp.data_model.GeneratedResult)
 
 ### Implementation details
 # These tests can probably be removed and tested directly through .save() once
