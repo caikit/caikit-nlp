@@ -14,7 +14,6 @@ import torch
 import transformers
 
 # First Party
-from caikit_tgis_backend import TGISBackend
 import caikit
 
 # Local
@@ -26,24 +25,6 @@ FIXTURES_DIR = os.path.join(os.path.dirname(__file__))
 TINY_MODELS_DIR = os.path.join(FIXTURES_DIR, "tiny_models")
 CAUSAL_LM_MODEL = os.path.join(TINY_MODELS_DIR, "BloomForCausalLM")
 SEQ2SEQ_LM_MODEL = os.path.join(TINY_MODELS_DIR, "T5ForConditionalGeneration")
-
-
-### Stub Modules
-
-# Helper stubs / mocks; we use these to patch caikit so that we don't actually
-# test the TGIS backend directly, and instead stub the client and inspect the
-# args that we pass to it.
-class StubClient:
-    def __init__(self, base_model_name):
-        pass
-
-    # Generation calls on this class are a mock that explodes when invoked
-    Generate = mock.Mock(side_effect=RuntimeError("TGIS client is a mock!"))
-
-
-class StubBackend(TGISBackend):
-    def get_client(self, base_model_name):
-        return StubClient(base_model_name)
 
 
 ### Fixtures for downloading objects needed to run tests via public internet

@@ -1,15 +1,36 @@
 """Tests for text-generation module
 """
 # Standard
+from unittest import mock
 import os
 import tempfile
 
 # Third Party
 import pytest
 
+# First Party
+from caikit_tgis_backend import TGISBackend
+
 # Local
 from caikit_nlp.modules.text_generation import TextGeneration
-from tests.fixtures import CAUSAL_LM_MODEL, SEQ2SEQ_LM_MODEL, StubBackend
+from tests.fixtures import CAUSAL_LM_MODEL, SEQ2SEQ_LM_MODEL
+
+### Stub Modules
+
+# Helper stubs / mocks; we use these to patch caikit so that we don't actually
+# test the TGIS backend directly, and instead stub the client and inspect the
+# args that we pass to it.
+class StubClient:
+    def __init__(self, base_model_name):
+        pass
+
+    # Generation calls on this class are a mock that explodes when invoked
+    Generate = mock.Mock(side_effect=RuntimeError("TGIS client is a mock!"))
+
+
+class StubBackend(TGISBackend):
+    def get_client(self, base_model_name):
+        return StubClient(base_model_name)
 
 
 def test_bootstrap_and_run_causallm():

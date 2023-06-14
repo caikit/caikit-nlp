@@ -200,6 +200,7 @@ class TextGeneration(ModuleBase):
             bos_token=config.bos_token,
             sep_token=config.sep_token,
             eos_token=config.eos_token,
+            pad_token=config.pad_token,
             tgis_backend=load_backend,
         )
 
@@ -209,7 +210,7 @@ class TextGeneration(ModuleBase):
         Args:
             text: str
                 Source string to be encoded for generation.
-            preserve_input_text: str
+            preserve_input_text: bool
                 Whether or not the source string should be contained in the generated output,
                 e.g., as a prefix.
 
