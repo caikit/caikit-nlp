@@ -14,7 +14,6 @@
 """Data structures for text generation representations
 """
 # Standard
-from enum import Enum
 from typing import List
 
 # First Party

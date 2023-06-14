@@ -20,6 +20,6 @@ def convert_to_generation_record(TrainRecord):
     if isinstance(TrainRecord, GenerationTrainRecord):
         return TrainRecord
     if isinstance(TrainRecord, ClassificationTrainRecord):
-        text = ClassificationTrainRecord.text
-        labels = ",".join(ClassificationTrainRecord.labels)
+        text = TrainRecord.text
+        labels = ",".join(TrainRecord.labels)
         return GenerationTrainRecord(input=text, output=labels)

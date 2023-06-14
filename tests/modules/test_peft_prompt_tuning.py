@@ -133,10 +133,10 @@ def test_train_model_classification_record(causal_lm_train_kwargs):
         "train_stream": caikit.core.data_model.DataStream.from_iterable(
             [
                 caikit_nlp.data_model.ClassificationTrainRecord(
-                    input="@foo what a cute dog!", labels=["no complaint"]
+                    text="@foo what a cute dog!", labels=["no complaint"]
                 ),
                 caikit_nlp.data_model.ClassificationTrainRecord(
-                    input="@bar this is the worst idea ever.", labels=["complaint"]
+                    text="@bar this is the worst idea ever.", labels=["complaint"]
                 ),
             ]
         ),

@@ -224,7 +224,8 @@ class PeftPromptTuning(ModuleBase):
             tuning_config: TuningConfig
                 Additional model tuning configurations to be considered for prompt vector
                 initialization and training behavior.
-            val_stream: Optional[DataStream[GenerationTrainRecord] or DataStream[ClassificationTrainRecord]]
+            val_stream: Optional[DataStream[GenerationTrainRecord]
+                           or DataStream[ClassificationTrainRecord]]
                 Data to be used for validation throughout the train process or None.
             device: str
                 Device to be used for training the model. Default: cls._DETECT_DEVICE, which
@@ -366,9 +367,9 @@ class PeftPromptTuning(ModuleBase):
             tuning_type = TuningType(tuning_type)
         error.type_check("<FPT65714993E>", TuningType, tuning_type=tuning_type)
 
-        train_stream = train_stream.map(lambda item: convert_to_generation_record(item))
+        train_stream = train_stream.map(convert_to_generation_record)
         if val_stream:
-            val_stream = val_stream.map(lambda item: convert_to_generation_record(item))
+            val_stream = val_stream.map(convert_to_generation_record)
 
         # Convert our datastreams -> data loaders by disguising them as PyTorch iterable datasets
         train_dataloader, val_dataloader = cls.create_dataloaders_from_stream(
