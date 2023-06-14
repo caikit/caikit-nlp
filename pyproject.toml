@@ -14,7 +14,7 @@ classifiers=[
     "License :: OSI Approved :: Apache Software License"
 ]
 dependencies = [
-    "caikit==0.7.0",
+    "caikit==0.8.0",
     "caikit-tgis-backend>=0.1.6,<0.2.0",
 
     # TODO: loosen dependencies
