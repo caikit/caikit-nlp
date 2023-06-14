@@ -48,6 +48,7 @@ import alog
 
 # Local
 from ...data_model import (
+    ClassificationTrainRecord,
     GeneratedResult,
     GenerationTrainRecord,
     PromptOutputModelType,
@@ -61,6 +62,7 @@ from ...resources.pretrained_model import (
 from ...toolkit.data_stream_wrapper import SimpleIterableStreamWrapper
 from ...toolkit.data_type_utils import get_torch_dtype, str_to_torch_dtype
 from ...toolkit.verbalizer_utils import is_valid_verbalizer, render_verbalizer
+from ...toolkit.task_specific_utils import convert_to_generation_record
 from .text_generation_task import TextGenerationTask
 
 log = alog.use_channel("PEFT_PROMPT")
@@ -189,10 +191,14 @@ class PeftPromptTuning(ModuleBase):
     def train(
         cls,
         base_model: str,  # TODO: Union[str, PretrainedModelBase]
-        train_stream: DataStream[GenerationTrainRecord],
+        train_stream: Union [ 
+            DataStream[GenerationTrainRecord],
+            DataStream[ClassificationTrainRecord],
+        ],
         tuning_config: TuningConfig,
-        val_stream: DataStream[
-            GenerationTrainRecord
+        val_stream: Union [ 
+            DataStream[GenerationTrainRecord],
+            DataStream[ClassificationTrainRecord],
         ] = None,  # TODO: Optional[DataStream[GenerationTrainRecord]]
         device: str = _DETECT_DEVICE,  # TODO: Union[int, str]
         tuning_type: str = "PROMPT_TUNING",  # TODO: Union[str, TuningType]
@@ -213,12 +219,12 @@ class PeftPromptTuning(ModuleBase):
         Args:
             base_model:  Union[str, caikit_nlp.resources.pretrained_model.base.PretrainedModelBase]
                 Base resource model used for underlying generation.
-            train_stream: DataStream[GenerationTrainRecord]
+            train_stream: DataStream[GenerationTrainRecord] or DataStream[ClassificationTrainRecord]
                 Data to be used for training the prompt vectors of the generation model.
             tuning_config: TuningConfig
                 Additional model tuning configurations to be considered for prompt vector
                 initialization and training behavior.
-            val_stream: Optional[DataStream[GenerationTrainRecord]]
+            val_stream: Optional[DataStream[GenerationTrainRecord] or DataStream[ClassificationTrainRecord]]
                 Data to be used for validation throughout the train process or None.
             device: str
                 Device to be used for training the model. Default: cls._DETECT_DEVICE, which
@@ -359,6 +365,10 @@ class PeftPromptTuning(ModuleBase):
             )
             tuning_type = TuningType(tuning_type)
         error.type_check("<FPT65714993E>", TuningType, tuning_type=tuning_type)
+
+        train_stream = train_stream.map(lambda item: convert_to_generation_record(item))
+        if val_stream:
+            val_stream = val_stream.map(lambda item: convert_to_generation_record(item))
 
         # Convert our datastreams -> data loaders by disguising them as PyTorch iterable datasets
         train_dataloader, val_dataloader = cls.create_dataloaders_from_stream(
