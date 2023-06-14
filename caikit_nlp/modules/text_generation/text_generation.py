@@ -107,7 +107,7 @@ class TextGeneration(ModuleBase):
             load_backend: BackendBase
                 Backend object to be used to run inference with.
                 NOTE: this is required for inferencing. It is
-                made optional just in provide support for model conversion use-case
+                made optional to support the model conversion use-case
         Returns:
             caikit_nlp.blocks.text_generation.TextGeneration
                 Object of TextGeneration class (model)
@@ -165,6 +165,7 @@ class TextGeneration(ModuleBase):
                     "bos_token": self._bos_token,
                     "sep_token": self._sep_token,
                     "eos_token": self._eos_token,
+                    "pad_token": self._pad_token,
                 }
             )
             if self.base_model:
@@ -193,7 +194,7 @@ class TextGeneration(ModuleBase):
         config = ModuleConfig.load(model_path)
         base_model_path = config.get("artifact_path", "")
         base_model_path = os.path.join(model_path, base_model_path)
-        error.dir_check("<DWC20623231E>", base_model_path)
+        error.dir_check("<FPT01983374E>", base_model_path)
         return cls(
             base_model_path,
             bos_token=config.bos_token,
