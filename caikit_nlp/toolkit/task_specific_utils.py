@@ -12,14 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ..data_model import (
-    ClassificationTrainRecord, GenerationTrainRecord
-)
+# Local
+from ..data_model import ClassificationTrainRecord, GenerationTrainRecord
+
 
 def convert_to_generation_record(TrainRecord):
     if isinstance(TrainRecord, GenerationTrainRecord):
         return TrainRecord
     if isinstance(TrainRecord, ClassificationTrainRecord):
         text = ClassificationTrainRecord.text
-        labels = ','.join(ClassificationTrainRecord.labels)
-        return GenerationTrainRecord(input=text, output=labels) 
+        labels = ",".join(ClassificationTrainRecord.labels)
+        return GenerationTrainRecord(input=text, output=labels)

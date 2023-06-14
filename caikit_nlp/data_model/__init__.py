@@ -15,8 +15,6 @@
 """
 
 # Local
-from . import classification
+from . import classification, generation
 from .classification import *
-
-from . import generation
 from .generation import *

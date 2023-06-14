@@ -12,22 +12,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Local
 from caikit_nlp import data_model as dm
 from caikit_nlp.toolkit.task_specific_utils import convert_to_generation_record
 
+
 def test_convert_classification_train_record_to_generation_record():
     classification_train_record = dm.ClassificationTrainRecord(
-        text="foo bar", labels =["label1"]
-    ) 
+        text="foo bar", labels=["label1"]
+    )
     generated_train = convert_to_generation_record(classification_train_record)
     assert isinstance(generated_train, dm.GenerationTrainRecord)
     assert generated_train.input == "foo bar"
-    assert generated_train.output == "label1" 
+    assert generated_train.output == "label1"
+
 
 def test_convert_generation_record_to_generation_record():
-    generation_train_record = dm.GenerationTrainRecord(
-        input = "foo bar", output = "label1"
-    )
+    generation_train_record = dm.GenerationTrainRecord(input="foo bar", output="label1")
     generated_train = convert_to_generation_record(generation_train_record)
     assert isinstance(generated_train, dm.GenerationTrainRecord)
     assert generated_train.input == generation_train_record.input

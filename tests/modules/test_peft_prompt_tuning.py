@@ -124,6 +124,7 @@ def test_train_model(causal_lm_train_kwargs):
     pred = model.run("@bar what a cute cat!")
     assert isinstance(pred, caikit_nlp.data_model.GeneratedResult)
 
+
 def test_train_model_classification_record(causal_lm_train_kwargs):
     """Ensure that we can train a model on some toy data for 1+ steps & run inference."""
     patch_kwargs = {
@@ -151,6 +152,7 @@ def test_train_model_classification_record(causal_lm_train_kwargs):
     # Ensure that we can get something out of it
     pred = model.run("@bar what a cute cat!")
     assert isinstance(pred, caikit_nlp.data_model.GeneratedResult)
+
 
 ### Implementation details
 # These tests can probably be removed and tested directly through .save() once

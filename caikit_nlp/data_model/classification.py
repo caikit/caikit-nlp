@@ -26,8 +26,8 @@ import caikit
 
 log = alog.use_channel("DATAM")
 
+
 @caikit.core.dataobject(package="caikit_data_model.caikit_nlp")
 class ClassificationTrainRecord(DataObjectBase):
     text: str
     labels: List[str]
-

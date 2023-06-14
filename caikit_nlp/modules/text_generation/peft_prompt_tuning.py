@@ -61,8 +61,8 @@ from ...resources.pretrained_model import (
 )
 from ...toolkit.data_stream_wrapper import SimpleIterableStreamWrapper
 from ...toolkit.data_type_utils import get_torch_dtype, str_to_torch_dtype
-from ...toolkit.verbalizer_utils import is_valid_verbalizer, render_verbalizer
 from ...toolkit.task_specific_utils import convert_to_generation_record
+from ...toolkit.verbalizer_utils import is_valid_verbalizer, render_verbalizer
 from .text_generation_task import TextGenerationTask
 
 log = alog.use_channel("PEFT_PROMPT")
@@ -191,12 +191,12 @@ class PeftPromptTuning(ModuleBase):
     def train(
         cls,
         base_model: str,  # TODO: Union[str, PretrainedModelBase]
-        train_stream: Union [ 
+        train_stream: Union[
             DataStream[GenerationTrainRecord],
             DataStream[ClassificationTrainRecord],
         ],
         tuning_config: TuningConfig,
-        val_stream: Union [ 
+        val_stream: Union[
             DataStream[GenerationTrainRecord],
             DataStream[ClassificationTrainRecord],
         ] = None,  # TODO: Optional[DataStream[GenerationTrainRecord]]

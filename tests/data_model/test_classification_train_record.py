@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Local
 from caikit_nlp import data_model as dm
 
 ## Setup #########################################################################
@@ -30,13 +31,18 @@ def test_all_fields_accessible():
     assert dummy_classification_train_record.text == "It is 20 degrees today"
     assert dummy_classification_train_record.labels == ["temperature"]
 
+
 def test_from_proto_and_back():
-    new = dm.ClassificationTrainRecord.from_proto(dummy_classification_train_record.to_proto())
+    new = dm.ClassificationTrainRecord.from_proto(
+        dummy_classification_train_record.to_proto()
+    )
     assert new.text == "It is 20 degrees today"
     assert new.labels == ["temperature"]
 
 
 def test_from_json_and_back():
-    new = dm.ClassificationTrainRecord.from_json(dummy_classification_train_record.to_json())
+    new = dm.ClassificationTrainRecord.from_json(
+        dummy_classification_train_record.to_json()
+    )
     assert new.text == "It is 20 degrees today"
     assert new.labels == ["temperature"]
