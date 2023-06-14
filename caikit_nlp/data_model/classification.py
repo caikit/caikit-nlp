@@ -11,12 +11,23 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Common data model containing all data structures that are passed in and out of blocks.
+"""Data structures for text generation representations
 """
+# Standard
+from enum import Enum
+from typing import List
 
-# Local
-from . import classification
-from .classification import *
+# First Party
+from caikit.core import DataObjectBase
 
-from . import generation
-from .generation import *
+# First party
+import alog
+import caikit
+
+log = alog.use_channel("DATAM")
+
+@caikit.core.dataobject(package="caikit_data_model.caikit_nlp")
+class ClassificationTrainRecord(DataObjectBase):
+    text: str
+    labels: List[str]
+
