@@ -28,7 +28,7 @@ dependencies = [
     "tokenizers==0.13.3",
     "torch==1.13.1",
     "tqdm==4.65.0",
-    "transformers==4.27.1",
+    "transformers==4.30.2",
     "peft@git+https://github.com/mayank31398/peft.git@mpt-os-test"
 ]
 
