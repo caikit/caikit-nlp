@@ -139,7 +139,7 @@ class PretrainedModelBase(ABC, ModuleBase):
         # Default tokenizer to model if downloading with a model name rather
         # than a path
         error.value_check(
-            "<FPT12813423E>",
+            "<NLP12813423E>",
             not os.path.isdir(model_name) or tokenizer_name is not None,
             "Must provide path to tokenizer if model_name is a path",
         )
@@ -199,8 +199,8 @@ class PretrainedModelBase(ABC, ModuleBase):
         model_abs_path = os.path.join(
             model_path, config[cls._MODEL_ARTIFACTS_CONFIG_KEY]
         )
-        error.dir_check("<FPT12813455E>", tok_abs_path)
-        error.dir_check("<FPT12813443E>", model_abs_path)
+        error.dir_check("<NLP12813455E>", tok_abs_path)
+        error.dir_check("<NLP12813443E>", model_abs_path)
         res = cls.bootstrap(
             tokenizer_name=tok_abs_path,
             model_name=model_abs_path,

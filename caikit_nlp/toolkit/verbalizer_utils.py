@@ -78,7 +78,7 @@ def render_verbalizer(verbalizer_template: str, source_object) -> str:
         captured_groups = match_obj.groups()
         if len(captured_groups) != 1:
             error(
-                "<FPT97444192E>",
+                "<NLP97444192E>",
                 ValueError(
                     "Unexpectedly captured multiple groups in verbalizer rendering"
                 ),
@@ -88,14 +88,14 @@ def render_verbalizer(verbalizer_template: str, source_object) -> str:
         if is_dict:
             if index_object not in source_object:
                 error(
-                    "<FPT97415192E>",
+                    "<NLP97415192E>",
                     KeyError("Requested template string is not a valid key in dict"),
                 )
             return source_object[index_object]
 
         if not hasattr(source_object, index_object):
             error(
-                "<FPT97715112E>",
+                "<NLP97715112E>",
                 AttributeError(
                     "Requested template string is not a valid property of type"
                 ),

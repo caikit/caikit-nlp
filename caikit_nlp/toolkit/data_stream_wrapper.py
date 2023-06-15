@@ -34,9 +34,9 @@ class SimpleIterableStreamWrapper(IterableDataset):
     """
 
     def __init__(self, stream, shuffle, buffer_size=None):
-        error.type_check("<FPT12855513E>", bool, shuffle=shuffle)
+        error.type_check("<NLP12855513E>", bool, shuffle=shuffle)
         error.type_check(
-            "<FPT12813713E>", int, buffer_size=buffer_size, allow_none=True
+            "<NLP12813713E>", int, buffer_size=buffer_size, allow_none=True
         )
         self.stream = stream
         self.shuffle = shuffle

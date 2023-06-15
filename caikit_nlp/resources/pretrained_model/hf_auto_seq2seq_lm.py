@@ -61,6 +61,6 @@ class HFAutoSeq2SeqLM(PretrainedModelBase):
         if PromptOutputModelType.DECODER in output_model_types:
             num_transformer_submodules += 1
         error.value_check(
-            "<FPT71505742E>", 0 < num_transformer_submodules <= cls.MAX_NUM_TRANSFORMERS
+            "<NLP71505742E>", 0 < num_transformer_submodules <= cls.MAX_NUM_TRANSFORMERS
         )
         return num_transformer_submodules

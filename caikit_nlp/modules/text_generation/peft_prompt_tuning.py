@@ -268,7 +268,7 @@ class PeftPromptTuning(ModuleBase):
             init_method = tuning_config.prompt_tuning_init_method
 
             error.value_check(
-                "<FPT11848053E>", init_method in allowed_tuning_init_methods
+                "<NLP11848053E>", init_method in allowed_tuning_init_methods
             )
 
             init_method = MultitaskPromptTuningInit(init_method)
@@ -283,7 +283,7 @@ class PeftPromptTuning(ModuleBase):
                 # NOTE: prompt_tuning_init_source_model is currently a path. In future
                 # we will replace this with caikit.resources to properly cataloging these
                 error.type_check(
-                    "<FPT89108490E>",
+                    "<NLP89108490E>",
                     str,
                     prompt_tuning_init_source_model=tuning_config.prompt_tuning_init_source_model,
                 )
@@ -293,7 +293,7 @@ class PeftPromptTuning(ModuleBase):
                 )
 
                 error.file_check(
-                    "<FPT96030210E>", tuning_config.prompt_tuning_init_source_model
+                    "<NLP96030210E>", tuning_config.prompt_tuning_init_source_model
                 )
                 log.debug(
                     "Validated tuning source prompt [%s]",
@@ -315,21 +315,21 @@ class PeftPromptTuning(ModuleBase):
 
             if not resource_type:
                 error(
-                    "<FPT61784225E>",
+                    "<NLP61784225E>",
                     "{} model type is not supported currently!".format(
                         model_config.model_type
                     ),
                 )
             log.debug("Bootstrapping base resource [%s]", base_model)
             base_model = resource_type.bootstrap(base_model, torch_dtype=torch_dtype)
-        error.type_check("<FPT65714919E>", PretrainedModelBase, base_model=base_model)
+        error.type_check("<NLP65714919E>", PretrainedModelBase, base_model=base_model)
 
         # Validate if tuned output model type is compatible with base model or not
         if not tuning_config.output_model_types:
             output_model_types = base_model.PROMPT_OUTPUT_TYPES
         else:
             error.value_check(
-                "<FPT36947542E>",
+                "<NLP36947542E>",
                 tuning_config.output_model_types in base_model.PROMPT_OUTPUT_TYPES,
                 "{} not supported for base model type {}".format(
                     tuning_config.output_model_types, base_model.model_type
@@ -338,11 +338,11 @@ class PeftPromptTuning(ModuleBase):
             output_model_types = tuning_config.output_model_types
 
         error.value_check(
-            "<FPT30542004E>", len(output_model_types) <= base_model.MAX_NUM_TRANSFORMERS
+            "<NLP30542004E>", len(output_model_types) <= base_model.MAX_NUM_TRANSFORMERS
         )
         # Ensure that our verbalizer is a string and will not render to a hardcoded string
         error.value_check(
-            "<FPT83837412E>",
+            "<NLP83837412E>",
             is_valid_verbalizer(verbalizer),
             "Provided verbalizer is an invalid type or has no renderable placeholders",
         )
@@ -354,11 +354,11 @@ class PeftPromptTuning(ModuleBase):
         metric = kwargs.get("metric")
         if isinstance(tuning_type, str):
             error.value_check(
-                "<FPT65714994E>",
+                "<NLP65714994E>",
                 tuning_type in TuningType._member_names_,
             )
             tuning_type = TuningType(tuning_type)
-        error.type_check("<FPT65714993E>", TuningType, tuning_type=tuning_type)
+        error.type_check("<NLP65714993E>", TuningType, tuning_type=tuning_type)
 
         # Convert our datastreams -> data loaders by disguising them as PyTorch iterable datasets
         train_dataloader, val_dataloader = cls.create_dataloaders_from_stream(
@@ -421,7 +421,7 @@ class PeftPromptTuning(ModuleBase):
         # saved in different location but still same
         del base_model_config["_name_or_path"]
         error.value_check(
-            "<FPT07232147E>",
+            "<NLP07232147E>",
             "_name_or_path" not in base_model_config,
             "_name_or_path needs to be removed from config!",
         )
@@ -549,7 +549,7 @@ class PeftPromptTuning(ModuleBase):
             else:
                 # TODO: Handle other model types
                 error(
-                    "<FTP84249238E>",
+                    "<NLP84249238E>",
                     NotImplementedError("Only export of causal LM models is supported"),
                 )
             tokenizer = AutoTokenizer.from_pretrained(
@@ -558,7 +558,7 @@ class PeftPromptTuning(ModuleBase):
         else:
             # TODO: Can we make this to be a warning and just
             # work with prompt vectors if base model is not provided
-            error("<FPT97275192E>", ValueError("base_model not provided."))
+            error("<NLP97275192E>", ValueError("base_model not provided."))
 
         output_model_types = [
             PromptOutputModelType(output_type)
@@ -612,7 +612,7 @@ class PeftPromptTuning(ModuleBase):
         # Our model should only have one or two transformer modules; PEFT config lets you
         # arbitrarily configure these, but the slicing assumptions for the prompt tuning
         # seem to assume this...
-        error.value_check("<FPT83837722E>", 1 <= num_transformer_submodules <= 2)
+        error.value_check("<NLP83837722E>", 1 <= num_transformer_submodules <= 2)
         # Get the prompt vectors.
         if tuning_type == TuningType.PROMPT_TUNING:  # Should also be done for prefix
             # NOTE; If this is done for MPT, we get the SHARED prompt vector.
@@ -651,7 +651,7 @@ class PeftPromptTuning(ModuleBase):
         prompt_vector = prompt_vector.to(model.device)
         # Each transformer submodule should have num_virtual_tokens rows
         error.value_check(
-            "<FPT83444722E>",
+            "<NLP83444722E>",
             prompt_vector.shape[0] == num_transformer_submodules * num_virtual_tokens,
         )
 
@@ -779,11 +779,11 @@ class PeftPromptTuning(ModuleBase):
         # NOTE: Should num_virtual_tokens be part of direct `train` function param instead
         # of tuning_config?
         # NOTE: We are currently not supporting random initialization, i.e prompt_tuning_init.Random
-        error.type_check("<FPT61851758E>", str, task_type=task_type)
-        error.type_check("<FPT37352293E>", TuningConfig, tuning_config=tuning_config)
+        error.type_check("<NLP61851758E>", str, task_type=task_type)
+        error.type_check("<NLP37352293E>", TuningConfig, tuning_config=tuning_config)
 
         error.value_check(
-            "<FPT11369136E>",
+            "<NLP11369136E>",
             tuning_config.num_virtual_tokens
             and isinstance(tuning_config.num_virtual_tokens, int),
             "num_virtual_tokens not provided in tuning_config",
@@ -823,7 +823,7 @@ class PeftPromptTuning(ModuleBase):
         config_params = cls._filter_params_for_prompt_config(
             tuning_config_type, config_kwargs
         )
-        log.info("<FPT41038481I>", f"Parameters used: {config_params}")
+        log.info("<NLP41038481I>", f"Parameters used: {config_params}")
         return tuning_config_type(task_type=task_type_hf, **config_params)
 
     ################################## Private Functions ###########################################
@@ -1208,7 +1208,7 @@ class PeftPromptTuning(ModuleBase):
         allowed_keys = list(prompt_config.__dataclass_fields__.keys())
         allowed_params = dict(filter(lambda x: x[0] in allowed_keys, params.items()))
         log.info(
-            "<FPT18184771I>",
+            "<NLP18184771I>",
             "[{}] config params not supported by provided tuning type!".format(
                 params.keys() - allowed_params.keys()
             ),
@@ -1229,9 +1229,9 @@ class PeftPromptTuning(ModuleBase):
             torch_dtype: Union[str, torch.dtype]
                 Torch data type that we would like to coerce our model reference to.
         """
-        error.type_check("<FPT83837212E>", str, allow_none=True, device=device)
-        error.type_check("<FPT83837222E>", PeftModel, peft_model=peft_model)
-        error.type_check("<FPT83837232E>", torch.dtype, str, torch_dtype=torch_dtype)
+        error.type_check("<NLP83837212E>", str, allow_none=True, device=device)
+        error.type_check("<NLP83837222E>", PeftModel, peft_model=peft_model)
+        error.type_check("<NLP83837232E>", torch.dtype, str, torch_dtype=torch_dtype)
         # Get the actual torch type and validate, e.g., if we passed a string,
         # then move the peft model to that type on our training device.
         torch_dtype = get_torch_dtype(torch_dtype)
@@ -1240,7 +1240,7 @@ class PeftPromptTuning(ModuleBase):
             device == "cpu" or not torch.cuda.is_bf16_supported()
         ):
             log.warning(
-                "<FPT18555772W>",
+                "<NLP18555772W>",
                 "Requested data type torch.bfloat16 is unsupported; falling back to torch.float32",
             )
             torch_dtype = torch.float32
