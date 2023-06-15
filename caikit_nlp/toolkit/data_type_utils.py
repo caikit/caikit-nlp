@@ -40,7 +40,7 @@ def str_to_torch_dtype(dtype_str: str) -> torch.dtype:
     """
     dt = getattr(torch, dtype_str, None)
     if not isinstance(dt, torch.dtype):
-        error("<FPT85554812E>", ValueError(f"Unrecognized data type: {dtype_str}"))
+        error("<NLP85554812E>", ValueError(f"Unrecognized data type: {dtype_str}"))
     return dt
 
 
@@ -57,7 +57,7 @@ def get_torch_dtype(dtype: Optional[Union[str, torch.dtype]] = None) -> torch.dt
         torch.dtype
             Torch data type to be used.
     """
-    error.type_check("<FPT84274822E>", torch.dtype, str, dtype=dtype, allow_none=True)
+    error.type_check("<NLP84274822E>", torch.dtype, str, dtype=dtype, allow_none=True)
     # If a Torch dtype is passed, nothing to do
     if isinstance(dtype, torch.dtype):
         return dtype

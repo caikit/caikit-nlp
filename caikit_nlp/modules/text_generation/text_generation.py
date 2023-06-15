@@ -67,10 +67,10 @@ class TextGeneration(ModuleBase):
     ):
         super().__init__()
 
-        error.type_check("<FPT00609194E>", str, allow_none=True, bos_token=bos_token)
-        error.type_check("<FPT72469403E>", str, allow_none=True, sep_token=sep_token)
-        error.type_check("<FPT48137045E>", str, allow_none=True, eos_token=eos_token)
-        error.type_check("<FPT53511308E>", str, allow_none=True, pad_token=pad_token)
+        error.type_check("<NLP00609194E>", str, allow_none=True, bos_token=bos_token)
+        error.type_check("<NLP72469403E>", str, allow_none=True, sep_token=sep_token)
+        error.type_check("<NLP48137045E>", str, allow_none=True, eos_token=eos_token)
+        error.type_check("<NLP53511308E>", str, allow_none=True, pad_token=pad_token)
         self.base_model = base_model
         self.base_model_name = base_model_name
 
@@ -123,7 +123,7 @@ class TextGeneration(ModuleBase):
 
         if not resource_type:
             error(
-                "<FPT61784225E>",
+                "<NLP61784225E>",
                 "{} model type is not supported currently!".format(
                     model_config.model_type
                 ),
@@ -189,12 +189,12 @@ class TextGeneration(ModuleBase):
             TextGeneration
                 Instance of this class built from the on disk model.
         """
-        error.type_check("<FPT03521359E>", TGISBackend, load_backend=load_backend)
+        error.type_check("<NLP03521359E>", TGISBackend, load_backend=load_backend)
 
         config = ModuleConfig.load(model_path)
         base_model_path = config.get("artifact_path", "")
         base_model_path = os.path.join(model_path, base_model_path)
-        error.dir_check("<FPT01983374E>", base_model_path)
+        error.dir_check("<NLP01983374E>", base_model_path)
         return cls(
             base_model_path,
             bos_token=config.bos_token,
@@ -249,7 +249,7 @@ class TextGeneration(ModuleBase):
 
             # pylint: disable=duplicate-code
             error.value_check(
-                "<FPT38899018E>",
+                "<NLP38899018E>",
                 len(batch_response.responses) == 1,
                 f"Got {len(batch_response.responses)} responses for a single request",
             )
