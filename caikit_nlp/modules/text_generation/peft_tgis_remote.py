@@ -79,7 +79,7 @@ class PeftPromptTuningTGIS(ModuleBase):
             PeftPromptTuningTGIS
                 Instance of this class built from the on disk model.
         """
-        error.type_check("<FPT85069377E>", TGISBackend, load_backend=load_backend)
+        error.type_check("<NLP85069377E>", TGISBackend, load_backend=load_backend)
         config = ModuleConfig.load(model_path)
         eos_token = config.eos_token
         verbalizer = config.verbalizer
@@ -87,7 +87,7 @@ class PeftPromptTuningTGIS(ModuleBase):
         # NOTE: base_model_name is used as "model_id" when calling to TGIS backend
         base_model_name = config.get("base_model_name", "")
         prompt_cache_id = dir_name
-        error.type_check("<FPT24633932E>", str, prompt_cache_id=prompt_cache_id)
+        error.type_check("<NLP24633932E>", str, prompt_cache_id=prompt_cache_id)
         # NOTE: prompt model config stores a base_model_config
         # which can be used to validate if the prompt is tuned
         # for the model it is being used with. However,
@@ -142,7 +142,7 @@ class PeftPromptTuningTGIS(ModuleBase):
                 Generated text result produced by TGIS.
         """
         error.value_check(
-            "<FPT87360638E>",
+            "<NLP87360638E>",
             self.enable_backend,
             "Backend must be configured and loaded with this module before executing `run` call.",
         )
@@ -176,7 +176,7 @@ class PeftPromptTuningTGIS(ModuleBase):
             batch_response = self._client.Generate(request)
 
         error.value_check(
-            "<FPT12333421E>",
+            "<NLP12333421E>",
             len(batch_response.responses) == 1,
             f"Got {len(batch_response.responses)} responses for a single request",
         )
