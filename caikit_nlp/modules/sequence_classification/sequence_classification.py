@@ -56,12 +56,12 @@ class SequenceClassification(ModuleBase):
     ):
         super().__init__()
         error.type_check(
-            "<FPT74125820E>",
+            "<NLP74125820E>",
             PreTrainedTokenizerBase,
             tokenizer=tokenizer,
         )
         error.type_check(
-            "<FPT64751996E>",
+            "<NLP64751996E>",
             PreTrainedModel,
             model=model,
         )
@@ -179,7 +179,7 @@ class SequenceClassification(ModuleBase):
 
         if not self.model.config.id2label:
             log.warning(
-                "<FPT31047577W>",
+                "<NLP31047577W>",
                 "No id2label provided in model config. Defaulting to numeric labels",
             )
 
