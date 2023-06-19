@@ -12,8 +12,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# First Party
-from caikit.core import TaskBase, task
-
 # Local
-from .regex_sentence_splitter import RegexSentenceSplitter
+from .embedding_retrieval_task import EmbeddingRetrievalTask

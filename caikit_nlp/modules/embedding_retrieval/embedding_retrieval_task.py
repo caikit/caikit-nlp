@@ -16,4 +16,12 @@
 from caikit.core import TaskBase, task
 
 # Local
-from .regex_sentence_splitter import RegexSentenceSplitter
+from ...data_model import EmbeddingResult
+
+
+@task(
+    required_parameters={"text": str},
+    output_type=EmbeddingResult,
+)
+class EmbeddingRetrievalTask(TaskBase):
+    pass
