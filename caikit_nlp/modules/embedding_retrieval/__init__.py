@@ -12,16 +12,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# First Party
-from caikit.core import TaskBase, task
-
 # Local
-from ...data_model import GeneratedResult
-
-
-@task(
-    required_parameters={"text": str},
-    output_type=GeneratedResult,
-)
-class TextGenerationTask(TaskBase):
-    pass
+from .embedding_retrieval_task import EmbeddingRetrievalTask

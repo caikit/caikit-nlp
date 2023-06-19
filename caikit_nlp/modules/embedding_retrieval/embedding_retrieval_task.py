@@ -16,12 +16,12 @@
 from caikit.core import TaskBase, task
 
 # Local
-from ...data_model import GeneratedResult
+from ...data_model import EmbeddingResult
 
 
 @task(
     required_parameters={"text": str},
-    output_type=GeneratedResult,
+    output_type=EmbeddingResult,
 )
-class TextGenerationTask(TaskBase):
+class EmbeddingRetrievalTask(TaskBase):
     pass
