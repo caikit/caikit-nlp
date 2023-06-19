@@ -82,7 +82,7 @@ class Stanza(ModuleBase):
         for sentence in split_doc.sentences:
             span_list.append(
                 Span(
-                    begin=sentence.tokens[0].start_char,
+                    start=sentence.tokens[0].start_char,
                     end=sentence.tokens[-1].end_char,
                     text=sentence.text,
                 )
