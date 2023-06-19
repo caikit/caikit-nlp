@@ -115,9 +115,6 @@ class SequenceClassification(ModuleBase):
         Args:
             model_path: str
                 Path to store model artifact(s)
-            save_base_model: bool
-                Save base model in the model_path provided.
-                Default: False
         """
         self.tokenizer.save_pretrained(model_path)
         self.model.save_pretrained(model_path)

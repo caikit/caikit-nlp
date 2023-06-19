@@ -16,15 +16,19 @@ At this time this module is only designed for inference"""
 # Standard
 from typing import List
 import os
+import shutil
 
 # Third Party
 from stanza.pipeline.core import DownloadMethod
 import stanza
 
 # First Party
-from caikit.core.modules import ModuleBase, module
+from caikit.core.modules import ModuleConfig, ModuleSaver, module
 from caikit.core.toolkit import error_handler
 import alog
+
+# Local
+from .base import SentenceSplitBase
 
 log = alog.use_channel("STZ_SPLIT")
 error = error_handler.get(log)
@@ -40,7 +44,7 @@ TOKENIZE_STR = "tokenize"
     name="Stanza sentence split",
     version="0.1.0",
 )
-class Stanza(ModuleBase):
+class Stanza(SentenceSplitBase):
     # NOTE: no task because
     # 1. Task outputs must be DataBase and this returns List[Span]
     # 2. This module is generally expected to be composed with another module
@@ -48,7 +52,7 @@ class Stanza(ModuleBase):
 
     ################################ Constructor #################################################
 
-    def __init__(self, stanza_resources_path, lang="en"):
+    def __init__(self, stanza_resources_path: str, lang: str = "en"):
         super().__init__()
         # For language flexibility, the pipeline could've been instantiated on
         # each inference call, but this would assume all language resources
@@ -57,10 +61,11 @@ class Stanza(ModuleBase):
         # resources on first call. To allow this to run in offline manner, we
         # expect the necessary tokenization resource for each language to
         # already be present
+        self.stanza_resources_path = stanza_resources_path
         self.stanza_pipeline = stanza.Pipeline(
             lang=lang,
             processors=TOKENIZE_STR,
-            dir=stanza_resources_path,
+            dir=self.stanza_resources_path,
             download_method=DownloadMethod.REUSE_RESOURCES,
         )
 
@@ -89,10 +94,51 @@ class Stanza(ModuleBase):
             )
         return span_list
 
-    # NOTE: no .save, .load is provided here at this time since a .load
-    # would either look like .bootstrap or wrapping the stanza_resources_path
-    # with an additional config file. Similarly .save does not mean much
-    # here since the module is meant to compatible with an existing stanza resource
+    # NOTE: .save and .load here are mainly to provide wrapping around the
+    # stanza_resources_path for use in other modules
+    def save(self, model_path: str):
+        """Save resource to target path
+
+        Args:
+            model_path: str
+                Path to store model artifact(s)
+        """
+        module_saver = ModuleSaver(
+            self,
+            model_path=model_path,
+        )
+        stanza_resources_path = os.path.join(model_path, "stanza")
+        shutil.copytree(
+            self.stanza_resources_path, stanza_resources_path, dirs_exist_ok=True
+        )
+        with module_saver:
+            config_options = {"stanza_resources_path": stanza_resources_path}
+            module_saver.update_config(config_options)
+
+    @classmethod
+    def load(cls, model_path: str) -> "Stanza":
+        """Load a stanza sentence splitter model
+
+        Args:
+            model_path: str
+                Path to the model to be loaded.
+
+        Returns:
+            Stanza
+                Instance of this class built from the on disk model.
+        """
+        config = ModuleConfig.load(model_path)
+        if config.stanza_resources_path is None:
+            error(
+                "<NLP66695489E>",
+                ValueError(
+                    "Config file for `{}` missing `stanza_resources_path`".format(
+                        model_path
+                    )
+                ),
+            )
+        return Stanza.bootstrap(config.stanza_resources_path)
+
     @classmethod
     def bootstrap(
         cls, stanza_resources_path: str, lang: str = "en"
