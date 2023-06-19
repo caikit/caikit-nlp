@@ -11,11 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""This contains the base class from which sentence split modules inherit
-"""
-# First Party
-from caikit.core.modules import ModuleBase
 
-
-class SentenceSplitBase(ModuleBase):
-    """Abstract base class for creating sentence split modules"""
+# Local
+from .sentence_content_detection import SentenceContentDetection

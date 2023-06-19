@@ -11,11 +11,19 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""This contains the base class from which sentence split modules inherit
+"""This task can be promoted to caikit/caikit for wider usage when applicable
+to multiple modules
 """
 # First Party
-from caikit.core.modules import ModuleBase
+from caikit.core import TaskBase, task
+
+# Local
+from ...data_model import TextContentResults
 
 
-class SentenceSplitBase(ModuleBase):
-    """Abstract base class for creating sentence split modules"""
+@task(
+    required_parameters={"text": str},
+    output_type=TextContentResults,
+)
+class TextContentDetectionTask(TaskBase):
+    pass

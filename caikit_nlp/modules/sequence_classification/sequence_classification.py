@@ -11,8 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""This module contains sequence classification. At this time this module
-is only designed for inference"""
+"""This module contains sequence classification, compatible with transformer
+SequenceClassification modles. At this time this module is only designed
+for inference"""
 # Standard
 from typing import Dict, List, Union
 
@@ -106,7 +107,7 @@ class SequenceClassification(ModuleBase):
             classification_prediction = SequenceClassification._process_predictions(
                 scores_dict, text_idx
             )
-        classification_predictions.append(classification_prediction)
+            classification_predictions.append(classification_prediction)
         return classification_predictions
 
     def save(self, model_path: str):

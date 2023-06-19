@@ -11,8 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""This module contains sentence splitting with stanza for single languages. 
-At this time this module is only designed for inference"""
+"""This module contains sentence splitting with stanza for single languages."""
 # Standard
 from typing import List
 import os
@@ -28,13 +27,11 @@ from caikit.core.toolkit import error_handler
 import alog
 
 # Local
+from ...data_model import Span
 from .base import SentenceSplitBase
 
 log = alog.use_channel("STZ_SPLIT")
 error = error_handler.get(log)
-
-# Local
-from ...data_model import Span
 
 TOKENIZE_STR = "tokenize"
 
