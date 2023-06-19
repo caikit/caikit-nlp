@@ -11,18 +11,19 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Temporary! We will likely use consolidated interfaces from caikit/caikit
+"""This task can be promoted to caikit/caikit for wider usage when applicable
+to multiple modules
 """
 # First Party
 from caikit.core import TaskBase, task
 
 # Local
-from ...data_model import TextClassification
+from ...data_model import ClassificationPrediction
 
 
 @task(
     required_parameters={"text": str},
-    output_type=TextClassification,
+    output_type=ClassificationPrediction,
 )
 class TextClassificationTask(TaskBase):
     pass

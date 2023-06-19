@@ -11,10 +11,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Temporary! We will likely use consolidated interfaces from caikit/caikit
+"""These interfaces can be promoted to caikit/caikit for wider usage
+when applicable to multiple modules
 """
 # Standard
-from typing import Dict
+from typing import List
 
 # First Party
 from caikit.core import DataObjectBase
@@ -24,6 +25,11 @@ import caikit
 
 
 @caikit.core.dataobject(package="caikit_data_model.caikit_nlp")
-class TextClassification(DataObjectBase):
-    # {label: score}
-    classification: Dict[str, float]
+class Classification(DataObjectBase):
+    label: str
+    score: float
+
+
+@caikit.core.dataobject(package="caikit_data_model.caikit_nlp")
+class ClassificationPrediction(DataObjectBase):
+    classifications: List[Classification]

@@ -14,7 +14,7 @@
 """This module contains sequence classification. At this time this module
 is only designed for inference"""
 # Standard
-from typing import List, Union
+from typing import Dict, List, Union
 
 # Third Party
 from transformers import (
@@ -31,7 +31,7 @@ from caikit.core.toolkit import error_handler
 import alog
 
 # Local
-from ...data_model import TextClassification
+from ...data_model import Classification, ClassificationPrediction
 from .text_classification_task import TextClassificationTask
 
 log = alog.use_channel("SEQ_CLASS")
@@ -71,7 +71,7 @@ class SequenceClassification(ModuleBase):
 
     ################################## API functions #############################################
 
-    def run(self, text: str) -> TextClassification:
+    def run(self, text: str) -> ClassificationPrediction:
         """Run the sequence classification, truncates sequences too long for model
 
         Args:
@@ -79,16 +79,13 @@ class SequenceClassification(ModuleBase):
                 Input string to be classified
 
         Returns:
-            TextClassification
+            ClassificationPrediction
         """
         scores_dict = self._get_scores(text)
         # Re-organize scores_dict - for one text, this is just the first score
-        classification = {
-            label: score_array[0] for label, score_array in scores_dict.items()
-        }
-        return TextClassification(classification=classification)
+        return SequenceClassification._process_predictions(scores_dict, text_idx=0)
 
-    def run_batch(self, texts: List[str]) -> List[TextClassification]:
+    def run_batch(self, texts: List[str]) -> List[ClassificationPrediction]:
         """Run the sequence classification on batch, truncates sequences too long for model
 
         Args:
@@ -96,20 +93,21 @@ class SequenceClassification(ModuleBase):
                 Input strings to be classified
 
         Returns:
-            List[TextClassification]
+            List[ClassificationPrediction]
         """
         scores_dict = self._get_scores(texts)
         num_texts = len(texts)
 
         # Re-organize scores_dict for each example
-        classifications = []
+        # We could eventually consider whether or not to sort classifications by scores
+        # but avoiding this prescription here for now
+        classification_predictions = []
         for text_idx in range(num_texts):
-            per_text_scores = {}
-            for label, score_array in scores_dict.items():
-                per_text_scores[label] = score_array[text_idx]
-            classification = TextClassification(classification=per_text_scores)
-            classifications.append(classification)
-        return classifications
+            classification_prediction = SequenceClassification._process_predictions(
+                scores_dict, text_idx
+            )
+        classification_predictions.append(classification_prediction)
+        return classification_predictions
 
     def save(self, model_path: str):
         """Save model in target path
@@ -200,6 +198,32 @@ class SequenceClassification(ModuleBase):
             label_scores = scores[:, label_idx]
             scores_dict[label] = label_scores
         return scores_dict
+
+    @staticmethod
+    def _process_predictions(
+        scores_dict: Dict, text_idx: int
+    ) -> ClassificationPrediction:
+        """Process dictionary of label: scores to ClassificationPrediction
+
+        Args:
+            scores_dict: Dict
+                Dict with key label, and values as the array of scores,
+                each corresponding to text(s)
+            text_idx: int
+                Integer index of text in batch
+
+        Returns:
+            ClassificationPrediction
+        """
+        classification_list = []
+        for label, score_array in scores_dict.items():
+            classification_list.append(
+                Classification(label=label, score=score_array[text_idx])
+            )
+        classification_prediction = ClassificationPrediction(
+            classifications=classification_list
+        )
+        return classification_prediction
 
     # NOTE: similar to prompt tuning but no user override, could consolidate eventually
     @staticmethod
