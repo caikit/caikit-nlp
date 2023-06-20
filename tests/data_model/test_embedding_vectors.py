@@ -31,8 +31,9 @@ random_number_generator = np.random.default_rng()
 random_numpy_vector1d_float32 = random_number_generator.random(
     DUMMY_VECTOR_SHAPE, dtype=np.float32
 )
-# NOTE: numpy random number generator does not support float16 so we are manually converting here
-random_numpy_vector1d_float16 = np.float16(random_numpy_vector1d_float32)
+random_numpy_vector1d_float64 = random_number_generator.random(
+    DUMMY_VECTOR_SHAPE, dtype=np.float64
+)
 random_python_vector1d_float = random_numpy_vector1d_float32.tolist()
 
 vector1d_response_float32 = dm.Vector1D(data=[random_python_vector1d_float])
@@ -53,6 +54,7 @@ def test_vector1d_dm_float():
     # Test json
     vector_in_json = dm_result.to_json()
     new_dm_from_json = dm.Vector1D.from_json(vector_in_json)
+
     assert new_dm_from_json.data == random_python_vector1d_float
 
 
@@ -63,26 +65,32 @@ def test_vector1d_dm_numpy_float32():
 
     # Test proto
     vector_in_proto = dm_result.to_proto()
+    # check if proto does contain value in float32
+    assert vector_in_proto.data[0].data_float32 == random_numpy_vector1d_float32[0]
     new_dm_from_proto = dm.Vector1D.from_proto(vector_in_proto)
     np.testing.assert_array_equal(new_dm_from_proto.data, random_numpy_vector1d_float32)
 
     # Test json
     vector_in_json = dm_result.to_json()
     new_dm_from_json = dm.Vector1D.from_json(vector_in_json)
+    # NOTE: When converting from json, the resultant will not be of same type since
+    # json cannot store numpy data type
     np.testing.assert_array_equal(new_dm_from_json.data, random_numpy_vector1d_float32)
 
 
-def test_vector1d_dm_numpy_float16():
-    dm_result = dm.Vector1D(data=random_numpy_vector1d_float16)
+def test_vector1d_dm_numpy_float64():
+    dm_result = dm.Vector1D(data=random_numpy_vector1d_float64)
 
-    np.testing.assert_array_equal(dm_result.data, random_numpy_vector1d_float16)
+    np.testing.assert_array_equal(dm_result.data, random_numpy_vector1d_float64)
     assert isinstance(dm_result.data, np.ndarray)
-    assert dm_result.data.dtype == np.float16
+    assert dm_result.data.dtype == np.float64
 
     # Test proto
     vector_in_proto = dm_result.to_proto()
+    # check if proto does contain value in float64
+    assert vector_in_proto.data[0].data_float64 == random_numpy_vector1d_float64[0]
     new_dm_from_proto = dm.Vector1D.from_proto(vector_in_proto)
-    np.testing.assert_array_equal(new_dm_from_proto.data, random_numpy_vector1d_float16)
+    np.testing.assert_array_equal(new_dm_from_proto.data, random_numpy_vector1d_float64)
 
     # NOTE: Since we do not have a way of supporting float16 type etc currently, once the data is converted to proto / json
     # it will become python list only.
@@ -91,7 +99,7 @@ def test_vector1d_dm_numpy_float16():
     # Test json
     vector_in_json = dm_result.to_json()
     new_dm_from_json = dm.Vector1D.from_json(vector_in_json)
-    np.testing.assert_array_equal(new_dm_from_json.data, random_numpy_vector1d_float16)
+    np.testing.assert_array_equal(new_dm_from_json.data, random_numpy_vector1d_float64)
 
 
 def test_embedding_result_dm_float_1d():
