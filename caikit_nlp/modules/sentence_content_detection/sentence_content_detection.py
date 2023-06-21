@@ -73,6 +73,7 @@ class SentenceContentDetection(ModuleBase):
                 (Optional) Mapping of model labels to more semantically meaningful labels
         """
         super().__init__()
+        error.type_check("<NLP12578168E>", str, lang=lang)
         error.type_check(
             "<NLP79642537E>", SentenceSplitBase, sentence_splitter=sentence_splitter
         )
@@ -81,11 +82,13 @@ class SentenceContentDetection(ModuleBase):
             SequenceClassification,
             sequence_classifier=sequence_classifier,
         )
+        error.type_check_all("<NLP71653678E>", str, labels_to_detect=labels_to_detect)
+        error.type_check("<NLP56932573E>", Dict, labels_mapping=labels_mapping)
         self.lang = lang
         self.sentence_splitter = sentence_splitter
         self.sequence_classifier = sequence_classifier
-        self.labels_mapping = labels_mapping
         self.labels_to_detect = labels_to_detect
+        self.labels_mapping = labels_mapping
 
     ################################## API functions #############################################
 
@@ -181,7 +184,7 @@ class SentenceContentDetection(ModuleBase):
         return cls(
             sentence_splitter=sentence_splitter,
             sequence_classifier=sequence_classifier,
-            lang=config.lang,
+            lang=config.language,
             labels_to_detect=config.labels_to_detect,
             labels_mapping=config.labels_mapping,
         )
