@@ -119,15 +119,15 @@ class EmbeddingResult(DataObjectBase):
     data: List[Vector1D]
 
     def _convert_np_to_vector1d(self, values):
-        if values.ndim() == 1:
+        if values.ndim == 1:
             return [Vector1D(values)]
 
-        if values.ndim() == 2:
+        if values.ndim == 2:
             return [Vector1D(vector) for vector in values]
 
         error(
             "<NLP18185885E>",
-            f"Unsupported dimensions {values.ndim()} for EmbeddingResult",
+            f"Unsupported dimensions {values.ndim} for EmbeddingResult",
         )
 
     def _convert_list_to_vector1d(self, values):
