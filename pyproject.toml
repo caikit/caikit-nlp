@@ -23,7 +23,7 @@ dependencies = [
     "huggingface-hub",
     "numpy>=1.22.4",
     "pandas>=1.5",
-    "scikit-learn>=1.2.2",
+    "scikit-learn>=1.1",
     "scipy>=1.8.1",
     "stanza>=1.5.0,<1.6.0",
     "tokenizers>=0.13.3",
