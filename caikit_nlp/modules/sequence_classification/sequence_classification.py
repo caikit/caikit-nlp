@@ -32,7 +32,7 @@ from caikit.core.toolkit import error_handler
 import alog
 
 # Local
-from ...data_model import Classification, ClassificationPrediction
+from ...data_model import Classification, ClassificationResult
 from .text_classification_task import TextClassificationTask
 
 log = alog.use_channel("SEQ_CLASS")
@@ -72,7 +72,7 @@ class SequenceClassification(ModuleBase):
 
     ################################## API functions #############################################
 
-    def run(self, text: str) -> ClassificationPrediction:
+    def run(self, text: str) -> ClassificationResult:
         """Run the sequence classification, truncates sequences too long for model
 
         Args:
@@ -80,13 +80,13 @@ class SequenceClassification(ModuleBase):
                 Input string to be classified
 
         Returns:
-            ClassificationPrediction
+            ClassificationResult
         """
         scores_dict = self._get_scores(text)
         # Re-organize scores_dict - for one text, this is just the first score
         return SequenceClassification._process_predictions(scores_dict, text_idx=0)
 
-    def run_batch(self, texts: List[str]) -> List[ClassificationPrediction]:
+    def run_batch(self, texts: List[str]) -> List[ClassificationResult]:
         """Run the sequence classification on batch, truncates sequences too long for model
 
         Args:
@@ -94,7 +94,7 @@ class SequenceClassification(ModuleBase):
                 Input strings to be classified
 
         Returns:
-            List[ClassificationPrediction]
+            List[ClassificationResult]
         """
         scores_dict = self._get_scores(texts)
         num_texts = len(texts)
@@ -198,10 +198,8 @@ class SequenceClassification(ModuleBase):
         return scores_dict
 
     @staticmethod
-    def _process_predictions(
-        scores_dict: Dict, text_idx: int
-    ) -> ClassificationPrediction:
-        """Process dictionary of label: scores to ClassificationPrediction
+    def _process_predictions(scores_dict: Dict, text_idx: int) -> ClassificationResult:
+        """Process dictionary of label: scores to ClassificationResult
 
         Args:
             scores_dict: Dict
@@ -211,16 +209,14 @@ class SequenceClassification(ModuleBase):
                 Integer index of text in batch
 
         Returns:
-            ClassificationPrediction
+            ClassificationResult
         """
         classification_list = []
         for label, score_array in scores_dict.items():
             classification_list.append(
                 Classification(label=label, score=score_array[text_idx])
             )
-        classification_prediction = ClassificationPrediction(
-            classifications=classification_list
-        )
+        classification_prediction = ClassificationResult(results=classification_list)
         return classification_prediction
 
     # NOTE: similar to prompt tuning but no user override, could consolidate eventually

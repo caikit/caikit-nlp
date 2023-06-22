@@ -18,12 +18,12 @@ to multiple modules
 from caikit.core import TaskBase, task
 
 # Local
-from ...data_model import ClassificationPrediction
+from ...data_model import ClassificationResult
 
 
 @task(
     required_parameters={"text": str},
-    output_type=ClassificationPrediction,
+    output_type=ClassificationResult,
 )
 class TextClassificationTask(TaskBase):
     pass

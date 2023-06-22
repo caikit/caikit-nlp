@@ -11,6 +11,19 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""This task can be promoted to caikit/caikit for wider usage when applicable
+to multiple modules
+"""
+# First Party
+from caikit.core import TaskBase, task
 
 # Local
-from .sentence_content_detection import SentenceContentDetection
+from ...data_model import TokenClassificationResult
+
+
+@task(
+    required_parameters={"text": str},
+    output_type=TokenClassificationResult,
+)
+class TokenClassificationTask(TaskBase):
+    pass

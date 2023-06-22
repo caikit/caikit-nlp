@@ -30,10 +30,10 @@ from caikit.core.toolkit import error_handler
 import alog
 
 # Local
-from ...data_model import SpanClassification, TextContentResults
+from ...data_model import TokenClassification, TokenClassificationResult
 from ..sentence_split.base import SentenceSplitBase
 from ..sequence_classification import SequenceClassification
-from .text_content_detection_task import TextContentDetectionTask
+from .token_classification_task import TokenClassificationTask
 
 log = alog.use_channel("SEQ_CLASS")
 error = error_handler.get(log)
@@ -41,11 +41,11 @@ error = error_handler.get(log)
 
 @module(
     id="42a7d920-8b7e-4e1f-81fb-8ab851a80c99",
-    name="Sentence-level content detection",
+    name="Sequence transformer sentence-level classification",
     version="0.1.0",
-    task=TextContentDetectionTask,
+    task=TokenClassificationTask,
 )
-class SentenceContentDetection(ModuleBase):
+class SequenceTransformerSentenceClassification(ModuleBase):
 
     ################################ Constructor #################################################
 
@@ -92,7 +92,7 @@ class SentenceContentDetection(ModuleBase):
 
     ################################## API functions #############################################
 
-    def run(self, text: str, threshold: float = 0.5) -> TextContentResults:
+    def run(self, text: str, threshold: float = 0.5) -> TokenClassificationResult:
         """Run sentence-level content detection on text. Returns results
         based on score threshold for labels that are to be detected
 
@@ -101,19 +101,20 @@ class SentenceContentDetection(ModuleBase):
                 Document to run sentence content detection on
 
         Returns:
-            TextContentResults
+            TokenClassificationResult
         """
-        text_content_results = []
+        # TODO: make (default) threshold a part of the model and threshold itself Optional
+        token_classification_results = []
         # Split document into sentences
         sentence_span_list = self.sentence_splitter.run(text)
         # Run in sentence through the classifier and determine based
         # on threshold and labels_to_detect what results should be returned
         text_list = [span.text for span in sentence_span_list]
-        classification_predictions = self.sequence_classifier.run_batch(text_list)
-        for idx, classification_prediction in enumerate(classification_predictions):
+        classification_results = self.sequence_classifier.run_batch(text_list)
+        for idx, classification_result in enumerate(classification_results):
             # Each classification prediction is list of classifications
             # for that particular text example
-            for classification in classification_prediction.classifications:
+            for classification in classification_result.results:
                 # Map labels to semantic labels if provided
 
                 # NOTE: labels need to be specified as str for config
@@ -123,15 +124,15 @@ class SentenceContentDetection(ModuleBase):
                     label = self.labels_mapping.get(label, label)
                 if label in self.labels_to_detect and classification.score >= threshold:
                     sentence_span = sentence_span_list[idx]
-                    span_classification = SpanClassification(
+                    token_classification = TokenClassification(
                         start=sentence_span.start,
                         end=sentence_span.end,
-                        text=sentence_span.text,
-                        label=label,
+                        word=sentence_span.text,
+                        entity_group=label,
                         score=classification.score,
                     )
-                    text_content_results.append(span_classification)
-        return TextContentResults(results=text_content_results)
+                    token_classification_results.append(token_classification)
+        return TokenClassificationResult(results=token_classification_results)
 
     def save(self, model_path: str):
         """Save model in target path
@@ -158,7 +159,7 @@ class SentenceContentDetection(ModuleBase):
             module_saver.update_config(config_options)
 
     @classmethod
-    def load(cls, model_path: str) -> "SentenceContentDetection":
+    def load(cls, model_path: str) -> "SequenceTransformerSentenceClassification":
         """Load a sentence content detection model. Assumes the
         tokenizer and model are HuggingFace transformer-based and on
         the same model_path
@@ -168,7 +169,7 @@ class SentenceContentDetection(ModuleBase):
                 Path to the model to be loaded.
 
         Returns:
-            SentenceContentDetection
+           SequenceTransformerSentenceClassification
                 Instance of this class built from the on disk model.
         """
         config = ModuleConfig.load(os.path.abspath(model_path))

@@ -137,14 +137,12 @@ class Stanza(SentenceSplitBase):
         return Stanza.bootstrap(config.stanza_resources_path)
 
     @classmethod
-    def bootstrap(
-        cls, stanza_resources_path: str, lang: str = "en"
-    ) -> "StanzaSentenceSplit":
+    def bootstrap(cls, stanza_resources_path: str, lang: str = "en") -> "Stanza":
         """Bootstrap a Stanza resource. For this module only the `tokenize`
         dir needs to be present in the resource path for the language.
 
         To download tokenizer resources for a language:
-            `stanza.download('<lang_code', processors='tokenize')`
+            `stanza.download('<lang_code>', processors='tokenize')`
 
         Args:
             stanza_resources_path: str
