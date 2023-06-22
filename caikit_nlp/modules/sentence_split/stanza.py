@@ -104,12 +104,11 @@ class Stanza(SentenceSplitBase):
             self,
             model_path=model_path,
         )
-        stanza_resources_path = os.path.join(model_path, "stanza")
-        shutil.copytree(
-            self.stanza_resources_path, stanza_resources_path, dirs_exist_ok=True
-        )
+
+        stanza_rel_path, stanza_abs_path = module_saver.add_dir("stanza")
+        shutil.copytree(self.stanza_resources_path, stanza_abs_path, dirs_exist_ok=True)
         with module_saver:
-            config_options = {"stanza_resources_path": stanza_resources_path}
+            config_options = {"stanza_resources_path": stanza_rel_path}
             module_saver.update_config(config_options)
 
     @classmethod
@@ -134,7 +133,7 @@ class Stanza(SentenceSplitBase):
                     )
                 ),
             )
-        return Stanza.bootstrap(config.stanza_resources_path)
+        return Stanza.bootstrap(os.path.join(model_path, config.stanza_resources_path))
 
     @classmethod
     def bootstrap(cls, stanza_resources_path: str, lang: str = "en") -> "Stanza":
