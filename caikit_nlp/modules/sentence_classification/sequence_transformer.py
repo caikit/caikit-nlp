@@ -83,7 +83,9 @@ class SequenceTransformerSentenceClassification(ModuleBase):
             sequence_classifier=sequence_classifier,
         )
         error.type_check_all("<NLP71653678E>", str, labels_to_detect=labels_to_detect)
-        error.type_check("<NLP56932573E>", Dict, labels_mapping=labels_mapping)
+        error.type_check(
+            "<NLP56932573E>", Dict, allow_none=True, labels_mapping=labels_mapping
+        )
         self.lang = lang
         self.sentence_splitter = sentence_splitter
         self.sequence_classifier = sequence_classifier
