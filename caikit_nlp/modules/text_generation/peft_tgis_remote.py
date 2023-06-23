@@ -125,7 +125,7 @@ class PeftPromptTuningTGIS(ModuleBase):
                 }
             )
 
-    def run(self, text, preserve_input_text=False):
+    def run(self, text, preserve_input_text=False, max_new_tokens=20, min_new_tokens=0):
         """Run inference against the model running in TGIS. Currently we leverage greedy decoding
         and apply the same verbalizer used for training the local model prior to sending the
         request to TGIS.
@@ -136,6 +136,12 @@ class PeftPromptTuningTGIS(ModuleBase):
             preserve_input_text: str
                 Whether or not the source string should be contained in the generated output,
                 e.g., as a prefix.
+            max_new_tokens: int
+                The maximum numbers of tokens to generate.
+                Default: 20
+            min_new_tokens: int
+                The minimum numbers of tokens to generate.
+                Default: 0 - means no minimum
 
         Returns:
             GeneratedResult
@@ -157,6 +163,8 @@ class PeftPromptTuningTGIS(ModuleBase):
         )
         stopping = generation_pb2.StoppingCriteria(
             stop_sequences=[self.eos_token],
+            max_new_tokens=max_new_tokens,
+            min_new_tokens=min_new_tokens,
         )
         params = generation_pb2.Parameters(
             response=res_options,
