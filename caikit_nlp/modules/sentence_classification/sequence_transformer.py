@@ -180,10 +180,15 @@ class SequenceTransformerSentenceClassification(ModuleBase):
         # Module loader looks for config.yml so we load this directly,
         # pending a way to load HF models directly through config.json
         # - https://github.com/caikit/caikit/issues/236
-        sequence_classification_path = os.path.join(
-            model_path, config.module_paths["sequence_classification"]
-        )
-        sequence_classifier = SequenceClassification.load(sequence_classification_path)
+        try:
+            sequence_classifier = loader.load_module("sequence_classification")
+        except:
+            sequence_classification_path = os.path.join(
+                model_path, config.module_paths["sequence_classification"]
+            )
+            sequence_classifier = SequenceClassification.load(
+                sequence_classification_path
+            )
         return cls(
             sentence_splitter=sentence_splitter,
             sequence_classifier=sequence_classifier,
