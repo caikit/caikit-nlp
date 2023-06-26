@@ -11,17 +11,19 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""These interfaces can be promoted to caikit/caikit for wider usage
-when applicable to multiple modules
+"""This task can be promoted to caikit/caikit for wider usage when applicable
+to multiple modules
 """
-
 # First Party
-from caikit.core import DataObjectBase
-import caikit
+from caikit.core import TaskBase, task
+
+# Local
+from ...data_model import TokenClassificationResult
 
 
-@caikit.core.dataobject(package="caikit_data_model.caikit_nlp")
-class Span(DataObjectBase):
-    start: int
-    end: int
-    text: str
+@task(
+    required_parameters={"text": str},
+    output_type=TokenClassificationResult,
+)
+class TokenClassificationTask(TaskBase):
+    pass
