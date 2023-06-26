@@ -182,7 +182,7 @@ class SequenceTransformerSentenceClassification(ModuleBase):
         # - https://github.com/caikit/caikit/issues/236
         try:
             sequence_classifier = loader.load_module("sequence_classification")
-        except:
+        except Exception:  # pylint: disable=broad-exception-caught
             sequence_classification_path = os.path.join(
                 model_path, config.module_paths["sequence_classification"]
             )
