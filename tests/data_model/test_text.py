@@ -21,13 +21,13 @@ dummy_span = dm.Span(start=0, end=11, text="Hello World")
 
 ## Tests ########################################################################
 
+
 def test_all_fields_accessible():
-    span = dm.Span(
-        start=0, end=11, text="Hello World"
-    )
+    span = dm.Span(start=0, end=11, text="Hello World")
     assert span.start == 0
     assert span.end == 11
     assert span.text == "Hello World"
+
 
 def test_from_proto_and_back():
     new = dm.Span.from_proto(dummy_span.to_proto())

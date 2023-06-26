@@ -21,16 +21,17 @@ dummy_classification1 = dm.Classification(label="temperature", score=0.71)
 
 dummy_classification2 = dm.Classification(label="conditions", score=0.98)
 
-dummy_classification_prediction = dm.ClassificationPrediction(classifications=[dummy_classification1, dummy_classification2])
+dummy_classification_result = dm.ClassificationResult(
+    results=[dummy_classification1, dummy_classification2]
+)
 
 ## Tests ########################################################################
 
 ### Classification
 
+
 def test_classification_all_fields_accessible():
-    classification_result = dm.Classification(
-        label="temperature", score=0.71
-    )
+    classification_result = dm.Classification(label="temperature", score=0.71)
     assert classification_result.label == "temperature"
     assert classification_result.score == 0.71
 
@@ -47,27 +48,26 @@ def test_classification_from_json_and_back():
     assert new.score == 0.71
 
 
-### ClassificationPrediction
-
-def test_classification_prediction_all_fields_accessible():
-    classification_prediction_result = dm.ClassificationPrediction(
-        classifications=[dummy_classification1]
-    )
-    assert classification_prediction_result.classifications[0].label == "temperature"
-    assert classification_prediction_result.classifications[0].score == 0.71
+### ClassificationResult
 
 
-def test_classification_prediction_from_proto_and_back():
-    new = dm.ClassificationPrediction.from_proto(dummy_classification_prediction.to_proto())
-    assert new.classifications[0].label == "temperature"
-    assert new.classifications[0].score == 0.71
-    assert new.classifications[1].label == "conditions"
-    assert new.classifications[1].score == 0.98
+def test_classification_result_all_fields_accessible():
+    classification_result = dm.ClassificationResult(results=[dummy_classification1])
+    assert classification_result.results[0].label == "temperature"
+    assert classification_result.results[0].score == 0.71
 
 
-def test_classification_prediction_from_json_and_back():
-    new = dm.ClassificationPrediction.from_json(dummy_classification_prediction.to_json())
-    assert new.classifications[0].label == "temperature"
-    assert new.classifications[0].score == 0.71
-    assert new.classifications[1].label == "conditions"
-    assert new.classifications[1].score == 0.98
+def test_classification_result_from_proto_and_back():
+    new = dm.ClassificationResult.from_proto(dummy_classification_result.to_proto())
+    assert new.results[0].label == "temperature"
+    assert new.results[0].score == 0.71
+    assert new.results[1].label == "conditions"
+    assert new.results[1].score == 0.98
+
+
+def test_classification_result_from_json_and_back():
+    new = dm.ClassificationResult.from_json(dummy_classification_result.to_json())
+    assert new.results[0].label == "temperature"
+    assert new.results[0].score == 0.71
+    assert new.results[1].label == "conditions"
+    assert new.results[1].score == 0.98
