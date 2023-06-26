@@ -32,7 +32,7 @@ import alog
 # Local
 from ...data_model import TokenClassification, TokenClassificationResult
 from ..sentence_split.base import SentenceSplitBase
-from ..sequence_classification import SequenceClassification
+from ..text_classification import SequenceClassification
 from .token_classification_task import TokenClassificationTask
 
 log = alog.use_channel("SEQ_CLASS")

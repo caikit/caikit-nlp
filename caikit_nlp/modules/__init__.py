@@ -13,8 +13,8 @@
 # limitations under the License.
 # Local
 from . import (
-    sentence_classification,
     sentence_split,
-    sequence_classification,
+    text_classification,
     text_generation,
+    token_classification,
 )
