@@ -36,14 +36,14 @@ class ClassificationResult(DataObjectBase):
 # NOTE: This is meant to align with the HuggingFace token classification task:
 # https://huggingface.co/docs/transformers/tasks/token_classification#inference
 # The field `word` does not necessarily correspond to a single "word",
-# and `entity_group` may not correspond to an "entity" in the NER
-# (named entity recognition) sense.
+# and `entity` may not always be applicable beyond "entity" in the NER
+# (named entity recognition) sense
 @caikit.core.dataobject(package="caikit_data_model.caikit_nlp")
 class TokenClassification(DataObjectBase):
     start: int
     end: int
     word: str  # could be thought of as text
-    entity_group: str  # could be thought of as label
+    entity: str  # could be thought of as label
     score: float
 
 
