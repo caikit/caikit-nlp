@@ -29,7 +29,7 @@ dependencies = [
     "torch>=1.13.1",
     "tqdm>=4.65.0",
     "transformers>=4.27.1",
-    "peft@git+https://github.com/mayank31398/peft.git@mpt-os-test"
+    "peft@git+https://github.com/mayank31398/peft.git@mpt-os-test#3ddc7707f903eb52df1ddc0766673aedc5e15393"
 ]
 
 [project.urls]
