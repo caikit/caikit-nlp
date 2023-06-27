@@ -12,14 +12,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# First party
+import alog
+from caikit.core.toolkit import error_handler
+
 # Local
 from ..data_model import ClassificationTrainRecord, GenerationTrainRecord
 
+log = alog.use_channel("TASK_UTILS")
+error = error_handler.get(log)
 
-def convert_to_generation_record(TrainRecord):
-    if isinstance(TrainRecord, GenerationTrainRecord):
-        return TrainRecord
-    if isinstance(TrainRecord, ClassificationTrainRecord):
-        text = TrainRecord.text
-        labels = ",".join(TrainRecord.labels)
+
+def convert_to_generation_record(train_record):
+    if isinstance(train_record, GenerationTrainRecord):
+        return train_record
+    if isinstance(train_record, ClassificationTrainRecord):
+        text = train_record.text
+        labels = labels = ",".join(str(label) for label in train_record.labels)
         return GenerationTrainRecord(input=text, output=labels)
+    else:
+        error(
+            "<NLP12517812E>",
+            TypeError(
+                f"Unsupported instance type. Only instances of datamodels ClassificationTrainRecord and GenerationTrainRecord are supported"
+            ),
+        )

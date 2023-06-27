@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Third Party
+import pytest
+
 # Local
 from caikit_nlp import data_model as dm
 from caikit_nlp.toolkit.task_specific_utils import convert_to_generation_record
@@ -33,3 +36,19 @@ def test_convert_generation_record_to_generation_record():
     assert isinstance(generated_train, dm.GenerationTrainRecord)
     assert generated_train.input == generation_train_record.input
     assert generated_train.output == generation_train_record.output
+
+
+def test_convert_classification_train_record_to_generation_record_numeric_labels():
+    classification_train_record = dm.ClassificationTrainRecord(
+        text="foo bar", labels=[1]
+    )
+    generated_train = convert_to_generation_record(classification_train_record)
+    assert isinstance(generated_train, dm.GenerationTrainRecord)
+    assert generated_train.input == classification_train_record.text
+    assert generated_train.output == "1"
+
+
+def test_convert_to_generation_record_gives_error_with_unsupported_type():
+    string_record = "test record"
+    with pytest.raises(TypeError):
+        convert_to_generation_record(string_record)

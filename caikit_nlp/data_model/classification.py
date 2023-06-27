@@ -14,7 +14,7 @@
 """Data structures for text generation representations
 """
 # Standard
-from typing import List
+from typing import List, Union
 
 # First Party
 from caikit.core import DataObjectBase
@@ -29,4 +29,4 @@ log = alog.use_channel("DATAM")
 @caikit.core.dataobject(package="caikit_data_model.caikit_nlp")
 class ClassificationTrainRecord(DataObjectBase):
     text: str
-    labels: List[str]
+    labels: List[Union[str, int]]
