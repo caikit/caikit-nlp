@@ -130,7 +130,7 @@ class SequenceTransformerSentenceClassification(ModuleBase):
                         start=sentence_span.start,
                         end=sentence_span.end,
                         word=sentence_span.text,
-                        entity_group=label,
+                        entity=label,
                         score=classification.score,
                     )
                     token_classification_results.append(token_classification)
