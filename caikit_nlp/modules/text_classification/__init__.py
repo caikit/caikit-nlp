@@ -11,5 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 # Local
-from . import sentence_split, text_classification, text_generation, token_classification
+from .sequence_classification import SequenceClassification
