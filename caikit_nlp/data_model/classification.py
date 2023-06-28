@@ -44,6 +44,7 @@ class TokenClassification(DataObjectBase):
     end: int
     word: str  # could be thought of as text
     entity: str  # could be thought of as label
+    entity_group: str  # could be thought of as aggregate label, if applicable
     score: float
 
 
