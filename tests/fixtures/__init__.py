@@ -23,6 +23,7 @@ import caikit_nlp
 ### Constants used in fixtures
 FIXTURES_DIR = os.path.join(os.path.dirname(__file__))
 TINY_MODELS_DIR = os.path.join(FIXTURES_DIR, "tiny_models")
+SEQ_CLASS_MODEL = os.path.join(TINY_MODELS_DIR, "BertForSequenceClassification")
 CAUSAL_LM_MODEL = os.path.join(TINY_MODELS_DIR, "BloomForCausalLM")
 SEQ2SEQ_LM_MODEL = os.path.join(TINY_MODELS_DIR, "T5ForConditionalGeneration")
 
