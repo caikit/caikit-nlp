@@ -13,5 +13,5 @@
 # limitations under the License.
 
 # Local
-from .sequence_transformer import SequenceTransformerSentenceClassification
 from .token_classification_task import TokenClassificationTask
+from .transformer_sentence_classification import TransformerSentenceClassification

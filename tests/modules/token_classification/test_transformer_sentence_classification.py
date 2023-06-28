@@ -19,9 +19,7 @@ from caikit_nlp.data_model.classification import (
 from caikit_nlp.data_model.text import Span
 from caikit_nlp.modules.sentence_split.base import SentenceSplitBase
 from caikit_nlp.modules.text_classification import SequenceClassification
-from caikit_nlp.modules.token_classification import (
-    SequenceTransformerSentenceClassification,
-)
+from caikit_nlp.modules.token_classification import TransformerSentenceClassification
 from tests.fixtures import SEQ_CLASS_MODEL
 
 ## Setup ########################################################################
@@ -62,7 +60,7 @@ SENTENCE_SPLITTER = FakeTestSentenceSplitter()
 
 def test_init_run():
     """Check if we can init and run sentence classification models with min arguments"""
-    model = SequenceTransformerSentenceClassification(
+    model = TransformerSentenceClassification(
         lang="en",
         sentence_splitter=SENTENCE_SPLITTER,
         sequence_classifier=LOADED_SEQ_CLASS_MODEL,
@@ -83,7 +81,7 @@ def test_init_run():
 
 def test_init_run_with_threshold():
     """Check if we can run sentence classification models with overriden threshold"""
-    model = SequenceTransformerSentenceClassification(
+    model = TransformerSentenceClassification(
         lang="en",
         sentence_splitter=SENTENCE_SPLITTER,
         sequence_classifier=LOADED_SEQ_CLASS_MODEL,
@@ -98,7 +96,7 @@ def test_init_run_with_threshold():
 
 def test_init_run_with_optional_labels_to_output():
     """Check if we can run sentence classification models with labels_to_output"""
-    model = SequenceTransformerSentenceClassification(
+    model = TransformerSentenceClassification(
         lang="en",
         sentence_splitter=SENTENCE_SPLITTER,
         sequence_classifier=LOADED_SEQ_CLASS_MODEL,
@@ -118,7 +116,7 @@ def test_init_run_with_optional_labels_to_output():
 
 def test_init_with_optional_labels_mapping():
     """Check if we can run sentence classification models with labels_mapping"""
-    model = SequenceTransformerSentenceClassification(
+    model = TransformerSentenceClassification(
         lang="en",
         sentence_splitter=SENTENCE_SPLITTER,
         sequence_classifier=LOADED_SEQ_CLASS_MODEL,
@@ -135,7 +133,7 @@ def test_init_with_optional_labels_mapping():
 
 def test_save_load_and_run_model():
     """Check if we can run a saved model successfully"""
-    model = SequenceTransformerSentenceClassification(
+    model = TransformerSentenceClassification(
         lang="en",
         sentence_splitter=SENTENCE_SPLITTER,
         sequence_classifier=LOADED_SEQ_CLASS_MODEL,
@@ -147,7 +145,7 @@ def test_save_load_and_run_model():
         assert os.path.exists(os.path.join(model_dir, "sentence_split"))
         assert os.path.exists(os.path.join(model_dir, "sequence_classification"))
 
-        new_model = SequenceTransformerSentenceClassification.load(model_dir)
+        new_model = TransformerSentenceClassification.load(model_dir)
         token_classification_result = new_model.run(DOCUMENT)
         assert isinstance(token_classification_result, TokenClassificationResult)
         assert (

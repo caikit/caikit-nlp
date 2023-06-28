@@ -41,11 +41,11 @@ error = error_handler.get(log)
 
 @module(
     id="42a7d920-8b7e-4e1f-81fb-8ab851a80c99",
-    name="Sequence transformer sentence-level classification",
+    name="Transformer sentence-level classification",
     version="0.1.0",
     task=TokenClassificationTask,
 )
-class SequenceTransformerSentenceClassification(ModuleBase):
+class TransformerSentenceClassification(ModuleBase):
 
     ################################ Constructor #################################################
 
@@ -58,16 +58,16 @@ class SequenceTransformerSentenceClassification(ModuleBase):
         labels_to_output: List[str] = None,
         labels_mapping: Dict[str, str] = None,
     ):
-        """Construct a sequence transformer sentence classification object
+        """Construct a transformer sentence classification object
         from a sentence splitter and sequence classifier
 
         Args:
             lang: str
                 2 letter language code
             sentence_splitter: SentenceSplitBase
-                Sentence splitter
+                Sentence splitter that returns List[Span]
             sequence_classifier: SequenceClassification
-                Sequence tokenizer and model
+                Sequence tokenizer and classification model
             default_threshold: float
                 Default threshold for scores
             labels_to_output: List[str]
@@ -177,15 +177,15 @@ class SequenceTransformerSentenceClassification(ModuleBase):
             module_saver.update_config(config_options)
 
     @classmethod
-    def load(cls, model_path: str) -> "SequenceTransformerSentenceClassification":
-        """Load a sequence transformer sentence classification model.
+    def load(cls, model_path: str) -> "TransformerSentenceClassification":
+        """Load a transformer sentence classification model.
 
         Args:
             model_path: str
                 Path to the model to be loaded.
 
         Returns:
-           SequenceTransformerSentenceClassification
+            TransformerSentenceClassification
                 Instance of this class built from the on disk model.
         """
         config = ModuleConfig.load(os.path.abspath(model_path))
