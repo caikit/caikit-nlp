@@ -15,7 +15,7 @@
 At this time this module is only designed for inference"""
 
 # Standard
-from typing import Dict, List
+from typing import Dict, List, Optional
 import os
 
 # First Party
@@ -54,11 +54,12 @@ class SequenceTransformerSentenceClassification(ModuleBase):
         lang: str,
         sentence_splitter: SentenceSplitBase,
         sequence_classifier: SequenceClassification,
-        labels_to_detect: List[str],
+        default_threshold: float,
+        labels_to_output: List[str] = None,
         labels_mapping: Dict[str, str] = None,
     ):
-        """Construct a sentence content detection object from a
-        sentence splitter and sequence classifier
+        """Construct a sequence transformer sentence classification object
+        from a sentence splitter and sequence classifier
 
         Args:
             lang: str
@@ -67,8 +68,10 @@ class SequenceTransformerSentenceClassification(ModuleBase):
                 Sentence splitter
             sequence_classifier: SequenceClassification
                 Sequence tokenizer and model
-            labels_to_detect: List[str]
-                Labels to detect
+            default_threshold: float
+                Default threshold for scores
+            labels_to_output: List[str]
+                (Optional) Labels to output
             labels_mapping: Dict[str, str]
                 (Optional) Mapping of model labels to more semantically meaningful labels
         """
@@ -82,35 +85,44 @@ class SequenceTransformerSentenceClassification(ModuleBase):
             SequenceClassification,
             sequence_classifier=sequence_classifier,
         )
-        error.type_check_all("<NLP71653678E>", str, labels_to_detect=labels_to_detect)
+        error.type_check("<NLP63802045E>", float, default_threshold=default_threshold)
+        error.type_check_all(
+            "<NLP71653678E>", str, allow_none=True, labels_to_output=labels_to_output
+        )
         error.type_check(
             "<NLP56932573E>", Dict, allow_none=True, labels_mapping=labels_mapping
         )
         self.lang = lang
         self.sentence_splitter = sentence_splitter
         self.sequence_classifier = sequence_classifier
-        self.labels_to_detect = labels_to_detect
+        self.default_threshold = default_threshold
+        self.labels_to_output = labels_to_output
         self.labels_mapping = labels_mapping
 
     ################################## API functions #############################################
 
-    def run(self, text: str, threshold: float = 0.5) -> TokenClassificationResult:
-        """Run sentence-level content detection on text. Returns results
-        based on score threshold for labels that are to be detected
-    
+    def run(
+        self, text: str, threshold: Optional[float] = None
+    ) -> TokenClassificationResult:
+        """Run sentence-level classification on text. Returns results
+        based on score threshold for labels that are to be outputted
+
         Args:
             text: str
-                Document to run sentence content detection on
-    
+                Document to run sentence-level classification on
+            threshold: float
+                (Optional) Threshold based on which to return score results
+
         Returns:
             TokenClassificationResult
         """
-        # TODO: make (default) threshold a part of the model and threshold itself Optional
+        if threshold is None:
+            threshold = self.default_threshold
         token_classification_results = []
         # Split document into sentences
         sentence_span_list = self.sentence_splitter.run(text)
-        # Run in sentence through the classifier and determine based
-        # on threshold and labels_to_detect what results should be returned
+        # Run each sentence through the classifier and determine based
+        # on threshold and labels_to_output what results should be returned
         text_list = [span.text for span in sentence_span_list]
         classification_results = self.sequence_classifier.run_batch(text_list)
         for idx, classification_result in enumerate(classification_results):
@@ -124,20 +136,24 @@ class SequenceTransformerSentenceClassification(ModuleBase):
                 if self.labels_mapping:
                     # Use original classifier label if not found
                     label = self.labels_mapping.get(label, label)
-                if label in self.labels_to_detect and classification.score >= threshold:
-                    sentence_span = sentence_span_list[idx]
-                    token_classification = TokenClassification(
-                        start=sentence_span.start,
-                        end=sentence_span.end,
-                        word=sentence_span.text,
-                        entity=label,
-                        score=classification.score,
-                    )
-                    token_classification_results.append(token_classification)
+                if classification.score >= threshold:
+                    if not self.labels_to_output or (
+                        self.labels_to_output and label in self.labels_to_output
+                    ):
+                        sentence_span = sentence_span_list[idx]
+                        token_classification = TokenClassification(
+                            start=sentence_span.start,
+                            end=sentence_span.end,
+                            word=sentence_span.text,
+                            entity=label,
+                            score=classification.score,
+                        )
+                        token_classification_results.append(token_classification)
         return TokenClassificationResult(results=token_classification_results)
 
     def save(self, model_path: str):
         """Save model in target path
+
         Args:
             model_path: str
                 Path to store model artifact(s)
@@ -154,16 +170,15 @@ class SequenceTransformerSentenceClassification(ModuleBase):
             )
             config_options = {
                 "language": self.lang,
+                "default_threshold": self.default_threshold,
                 "labels_mapping": self.labels_mapping,
-                "labels_to_detect": self.labels_to_detect,
+                "labels_to_output": self.labels_to_output,
             }
             module_saver.update_config(config_options)
 
     @classmethod
     def load(cls, model_path: str) -> "SequenceTransformerSentenceClassification":
-        """Load a sentence content detection model. Assumes the
-        tokenizer and model are HuggingFace transformer-based and on
-        the same model_path
+        """Load a sequence transformer sentence classification model.
 
         Args:
             model_path: str
@@ -176,12 +191,17 @@ class SequenceTransformerSentenceClassification(ModuleBase):
         config = ModuleConfig.load(os.path.abspath(model_path))
         loader = ModuleLoader(model_path)
         sentence_splitter = loader.load_module("sentence_split")
-        # Module loader looks for config.yml so we load this directly,
-        # pending a way to load HF models directly through config.json
-        # - https://github.com/caikit/caikit/issues/236
         try:
             sequence_classifier = loader.load_module("sequence_classification")
         except Exception:  # pylint: disable=broad-exception-caught
+            # Module loader looks for config.yml so we load this directly,
+            # pending a way to load HF models directly through config.json
+            # - https://github.com/caikit/caikit/issues/236
+            log.info(
+                "<NLP47789919I>",
+                "Model not able to be loaded directly. \
+                    Currently occurs for models without config.yml",
+            )
             sequence_classification_path = os.path.join(
                 model_path, config.module_paths["sequence_classification"]
             )
@@ -192,6 +212,7 @@ class SequenceTransformerSentenceClassification(ModuleBase):
             sentence_splitter=sentence_splitter,
             sequence_classifier=sequence_classifier,
             lang=config.language,
-            labels_to_detect=config.labels_to_detect,
+            default_threshold=config.default_threshold,
+            labels_to_output=config.labels_to_output,
             labels_mapping=config.labels_mapping,
         )
