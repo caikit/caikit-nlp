@@ -74,9 +74,11 @@ class SequenceClassification(ModuleBase):
 
     def run(self, text: str) -> ClassificationResult:
         """Run the sequence classification, truncates sequences too long for model
+
         Args:
             text: str
                 Input string to be classified
+
         Returns:
             ClassificationResult
         """
@@ -86,9 +88,11 @@ class SequenceClassification(ModuleBase):
 
     def run_batch(self, texts: List[str]) -> List[ClassificationResult]:
         """Run the sequence classification on batch, truncates sequences too long for model
+
         Args:
             text: List[str]
                 Input strings to be classified
+
         Returns:
             List[ClassificationResult]
         """
@@ -108,6 +112,7 @@ class SequenceClassification(ModuleBase):
 
     def save(self, model_path: str):
         """Save model in target path
+
         Args:
             model_path: str
                 Path to store model artifact(s)
@@ -120,9 +125,11 @@ class SequenceClassification(ModuleBase):
         """Load a tokenizer and sequence classification model. Assumes the
         tokenizer and model are HuggingFace transformer-based and on
         the same model_path
+
         Args:
             model_path: str
                 Path to the model to be loaded.
+
         Returns:
             SequenceClassification
                 Instance of this class built from the on disk model.
