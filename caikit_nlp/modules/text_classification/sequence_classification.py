@@ -147,9 +147,11 @@ class SequenceClassification(ModuleBase):
 
     def _get_scores(self, text: Union[str, List[str]]):
         """Run tokenizer and model to get scores on text(s)
+
         Args:
             text: Union[str, List[str]]
                 Input string(s) to be used
+
         Returns:
             scores_dict
                 Dict with key label, and values as the array of scores,
@@ -198,12 +200,14 @@ class SequenceClassification(ModuleBase):
     @staticmethod
     def _process_predictions(scores_dict: Dict, text_idx: int) -> ClassificationResult:
         """Process dictionary of label: scores to ClassificationResult
+
         Args:
             scores_dict: Dict
                 Dict with key label, and values as the array of scores,
                 each corresponding to text(s)
             text_idx: int
                 Integer index of text in batch
+
         Returns:
             ClassificationResult
         """
@@ -220,6 +224,7 @@ class SequenceClassification(ModuleBase):
     def _get_device() -> Union[str, int, None]:
         """Get the device which we expect to run our models on. Defaults to GPU
         if one is available, otherwise falls back to None (cpu).
+
         Returns:
             Union[str, int, None]
                 Device string that we should move our models / tensors .to() at training
