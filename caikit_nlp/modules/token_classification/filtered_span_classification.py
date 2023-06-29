@@ -177,27 +177,43 @@ class FilteredSpanClassification(ModuleBase):
         config = ModuleConfig.load(os.path.abspath(model_path))
         loader = ModuleLoader(model_path)
         span_splitter = loader.load_module("span_split")
-        try:
-            sequence_classifier = loader.load_module("sequence_classification")
-        except Exception:  # pylint: disable=broad-exception-caught
-            # Module loader looks for config.yml so we load this directly,
-            # pending a way to load HF models directly through config.json
-            # - https://github.com/caikit/caikit/issues/236
-            log.info(
-                "<NLP47789919I>",
-                "Model not able to be loaded directly. \
-                    Currently occurs for models without config.yml",
-            )
-            sequence_classification_path = os.path.join(
-                model_path, config.module_paths["sequence_classification"]
-            )
-            sequence_classifier = SequenceClassification.load(
-                sequence_classification_path
-            )
+        sequence_classifier = loader.load_module("sequence_classification")
         return cls(
             span_splitter=span_splitter,
             sequence_classifier=sequence_classifier,
             lang=config.language,
             default_threshold=config.default_threshold,
             labels_to_output=config.labels_to_output,
+        )
+
+    @classmethod
+    def bootstrap(
+        cls,
+        lang: str,
+        span_splitter: ModuleBase,
+        sequence_classifier: SequenceClassification,
+        default_threshold: float,
+        labels_to_output: List[str] = None,
+    ) -> "FilteredSpanClassification":
+        """Bootstrap a FilteredSpanClassification instance
+
+        Args:
+            lang: str
+                2 letter language code
+            span_splitter: ModuleBase
+                Span splitter that returns List[Span]
+            sequence_classifier: SequenceClassification
+                Sequence classification model
+            default_threshold: float
+                Default threshold for scores
+            labels_to_output: List[str]
+                (Optional) Select labels to output, if None all labels will be returned
+        """
+        # Basically just wrap the constructor currently
+        return cls(
+            lang=lang,
+            span_splitter=span_splitter,
+            sequence_classifier=sequence_classifier,
+            default_threshold=default_threshold,
+            labels_to_output=labels_to_output,
         )

@@ -14,9 +14,9 @@ from tests.fixtures import SEQ_CLASS_MODEL
 
 ## Setup ########################################################################
 
-# Loaded sequence classification model for reusability across tests
-# .load is tested separately in the first test
-LOADED_SEQ_CLASS_MODEL = SequenceClassification.load(SEQ_CLASS_MODEL)
+# Bootstrapped sequence classification model for reusability across tests
+# .bootstrap is tested separately in the first test
+BOOTSTRAPPED_SEQ_CLASS_MODEL = SequenceClassification.bootstrap(SEQ_CLASS_MODEL)
 
 TEXTS = [
     "The quick brown fox jumps over the lazy dog.",
@@ -28,9 +28,9 @@ TEXTS = [
 # but we check them here to make sure that the arrays are re-ordered correctly
 
 
-def test_load_and_run():
-    """Check if we can load and run sequence classification models"""
-    model = SequenceClassification.load(SEQ_CLASS_MODEL)
+def test_bootstrap_and_run():
+    """Check if we can bootstrap and run sequence classification models"""
+    model = SequenceClassification.bootstrap(SEQ_CLASS_MODEL)
     classification_result = model.run(TEXTS[0])
     assert isinstance(classification_result, ClassificationResult)
     assert len(classification_result.results) == 2  # 2 labels
@@ -42,9 +42,9 @@ def test_load_and_run():
     assert approx(classification_result.results[1].score) == 0.50473803
 
 
-def test_load_and_run_batch():
-    """Check if we can load and run_batch sequence classification models"""
-    classification_result_list = LOADED_SEQ_CLASS_MODEL.run_batch(TEXTS)
+def test_bootstrap_and_run_batch():
+    """Check if we can bootstrap and run_batch sequence classification models"""
+    classification_result_list = BOOTSTRAPPED_SEQ_CLASS_MODEL.run_batch(TEXTS)
     assert len(classification_result_list) == 2
 
     first_result = classification_result_list[0]
@@ -56,9 +56,9 @@ def test_load_and_run_batch():
 
 
 def test_load_save_and_run_model():
-    """Check if we can run a saved model successfully"""
+    """Check if we can load and run a saved model successfully"""
     with tempfile.TemporaryDirectory() as model_dir:
-        LOADED_SEQ_CLASS_MODEL.save(model_dir)
+        BOOTSTRAPPED_SEQ_CLASS_MODEL.save(model_dir)
         new_model = SequenceClassification.load(model_dir)
         classification_result = new_model.run(TEXTS[0])
         assert isinstance(classification_result, ClassificationResult)

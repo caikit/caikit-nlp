@@ -23,8 +23,8 @@ from tests.fixtures import SEQ_CLASS_MODEL
 
 ## Setup ########################################################################
 
-# Loaded sequence classification model for reusability across tests
-LOADED_SEQ_CLASS_MODEL = SequenceClassification.load(SEQ_CLASS_MODEL)
+# Bootstrapped sequence classification model for reusability across tests
+BOOTSTRAPPED_SEQ_CLASS_MODEL = SequenceClassification.bootstrap(SEQ_CLASS_MODEL)
 
 DOCUMENT = (
     "The quick brown fox jumps over the lazy dog. Once upon a time in a land far away"
@@ -57,12 +57,12 @@ SENTENCE_SPLITTER = FakeTestSentenceSplitter()
 ## Tests ########################################################################
 
 
-def test_init_run():
-    """Check if we can init and run span classification models with min arguments"""
-    model = FilteredSpanClassification(
+def test_bootstrap_run():
+    """Check if we can bootstrap and run span classification models with min arguments"""
+    model = FilteredSpanClassification.bootstrap(
         lang="en",
         span_splitter=SENTENCE_SPLITTER,
-        sequence_classifier=LOADED_SEQ_CLASS_MODEL,
+        sequence_classifier=BOOTSTRAPPED_SEQ_CLASS_MODEL,
         default_threshold=0.5,
     )
     token_classification_result = model.run(DOCUMENT)
@@ -78,12 +78,12 @@ def test_init_run():
     assert token_classification_result.results[1].entity == "LABEL_1"
 
 
-def test_init_run_with_threshold():
-    """Check if we can run span classification models with overriden threshold"""
-    model = FilteredSpanClassification(
+def test_bootstrap_run_with_threshold():
+    """Check if we can bootstrap span classification models with overriden threshold"""
+    model = FilteredSpanClassification.bootstrap(
         lang="en",
         span_splitter=SENTENCE_SPLITTER,
-        sequence_classifier=LOADED_SEQ_CLASS_MODEL,
+        sequence_classifier=BOOTSTRAPPED_SEQ_CLASS_MODEL,
         default_threshold=0.5,
     )
     token_classification_result = model.run(DOCUMENT, threshold=0.0)
@@ -93,12 +93,12 @@ def test_init_run_with_threshold():
     )  # 4 (all) results over 0.0 expected
 
 
-def test_init_run_with_optional_labels_to_output():
+def test_bootstrap_run_with_optional_labels_to_output():
     """Check if we can run span classification models with labels_to_output"""
-    model = FilteredSpanClassification(
+    model = FilteredSpanClassification.bootstrap(
         lang="en",
         span_splitter=SENTENCE_SPLITTER,
-        sequence_classifier=LOADED_SEQ_CLASS_MODEL,
+        sequence_classifier=BOOTSTRAPPED_SEQ_CLASS_MODEL,
         default_threshold=0.5,
         labels_to_output=["LABEL_0"],
     )
@@ -115,10 +115,10 @@ def test_init_run_with_optional_labels_to_output():
 
 def test_save_load_and_run_model():
     """Check if we can run a saved model successfully"""
-    model = FilteredSpanClassification(
+    model = FilteredSpanClassification.bootstrap(
         lang="en",
         span_splitter=SENTENCE_SPLITTER,
-        sequence_classifier=LOADED_SEQ_CLASS_MODEL,
+        sequence_classifier=BOOTSTRAPPED_SEQ_CLASS_MODEL,
         default_threshold=0.5,
     )
     with tempfile.TemporaryDirectory() as model_dir:

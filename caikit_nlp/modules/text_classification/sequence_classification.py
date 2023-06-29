@@ -18,21 +18,18 @@ for inference"""
 from typing import Dict, List, Union
 
 # Third Party
-from transformers import (
-    AutoModelForSequenceClassification,
-    AutoTokenizer,
-    PreTrainedModel,
-    PreTrainedTokenizerBase,
-)
 import torch
 
 # First Party
-from caikit.core.modules import ModuleBase, module
+from caikit.core.modules import ModuleBase, ModuleLoader, ModuleSaver, module
 from caikit.core.toolkit import error_handler
 import alog
 
 # Local
 from ...data_model import Classification, ClassificationResult
+from ...resources.pretrained_model.hf_auto_seq_classifier import (
+    HFAutoSequenceClassifier,
+)
 from .text_classification_task import TextClassificationTask
 
 log = alog.use_channel("SEQ_CLASS")
@@ -51,23 +48,18 @@ class SequenceClassification(ModuleBase):
 
     def __init__(
         self,
-        tokenizer: PreTrainedTokenizerBase,
-        model: PreTrainedModel,
+        resource: HFAutoSequenceClassifier,
         device: Union[str, int, None],
     ):
         super().__init__()
         error.type_check(
             "<NLP74125820E>",
-            PreTrainedTokenizerBase,
-            tokenizer=tokenizer,
+            HFAutoSequenceClassifier,
+            resource=resource,
         )
-        error.type_check(
-            "<NLP64751996E>",
-            PreTrainedModel,
-            model=model,
-        )
-        self.tokenizer = tokenizer
-        self.model = model
+        self.resource = resource
+        self.tokenizer = resource.tokenizer
+        self.model = resource.model
         self.device = device
 
     ################################## API functions #############################################
@@ -117,14 +109,17 @@ class SequenceClassification(ModuleBase):
             model_path: str
                 Path to store model artifact(s)
         """
-        self.tokenizer.save_pretrained(model_path)
-        self.model.save_pretrained(model_path)
+        module_saver = ModuleSaver(
+            self,
+            model_path=model_path,
+        )
+
+        with module_saver:
+            module_saver.save_module(self.resource, "sequence_classifier")
 
     @classmethod
     def load(cls, model_path: str) -> "SequenceClassification":
-        """Load a tokenizer and sequence classification model. Assumes the
-        tokenizer and model are HuggingFace transformer-based and on
-        the same model_path
+        """Load a sequence classification model
 
         Args:
             model_path: str
@@ -134,12 +129,27 @@ class SequenceClassification(ModuleBase):
             SequenceClassification
                 Instance of this class built from the on disk model.
         """
-        tokenizer = AutoTokenizer.from_pretrained(model_path)
-        model = AutoModelForSequenceClassification.from_pretrained(model_path)
+        loader = ModuleLoader(model_path)
+        resource = loader.load_module("sequence_classifier")
+        device = SequenceClassification._get_device()
+        return cls(resource=resource, device=device)
+
+    @classmethod
+    def bootstrap(cls, base_model_path: str) -> "SequenceClassification":
+        """Bootstrap a HuggingFace transformer-based sequence classification model
+
+        Args:
+            base_model_path: str
+                Path to the model to be loaded.
+        """
+        # Note: Must provide path to tokenizer if model_name is a path
+        # for resource use
+        resource = HFAutoSequenceClassifier.bootstrap(
+            model_name=base_model_path, tokenizer_name=base_model_path
+        )
         device = SequenceClassification._get_device()
         return cls(
-            tokenizer=tokenizer,
-            model=model,
+            resource=resource,
             device=device,
         )
 
