@@ -6,6 +6,7 @@ To create a new dummy model, all you need to do it clone the transformers repo a
 
 - Bloom: `python3 utils/create_dummy_models.py --model_types bloom $OUTPUT_DIR`
 - T5: `python3 utils/create_dummy_models.py --model_types t5 $OUTPUT_DIR`
+- BERT: `python3 utils/create_dummy_models.py --model_types bert $OUTPUT_DIR`
 
 This will create several dummy models; you most likely want to place the ones you need in this directory and leverage it in `__init__.py` for the fixtures.
 

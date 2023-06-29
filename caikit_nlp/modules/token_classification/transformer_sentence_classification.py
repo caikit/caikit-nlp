@@ -11,7 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""This module composes sentence splitting and sequence classification.
+"""This module returns sentence classification output by splitting
+sentences and returning classifications for each sentence span.
 At this time this module is only designed for inference"""
 
 # Standard
@@ -31,7 +32,6 @@ import alog
 
 # Local
 from ...data_model import TokenClassification, TokenClassificationResult
-from ..sentence_split.base import SentenceSplitBase
 from ..text_classification import SequenceClassification
 from .token_classification_task import TokenClassificationTask
 
@@ -52,7 +52,7 @@ class TransformerSentenceClassification(ModuleBase):
     def __init__(
         self,
         lang: str,
-        sentence_splitter: SentenceSplitBase,
+        sentence_splitter: ModuleBase,
         sequence_classifier: SequenceClassification,
         default_threshold: float,
         labels_to_output: List[str] = None,
@@ -64,10 +64,10 @@ class TransformerSentenceClassification(ModuleBase):
         Args:
             lang: str
                 2 letter language code
-            sentence_splitter: SentenceSplitBase
+            sentence_splitter: ModuleBase
                 Sentence splitter that returns List[Span]
             sequence_classifier: SequenceClassification
-                Sequence tokenizer and classification model
+                Sequence classification model
             default_threshold: float
                 Default threshold for scores
             labels_to_output: List[str]
@@ -78,7 +78,7 @@ class TransformerSentenceClassification(ModuleBase):
         super().__init__()
         error.type_check("<NLP12578168E>", str, lang=lang)
         error.type_check(
-            "<NLP79642537E>", SentenceSplitBase, sentence_splitter=sentence_splitter
+            "<NLP79642537E>", ModuleBase, sentence_splitter=sentence_splitter
         )
         error.type_check(
             "<NLP35742128E>",

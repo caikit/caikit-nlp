@@ -9,7 +9,7 @@ from pytest import approx
 import pytest
 
 # First Party
-from caikit.core.modules import ModuleSaver, module
+from caikit.core.modules import ModuleBase, ModuleSaver, module
 
 # Local
 from caikit_nlp.data_model.classification import (
@@ -17,7 +17,6 @@ from caikit_nlp.data_model.classification import (
     TokenClassificationResult,
 )
 from caikit_nlp.data_model.text import Span
-from caikit_nlp.modules.sentence_split.base import SentenceSplitBase
 from caikit_nlp.modules.text_classification import SequenceClassification
 from caikit_nlp.modules.token_classification import TransformerSentenceClassification
 from tests.fixtures import SEQ_CLASS_MODEL
@@ -33,7 +32,7 @@ DOCUMENT = (
 
 # Sentence splitter for tests
 @module("4c9387f9-3683-4a94-bed9-8ecc1bf3ce47", "FakeTestSentenceSplitter", "0.0.1")
-class FakeTestSentenceSplitter(SentenceSplitBase):
+class FakeTestSentenceSplitter(ModuleBase):
     def run(self, text: str):
         return [
             Span(start=0, end=44, text="The quick brown fox jumps over the lazy dog."),

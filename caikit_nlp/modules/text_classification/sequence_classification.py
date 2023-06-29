@@ -161,7 +161,6 @@ class SequenceClassification(ModuleBase):
         tokenized_text = self.tokenizer(
             text,
             padding="max_length",
-            max_length=self.tokenizer.model_max_length,
             truncation=True,
             return_tensors="pt",  # PyTorch
         )
@@ -169,7 +168,7 @@ class SequenceClassification(ModuleBase):
         # happened since padding also occurs, and this can be applied on
         # a batch of strings.
         if self.device == "cuda":
-            tokenized_text = tokenized_text.to("cuda")
+            tokenized_text = tokenized_text.to(self.device)
         with torch.no_grad():
             logits = self.model(**tokenized_text).logits
 
@@ -211,6 +210,7 @@ class SequenceClassification(ModuleBase):
         Returns:
             ClassificationResult
         """
+        error.type_check("<NLP40517898E>", Dict, scores_dict=scores_dict)
         classification_list = []
         for label, score_array in scores_dict.items():
             classification_list.append(
