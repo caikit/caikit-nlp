@@ -11,12 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""This module returns sentence classification output by splitting
-sentences and returning classifications for each sentence span.
+"""This module returns span classification output by splitting
+text into spans and returning classifications for each span. Span
+classifications can be filtered by score threshold and label(s).
 At this time this module is only designed for inference"""
 
 # Standard
-from typing import Dict, List, Optional
+from typing import List, Optional
 import os
 
 # First Party
@@ -35,51 +36,46 @@ from ...data_model import TokenClassification, TokenClassificationResult
 from ..text_classification import SequenceClassification
 from .token_classification_task import TokenClassificationTask
 
-log = alog.use_channel("SEQ_TSFMR")
+log = alog.use_channel("FILT_SPAN")
 error = error_handler.get(log)
 
 
 @module(
     id="42a7d920-8b7e-4e1f-81fb-8ab851a80c99",
-    name="Transformer sentence-level classification",
+    name="Filtered span classification",
     version="0.1.0",
     task=TokenClassificationTask,
 )
-class TransformerSentenceClassification(ModuleBase):
+class FilteredSpanClassification(ModuleBase):
 
     ################################ Constructor #################################################
 
     def __init__(
         self,
         lang: str,
-        sentence_splitter: ModuleBase,
+        span_splitter: ModuleBase,
         sequence_classifier: SequenceClassification,
         default_threshold: float,
         labels_to_output: List[str] = None,
-        labels_mapping: Dict[str, str] = None,
     ):
-        """Construct a transformer sentence classification object
-        from a sentence splitter and sequence classifier
+        """Construct a filtered span classification object
+        from a span splitter and sequence classifier
 
         Args:
             lang: str
                 2 letter language code
-            sentence_splitter: ModuleBase
-                Sentence splitter that returns List[Span]
+            span_splitter: ModuleBase
+                Span splitter that returns List[Span]
             sequence_classifier: SequenceClassification
                 Sequence classification model
             default_threshold: float
                 Default threshold for scores
             labels_to_output: List[str]
-                (Optional) Labels to output
-            labels_mapping: Dict[str, str]
-                (Optional) Mapping of model labels to more semantically meaningful labels
+                (Optional) Select labels to output, if None all labels will be returned
         """
         super().__init__()
         error.type_check("<NLP12578168E>", str, lang=lang)
-        error.type_check(
-            "<NLP79642537E>", ModuleBase, sentence_splitter=sentence_splitter
-        )
+        error.type_check("<NLP79642537E>", ModuleBase, span_splitter=span_splitter)
         error.type_check(
             "<NLP35742128E>",
             SequenceClassification,
@@ -89,27 +85,23 @@ class TransformerSentenceClassification(ModuleBase):
         error.type_check_all(
             "<NLP71653678E>", str, allow_none=True, labels_to_output=labels_to_output
         )
-        error.type_check(
-            "<NLP56932573E>", Dict, allow_none=True, labels_mapping=labels_mapping
-        )
         self.lang = lang
-        self.sentence_splitter = sentence_splitter
+        self.span_splitter = span_splitter
         self.sequence_classifier = sequence_classifier
         self.default_threshold = default_threshold
         self.labels_to_output = labels_to_output
-        self.labels_mapping = labels_mapping
 
     ################################## API functions #############################################
 
     def run(
         self, text: str, threshold: Optional[float] = None
     ) -> TokenClassificationResult:
-        """Run sentence-level classification on text. Returns results
+        """Run classification on text split into spans. Returns results
         based on score threshold for labels that are to be outputted
 
         Args:
             text: str
-                Document to run sentence-level classification on
+                Document to run classification on
             threshold: float
                 (Optional) Threshold based on which to return score results
 
@@ -120,7 +112,7 @@ class TransformerSentenceClassification(ModuleBase):
             threshold = self.default_threshold
         token_classification_results = []
         # Split document into sentences
-        sentence_span_list = self.sentence_splitter.run(text)
+        sentence_span_list = self.span_splitter.run(text)
         # Run each sentence through the classifier and determine based
         # on threshold and labels_to_output what results should be returned
         text_list = [span.text for span in sentence_span_list]
@@ -129,13 +121,8 @@ class TransformerSentenceClassification(ModuleBase):
             # Each classification prediction is list of classifications
             # for that particular text example
             for classification in classification_result.results:
-                # Map labels to semantic labels if provided
-
                 # NOTE: labels need to be specified as str for config
                 label = str(classification.label)
-                if self.labels_mapping:
-                    # Use original classifier label if not found
-                    label = self.labels_mapping.get(label, label)
                 if classification.score >= threshold:
                     if not self.labels_to_output or (
                         self.labels_to_output and label in self.labels_to_output
@@ -164,33 +151,32 @@ class TransformerSentenceClassification(ModuleBase):
         )
 
         with module_saver:
-            module_saver.save_module(self.sentence_splitter, "sentence_split")
+            module_saver.save_module(self.span_splitter, "span_split")
             module_saver.save_module(
                 self.sequence_classifier, "sequence_classification"
             )
             config_options = {
                 "language": self.lang,
                 "default_threshold": self.default_threshold,
-                "labels_mapping": self.labels_mapping,
                 "labels_to_output": self.labels_to_output,
             }
             module_saver.update_config(config_options)
 
     @classmethod
-    def load(cls, model_path: str) -> "TransformerSentenceClassification":
-        """Load a transformer sentence classification model.
+    def load(cls, model_path: str) -> "FilteredSpanClassification":
+        """Load a filtered span classification model.
 
         Args:
             model_path: str
                 Path to the model to be loaded.
 
         Returns:
-            TransformerSentenceClassification
+            FilteredSpanClassification
                 Instance of this class built from the on disk model.
         """
         config = ModuleConfig.load(os.path.abspath(model_path))
         loader = ModuleLoader(model_path)
-        sentence_splitter = loader.load_module("sentence_split")
+        span_splitter = loader.load_module("span_split")
         try:
             sequence_classifier = loader.load_module("sequence_classification")
         except Exception:  # pylint: disable=broad-exception-caught
@@ -209,10 +195,9 @@ class TransformerSentenceClassification(ModuleBase):
                 sequence_classification_path
             )
         return cls(
-            sentence_splitter=sentence_splitter,
+            span_splitter=span_splitter,
             sequence_classifier=sequence_classifier,
             lang=config.language,
             default_threshold=config.default_threshold,
             labels_to_output=config.labels_to_output,
-            labels_mapping=config.labels_mapping,
         )

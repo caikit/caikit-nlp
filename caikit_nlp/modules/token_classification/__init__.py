@@ -13,5 +13,5 @@
 # limitations under the License.
 
 # Local
+from .filtered_span_classification import FilteredSpanClassification
 from .token_classification_task import TokenClassificationTask
-from .transformer_sentence_classification import TransformerSentenceClassification

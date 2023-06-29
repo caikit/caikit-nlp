@@ -1,4 +1,4 @@
-"""Tests for sequence transformer sentence classification module
+"""Tests for filtered span classification module
 """
 # Standard
 import os
@@ -18,7 +18,7 @@ from caikit_nlp.data_model.classification import (
 )
 from caikit_nlp.data_model.text import Span
 from caikit_nlp.modules.text_classification import SequenceClassification
-from caikit_nlp.modules.token_classification import TransformerSentenceClassification
+from caikit_nlp.modules.token_classification import FilteredSpanClassification
 from tests.fixtures import SEQ_CLASS_MODEL
 
 ## Setup ########################################################################
@@ -30,7 +30,7 @@ DOCUMENT = (
     "The quick brown fox jumps over the lazy dog. Once upon a time in a land far away"
 )
 
-# Sentence splitter for tests
+# Span/sentence splitter for tests
 @module("4c9387f9-3683-4a94-bed9-8ecc1bf3ce47", "FakeTestSentenceSplitter", "0.0.1")
 class FakeTestSentenceSplitter(ModuleBase):
     def run(self, text: str):
@@ -58,10 +58,10 @@ SENTENCE_SPLITTER = FakeTestSentenceSplitter()
 
 
 def test_init_run():
-    """Check if we can init and run sentence classification models with min arguments"""
-    model = TransformerSentenceClassification(
+    """Check if we can init and run span classification models with min arguments"""
+    model = FilteredSpanClassification(
         lang="en",
-        sentence_splitter=SENTENCE_SPLITTER,
+        span_splitter=SENTENCE_SPLITTER,
         sequence_classifier=LOADED_SEQ_CLASS_MODEL,
         default_threshold=0.5,
     )
@@ -79,10 +79,10 @@ def test_init_run():
 
 
 def test_init_run_with_threshold():
-    """Check if we can run sentence classification models with overriden threshold"""
-    model = TransformerSentenceClassification(
+    """Check if we can run span classification models with overriden threshold"""
+    model = FilteredSpanClassification(
         lang="en",
-        sentence_splitter=SENTENCE_SPLITTER,
+        span_splitter=SENTENCE_SPLITTER,
         sequence_classifier=LOADED_SEQ_CLASS_MODEL,
         default_threshold=0.5,
     )
@@ -94,10 +94,10 @@ def test_init_run_with_threshold():
 
 
 def test_init_run_with_optional_labels_to_output():
-    """Check if we can run sentence classification models with labels_to_output"""
-    model = TransformerSentenceClassification(
+    """Check if we can run span classification models with labels_to_output"""
+    model = FilteredSpanClassification(
         lang="en",
-        sentence_splitter=SENTENCE_SPLITTER,
+        span_splitter=SENTENCE_SPLITTER,
         sequence_classifier=LOADED_SEQ_CLASS_MODEL,
         default_threshold=0.5,
         labels_to_output=["LABEL_0"],
@@ -113,38 +113,21 @@ def test_init_run_with_optional_labels_to_output():
     assert approx(first_result.score) == 0.49526197
 
 
-def test_init_with_optional_labels_mapping():
-    """Check if we can run sentence classification models with labels_mapping"""
-    model = TransformerSentenceClassification(
-        lang="en",
-        sentence_splitter=SENTENCE_SPLITTER,
-        sequence_classifier=LOADED_SEQ_CLASS_MODEL,
-        default_threshold=0.5,
-        labels_mapping={"LABEL_0": "YAY", "LABEL_1": "NAY"},
-    )
-    token_classification_result = model.run(DOCUMENT, threshold=0.0)
-    assert len(token_classification_result.results) == 4
-    assert token_classification_result.results[0].entity == "YAY"
-    assert approx(token_classification_result.results[0].score) == 0.49526197
-    assert token_classification_result.results[3].entity == "NAY"
-    assert approx(token_classification_result.results[3].score) == 0.50475168
-
-
 def test_save_load_and_run_model():
     """Check if we can run a saved model successfully"""
-    model = TransformerSentenceClassification(
+    model = FilteredSpanClassification(
         lang="en",
-        sentence_splitter=SENTENCE_SPLITTER,
+        span_splitter=SENTENCE_SPLITTER,
         sequence_classifier=LOADED_SEQ_CLASS_MODEL,
         default_threshold=0.5,
     )
     with tempfile.TemporaryDirectory() as model_dir:
         model.save(model_dir)
         assert os.path.exists(os.path.join(model_dir, "config.yml"))
-        assert os.path.exists(os.path.join(model_dir, "sentence_split"))
+        assert os.path.exists(os.path.join(model_dir, "span_split"))
         assert os.path.exists(os.path.join(model_dir, "sequence_classification"))
 
-        new_model = TransformerSentenceClassification.load(model_dir)
+        new_model = FilteredSpanClassification.load(model_dir)
         token_classification_result = new_model.run(DOCUMENT)
         assert isinstance(token_classification_result, TokenClassificationResult)
         assert (
