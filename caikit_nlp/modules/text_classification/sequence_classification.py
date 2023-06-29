@@ -216,8 +216,7 @@ class SequenceClassification(ModuleBase):
             classification_list.append(
                 Classification(label=label, score=score_array[text_idx])
             )
-        classification_prediction = ClassificationResult(results=classification_list)
-        return classification_prediction
+        return ClassificationResult(results=classification_list)
 
     # NOTE: similar to prompt tuning but no user override, could consolidate eventually
     @staticmethod
