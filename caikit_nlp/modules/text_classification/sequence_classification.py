@@ -223,8 +223,9 @@ class SequenceClassification(ModuleBase):
         error.type_check("<NLP40517898E>", Dict, scores_dict=scores_dict)
         classification_list = []
         for label, score_array in scores_dict.items():
+            # NOTE: labels are expected to be str, especially for config
             classification_list.append(
-                Classification(label=label, score=score_array[text_idx])
+                Classification(label=str(label), score=score_array[text_idx])
             )
         return ClassificationResult(results=classification_list)
 
