@@ -62,7 +62,7 @@ def test_bootstrap_run():
     model = FilteredSpanClassification.bootstrap(
         lang="en",
         span_splitter=SENTENCE_SPLITTER,
-        sequence_classifier=BOOTSTRAPPED_SEQ_CLASS_MODEL,
+        classifier=BOOTSTRAPPED_SEQ_CLASS_MODEL,
         default_threshold=0.5,
     )
     token_classification_result = model.run(DOCUMENT)
@@ -83,7 +83,7 @@ def test_bootstrap_run_with_threshold():
     model = FilteredSpanClassification.bootstrap(
         lang="en",
         span_splitter=SENTENCE_SPLITTER,
-        sequence_classifier=BOOTSTRAPPED_SEQ_CLASS_MODEL,
+        classifier=BOOTSTRAPPED_SEQ_CLASS_MODEL,
         default_threshold=0.5,
     )
     token_classification_result = model.run(DOCUMENT, threshold=0.0)
@@ -98,7 +98,7 @@ def test_bootstrap_run_with_optional_labels_to_output():
     model = FilteredSpanClassification.bootstrap(
         lang="en",
         span_splitter=SENTENCE_SPLITTER,
-        sequence_classifier=BOOTSTRAPPED_SEQ_CLASS_MODEL,
+        classifier=BOOTSTRAPPED_SEQ_CLASS_MODEL,
         default_threshold=0.5,
         labels_to_output=["LABEL_0"],
     )
@@ -118,7 +118,7 @@ def test_save_load_and_run_model():
     model = FilteredSpanClassification.bootstrap(
         lang="en",
         span_splitter=SENTENCE_SPLITTER,
-        sequence_classifier=BOOTSTRAPPED_SEQ_CLASS_MODEL,
+        classifier=BOOTSTRAPPED_SEQ_CLASS_MODEL,
         default_threshold=0.5,
     )
     with tempfile.TemporaryDirectory() as model_dir:
