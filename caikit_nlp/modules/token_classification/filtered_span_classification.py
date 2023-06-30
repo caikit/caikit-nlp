@@ -111,27 +111,26 @@ class FilteredSpanClassification(ModuleBase):
         if threshold is None:
             threshold = self.default_threshold
         token_classification_results = []
-        # Split document into sentences
-        sentence_span_list = self.span_splitter.run(text)
-        # Run each sentence through the classifier and determine based
+        # Split document into spans
+        span_list = self.span_splitter.run(text)
+        # Run each span through the classifier and determine based
         # on threshold and labels_to_output what results should be returned
-        text_list = [span.text for span in sentence_span_list]
+        text_list = [span.text for span in span_list]
         classification_results = self.sequence_classifier.run_batch(text_list)
         for idx, classification_result in enumerate(classification_results):
-            # Each classification prediction is list of classifications
+            # Each classification result is list of classifications
             # for that particular text example
             for classification in classification_result.results:
-                # NOTE: labels need to be specified as str for config
-                label = str(classification.label)
+                label = classification.label
                 if classification.score >= threshold:
                     if not self.labels_to_output or (
                         self.labels_to_output and label in self.labels_to_output
                     ):
-                        sentence_span = sentence_span_list[idx]
+                        span = span_list[idx]
                         token_classification = TokenClassification(
-                            start=sentence_span.start,
-                            end=sentence_span.end,
-                            word=sentence_span.text,
+                            start=span.start,
+                            end=span.end,
+                            word=span.text,
                             entity=label,
                             score=classification.score,
                         )
