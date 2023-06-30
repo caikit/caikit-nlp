@@ -22,6 +22,7 @@ from typing import List, Union
 from caikit.core import DataObjectBase
 import caikit
 
+
 @caikit.core.dataobject(package="caikit_data_model.caikit_nlp")
 class ClassificationTrainRecord(DataObjectBase):
     text: str
@@ -57,4 +58,3 @@ class TokenClassification(DataObjectBase):
 @caikit.core.dataobject(package="caikit_data_model.caikit_nlp")
 class TokenClassificationResult(DataObjectBase):
     results: List[TokenClassification]
-
