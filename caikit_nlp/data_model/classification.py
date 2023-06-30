@@ -11,22 +11,50 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Data structures for text generation representations
+
+"""These interfaces can be promoted to caikit/caikit for wider usage
+when applicable to multiple modules
 """
 # Standard
 from typing import List, Union
 
 # First Party
 from caikit.core import DataObjectBase
-
-# First party
-import alog
 import caikit
-
-log = alog.use_channel("DATAM")
-
 
 @caikit.core.dataobject(package="caikit_data_model.caikit_nlp")
 class ClassificationTrainRecord(DataObjectBase):
     text: str
     labels: List[Union[str, int]]
+
+
+@caikit.core.dataobject(package="caikit_data_model.caikit_nlp")
+class Classification(DataObjectBase):
+    label: str
+    score: float
+
+
+@caikit.core.dataobject(package="caikit_data_model.caikit_nlp")
+class ClassificationResult(DataObjectBase):
+    results: List[Classification]
+
+
+# NOTE: This is meant to align with the HuggingFace token classification task:
+# https://huggingface.co/docs/transformers/tasks/token_classification#inference
+# The field `word` does not necessarily correspond to a single "word",
+# and `entity` may not always be applicable beyond "entity" in the NER
+# (named entity recognition) sense
+@caikit.core.dataobject(package="caikit_data_model.caikit_nlp")
+class TokenClassification(DataObjectBase):
+    start: int
+    end: int
+    word: str  # could be thought of as text
+    entity: str  # could be thought of as label
+    entity_group: str  # could be thought of as aggregate label, if applicable
+    score: float
+
+
+@caikit.core.dataobject(package="caikit_data_model.caikit_nlp")
+class TokenClassificationResult(DataObjectBase):
+    results: List[TokenClassification]
+

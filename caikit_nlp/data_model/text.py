@@ -11,11 +11,17 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Common data model containing all data structures that are passed in and out of blocks.
+"""These interfaces can be promoted to caikit/caikit for wider usage
+when applicable to multiple modules
 """
 
-# Local
-from . import classification, generation, text
-from .classification import *
-from .generation import *
-from .text import *
+# First Party
+from caikit.core import DataObjectBase
+import caikit
+
+
+@caikit.core.dataobject(package="caikit_data_model.caikit_nlp")
+class Span(DataObjectBase):
+    start: int
+    end: int
+    text: str

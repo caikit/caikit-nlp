@@ -11,11 +11,19 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Common data model containing all data structures that are passed in and out of blocks.
+"""This task can be promoted to caikit/caikit for wider usage when applicable
+to multiple modules
 """
+# First Party
+from caikit.core import TaskBase, task
 
 # Local
-from . import classification, generation, text
-from .classification import *
-from .generation import *
-from .text import *
+from ...data_model import TokenClassificationResult
+
+
+@task(
+    required_parameters={"text": str},
+    output_type=TokenClassificationResult,
+)
+class TokenClassificationTask(TaskBase):
+    pass
