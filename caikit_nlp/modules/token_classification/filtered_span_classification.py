@@ -70,7 +70,8 @@ class FilteredSpanClassification(ModuleBase):
             span_splitter: ModuleBase
                 Span splitter that returns List[Span]
             classifier: ModuleBase
-                Classification model instance returning Classification or TokenClassification output on .run
+                Classification model instance returning Classification or
+                TokenClassification output on .run
             default_threshold: float
                 Default threshold for scores
             labels_to_output: List[str]
@@ -138,17 +139,23 @@ class FilteredSpanClassification(ModuleBase):
             for classification in classification_result.results:
                 if self.classification_task == TextClassificationTask:
                     label = classification.label
+                    span = span_list[idx]
+                    start = span.start
+                    end = span.end
+                    word = span.text
                 else:
                     label = classification.entity
+                    start = classification.start
+                    end = classification.end
+                    word = classification.word
                 if classification.score >= threshold:
                     if not self.labels_to_output or (
                         self.labels_to_output and label in self.labels_to_output
                     ):
-                        span = span_list[idx]
                         token_classification = TokenClassification(
-                            start=span.start,
-                            end=span.end,
-                            word=span.text,
+                            start=start,
+                            end=end,
+                            word=word,
                             entity=label,
                             score=classification.score,
                         )
@@ -218,7 +225,8 @@ class FilteredSpanClassification(ModuleBase):
             span_splitter: ModuleBase
                 Span splitter that returns List[Span]
             classifier: ModuleBase
-                Classification model instance returning Classification or TokenClassification output on .run
+                Classification model instance returning Classification or
+                TokenClassification output on .run
             default_threshold: float
                 Default threshold for scores
             labels_to_output: List[str]
