@@ -136,7 +136,6 @@ class FilteredSpanClassification(ModuleBase):
             # Each classification result is list of classifications
             # for that particular text example
             for classification in classification_result.results:
-                # NOTE: labels need to be specified as str for config
                 if self.classification_task == TextClassificationTask:
                     label = classification.label
                 else:
