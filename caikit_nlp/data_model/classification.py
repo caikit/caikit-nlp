@@ -16,7 +16,7 @@
 when applicable to multiple modules
 """
 # Standard
-from typing import List, Union
+from typing import List
 
 # First Party
 from caikit.core import DataObjectBase
@@ -26,7 +26,7 @@ import caikit
 @caikit.core.dataobject(package="caikit_data_model.caikit_nlp")
 class ClassificationTrainRecord(DataObjectBase):
     text: str
-    labels: List[Union[str, int]]
+    labels: List[str]
 
 
 @caikit.core.dataobject(package="caikit_data_model.caikit_nlp")
