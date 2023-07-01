@@ -12,5 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Local
 from .regex_sentence_splitter import RegexSentenceSplitter
 from .tokenization_task import TokenizationTask

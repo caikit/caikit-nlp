@@ -17,10 +17,7 @@
 import re
 
 # First Party
-from caikit.core.modules import (
-    ModuleBase,
-    module,
-)
+from caikit.core.modules import ModuleBase, module
 from caikit.core.toolkit import error_handler
 import alog
 
@@ -30,6 +27,7 @@ from .tokenization_task import TokenizationTask
 
 log = alog.use_channel("RGX_SNT_SPLT")
 error = error_handler.get(log)
+
 
 @module(
     id="1e04e21b-7009-499e-abdd-41e5984c2e7d",
@@ -45,6 +43,15 @@ class RegexSentenceSplitter(ModuleBase):
     """
 
     def __init__(self, regex_str: str):
+        """Construct a RegexSentenceSplitter object
+        by compiling the input regex string into python regex object
+        that can be used later on for detection.
+
+        Args:
+            regex_str: str
+                String containing pattern that can be complied with python re
+                module
+        """
         error.type_check("<NLP48846517E>", str, regex_str=regex_str)
         self.regex = re.compile(regex_str)
 
@@ -59,18 +66,23 @@ class RegexSentenceSplitter(ModuleBase):
         pass
 
     def run(self, text: str) -> TokenizationResult:
+        """Run sentence splitting regex on input text.
+
+        Args:
+            text: str
+                Document to run sentence splitting on.
+        Returns:
+            TokenizationResult
+                TokenizationResult object containing tokens where each token
+                corresponds to a detected sentence.
+        """
 
         error.type_check("<NLP38553904E>", str, text=text)
 
         matches = self.regex.finditer(text)
         tokens = []
         for match in matches:
-            span = Span(
-                start=match.start(),
-                end=match.end(),
-                text=match.group())
+            span = Span(start=match.start(), end=match.end(), text=match.group())
             tokens.append(Token(span=span))
 
         return TokenizationResult(tokens=tokens)
-
-
