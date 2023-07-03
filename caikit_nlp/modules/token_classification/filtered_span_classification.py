@@ -137,6 +137,28 @@ class FilteredSpanClassification(ModuleBase):
                         token_classification_results.append(token_classification)
         return TokenClassificationResult(results=token_classification_results)
 
+    def run_bidi_stream(self, text_stream, threshold: Optional[float] = None):
+        """Function to provide bi-directional streaming inferencing for this module"""
+
+        # TODO: For optimization implement window based approach.
+
+        for span_output in self._stream_span_output(text_stream):
+            classification_result = self.sequence_classifier.run(span_output.text)
+            for classification in classification_result.results:
+                label = classification.label
+                # TODO: Figure out how we want to handle thresholding for streaming
+                # since with streaming, if the sentence we are processing
+                # is below threshold, do we want to skip yielding that response and try to get
+                # another one ? What if none cross / passes threshold.
+                yield TokenClassification(
+                    start=span_output.span.start,
+                    end=span_output.span.end,
+                    word=span_output.span.text,
+                    entity=label,
+                    score=classification.score,
+                )
+                # TODO: What would be final output DM for streaming.
+
     def save(self, model_path: str):
         """Save model in target path
 
@@ -216,3 +238,24 @@ class FilteredSpanClassification(ModuleBase):
             default_threshold=default_threshold,
             labels_to_output=labels_to_output,
         )
+
+    ################################## private functions #############################################
+
+    def _stream_span_output(self, text_stream):
+        """Function to yield span output from input text stream"""
+        stream_accumulator = ""
+        detected_spans = None
+        for text in text_stream:
+            stream_accumulator += text
+            detected_spans = self.span_splitter.run(stream_accumulator).tokens
+
+            if len(detected_spans) > 1:
+                # we have detected more than 1 sentences,
+                # return 1st sentence
+                yield detected_spans.pop(0)
+                # Reset stream_accumulator
+                stream_accumulator = text
+
+        # For last remaining sentence
+        if detected_spans and len(detected_spans) > 0:
+            yield detected_spans.pop(0)

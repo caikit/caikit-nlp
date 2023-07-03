@@ -9,6 +9,7 @@ from pytest import approx
 import pytest
 
 # First Party
+from caikit.core import data_model
 from caikit.core.modules import ModuleBase, ModuleSaver, module
 
 # Local
@@ -16,7 +17,7 @@ from caikit_nlp.data_model.classification import (
     TokenClassification,
     TokenClassificationResult,
 )
-from caikit_nlp.data_model.text import Span
+from caikit_nlp.data_model.text import Span, TokenizationResult
 from caikit_nlp.modules.text_classification import SequenceClassification
 from caikit_nlp.modules.token_classification import FilteredSpanClassification
 from tests.fixtures import SEQ_CLASS_MODEL
@@ -133,3 +134,41 @@ def test_save_load_and_run_model():
         assert (
             len(token_classification_result.results) == 2
         )  # 2 results over 0.5 expected
+
+
+### Streaming test ##############################################################
+
+
+def test_run_bidi_stream_model():
+    """Check if model prediction works as expected for bi-directional stream"""
+
+    # TODO: Figure out if the sentence splitter needs to return List or TokenizationResults datamodel
+    class TestSentenceSplitter(FakeTestSentenceSplitter):
+        def run(self, text: str):
+            return TokenizationResult(
+                tokens=[
+                    Span(
+                        start=0,
+                        end=44,
+                        text="The quick brown fox jumps over the lazy dog.",
+                    ),
+                    Span(start=45, end=80, text="Once upon a time in a land far away"),
+                ]
+            )
+
+    stream_input = data_model.DataStream.from_iterable(DOCUMENT[0])
+    model = FilteredSpanClassification.bootstrap(
+        lang="en",
+        span_splitter=TestSentenceSplitter(),
+        sequence_classifier=BOOTSTRAPPED_SEQ_CLASS_MODEL,
+        default_threshold=0.5,
+    )
+    token_classification_result = model.run_bidi_stream(stream_input)
+    expected_number_of_sentences = 2
+    count = 0
+    for class_result in token_classification_result:
+        count += 1
+        assert isinstance(class_result, TokenClassification)
+
+    # Assert total number of results should be equal to expected number of sentences
+    assert count == expected_number_of_sentences
