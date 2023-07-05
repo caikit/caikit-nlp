@@ -5,3 +5,4 @@ reports
 .pytest_cache
 models
 *.md
+tests/fixtures/tiny_models
