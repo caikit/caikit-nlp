@@ -24,6 +24,7 @@ from caikit_nlp.modules.token_classification import (
     FilteredSpanClassification,
     TokenClassificationTask,
 )
+from caikit_nlp.modules.tokenization.tokenization_task import TokenizationTask
 from tests.fixtures import SEQ_CLASS_MODEL
 
 ## Setup ########################################################################
@@ -36,9 +37,14 @@ DOCUMENT = (
 )
 
 # Span/sentence splitter for tests
-@module("4c9387f9-3683-4a94-bed9-8ecc1bf3ce47", "FakeTestSentenceSplitter", "0.0.1")
+@module(
+    "4c9387f9-3683-4a94-bed9-8ecc1bf3ce47",
+    "FakeTestSentenceSplitter",
+    "0.0.1",
+    task=TokenizationTask,
+)
 class FakeTestSentenceSplitter(ModuleBase):
-    def run(self, text: str):
+    def run(self, text: str) -> TokenizationResult:
         return TokenizationResult(
             results=[
                 Token(
