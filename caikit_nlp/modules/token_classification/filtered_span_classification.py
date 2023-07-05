@@ -61,19 +61,19 @@ class FilteredSpanClassification(ModuleBase):
     def __init__(
         self,
         lang: str,
-        span_splitter: ModuleBase,
+        tokenizer: ModuleBase,
         classifier: ModuleBase,
         default_threshold: float,
         labels_to_output: List[str] = None,
     ):
         """Construct a filtered span classification object
-        from a span splitter and sequence classifier
+        from a tokenizer and sequence classifier
 
         Args:
             lang: str
                 2 letter language code
-            span_splitter: ModuleBase
-                Span splitter that returns TokenizationResult
+            tokenizer: ModuleBase
+                Tokenizer that returns TokenizationResult
             classifier: ModuleBase
                 Classification model instance returning Classification or
                 TokenClassification output on .run
@@ -84,11 +84,11 @@ class FilteredSpanClassification(ModuleBase):
         """
         super().__init__()
         error.type_check("<NLP12578168E>", str, lang=lang)
-        error.type_check("<NLP79642537E>", ModuleBase, span_splitter=span_splitter)
-        if span_splitter.TASK_CLASS is not TokenizationTask:
+        error.type_check("<NLP79642537E>", ModuleBase, tokenizer=tokenizer)
+        if tokenizer.TASK_CLASS is not TokenizationTask:
             log.error(
                 "<NLP16242068E>",
-                "span_splitter does not implement TokenizationTask",
+                "tokenizer does not implement TokenizationTask",
             )
         error.type_check(
             "<NLP35742128E>",
@@ -106,7 +106,7 @@ class FilteredSpanClassification(ModuleBase):
                 f"classifier does not implement one of required tasks: {ALLOWED_TASKS}",
             )
         self.lang = lang
-        self.span_splitter = span_splitter
+        self.tokenizer = tokenizer
         self.classifier = classifier
         self.default_threshold = default_threshold
         self.labels_to_output = labels_to_output
@@ -134,12 +134,13 @@ class FilteredSpanClassification(ModuleBase):
         token_classification_results = []
         if self.classification_task == TextClassificationTask:
             # Split document into spans
-            span_list = self.span_splitter.run(text)
+            span_list = self.tokenizer.run(text)
             text_list = [span.text for span in span_list]
         else:
             # TokenClassificationTask classifiers would hold span info
             # so we do not need to span split again
             text_list = [text]
+        # Split document into spans
         # Run each span through the classifier and determine based
         # on threshold and labels_to_output what results should be returned
         classification_results = self.classifier.run_batch(text_list)
@@ -237,7 +238,7 @@ class FilteredSpanClassification(ModuleBase):
         )
 
         with module_saver:
-            module_saver.save_module(self.span_splitter, "span_split")
+            module_saver.save_module(self.tokenizer, "span_split")
             module_saver.save_module(self.classifier, "classification")
             config_options = {
                 "language": self.lang,
@@ -260,10 +261,10 @@ class FilteredSpanClassification(ModuleBase):
         """
         config = ModuleConfig.load(os.path.abspath(model_path))
         loader = ModuleLoader(model_path)
-        span_splitter = loader.load_module("span_split")
+        tokenizer = loader.load_module("tokenizer")
         classifier = loader.load_module("classification")
         return cls(
-            span_splitter=span_splitter,
+            tokenizer=tokenizer,
             classifier=classifier,
             lang=config.language,
             default_threshold=config.default_threshold,
@@ -274,7 +275,7 @@ class FilteredSpanClassification(ModuleBase):
     def bootstrap(
         cls,
         lang: str,
-        span_splitter: ModuleBase,
+        tokenizer: ModuleBase,
         classifier: ModuleBase,
         default_threshold: float,
         labels_to_output: List[str] = None,
@@ -284,11 +285,14 @@ class FilteredSpanClassification(ModuleBase):
         Args:
             lang: str
                 2 letter language code
-            span_splitter: ModuleBase
-                Span splitter that returns TokenizationResult
+            tokenizer: ModuleBase
+                Tokenizer that returns TokenizationResult
             classifier: ModuleBase
                 Classification model instance returning Classification or
                 TokenClassification output on .run
+
+            sequence_classifier: SequenceClassification
+                Sequence classification model
             default_threshold: float
                 Default threshold for scores
             labels_to_output: List[str]
@@ -297,7 +301,7 @@ class FilteredSpanClassification(ModuleBase):
         # Basically just wrap the constructor currently
         return cls(
             lang=lang,
-            span_splitter=span_splitter,
+            tokenizer=tokenizer,
             classifier=classifier,
             default_threshold=default_threshold,
             labels_to_output=labels_to_output,
@@ -311,7 +315,7 @@ class FilteredSpanClassification(ModuleBase):
         detected_spans = None
         for text in text_stream:
             stream_accumulator += text
-            detected_spans = self.span_splitter.run(stream_accumulator).results
+            detected_spans = self.tokenizer.run(stream_accumulator).results
 
             if len(detected_spans) > 1:
                 # we have detected more than 1 sentences,

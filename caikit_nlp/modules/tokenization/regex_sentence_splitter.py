@@ -87,4 +87,4 @@ class RegexSentenceSplitter(ModuleBase):
             token = Token(start=match.start(), end=match.end(), text=match.group())
             tokens.append(token)
 
-        return TokenizationResult(tokens=tokens)
+        return TokenizationResult(results=tokens)
