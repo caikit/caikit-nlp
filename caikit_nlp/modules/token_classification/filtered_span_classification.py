@@ -85,11 +85,11 @@ class FilteredSpanClassification(ModuleBase):
         super().__init__()
         error.type_check("<NLP12578168E>", str, lang=lang)
         error.type_check("<NLP79642537E>", ModuleBase, tokenizer=tokenizer)
-        if tokenizer.TASK_CLASS is not TokenizationTask:
-            log.error(
-                "<NLP16242068E>",
-                "tokenizer does not implement TokenizationTask",
-            )
+        error.value_check(
+            "<NLP42736791E>",
+            tokenizer.TASK_CLASS == TokenizationTask,
+            "tokenizer does not implement TokenizationTask",
+        )
         error.type_check(
             "<NLP35742128E>",
             ModuleBase,
@@ -100,11 +100,11 @@ class FilteredSpanClassification(ModuleBase):
             "<NLP71653678E>", str, allow_none=True, labels_to_output=labels_to_output
         )
         classification_task = classifier.TASK_CLASS
-        if classification_task not in ALLOWED_TASKS:
-            log.error(
-                "<NLP92989564E>",
-                f"classifier does not implement one of required tasks: {ALLOWED_TASKS}",
-            )
+        error.value_check(
+            "<NLP41319814E>",
+            classification_task in ALLOWED_TASKS,
+            f"classifier does not implement one of required tasks: {ALLOWED_TASKS}",
+        )
         self.lang = lang
         self.tokenizer = tokenizer
         self.classifier = classifier
@@ -195,7 +195,6 @@ class FilteredSpanClassification(ModuleBase):
 
         offset = 0
         for span_output in self._stream_span_output(text_stream):
-            text_len = span_output.end - span_output.start
             classification_result = self.classifier.run(span_output.text)
             for classification in classification_result.results:
                 # TODO: refactor common code between .run and here
@@ -223,7 +222,8 @@ class FilteredSpanClassification(ModuleBase):
                             entity=label,
                             score=classification.score,
                         )
-            offset += text_len
+            # The implication here is the span start is always 0
+            offset += span_output.end
 
     def save(self, model_path: str):
         """Save model in target path
