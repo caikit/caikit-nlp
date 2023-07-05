@@ -15,13 +15,26 @@
 when applicable to multiple modules
 """
 
+# Standard
+from typing import List
+
 # First Party
 from caikit.core import DataObjectBase
 import caikit
 
 
 @caikit.core.dataobject(package="caikit_data_model.caikit_nlp")
-class Span(DataObjectBase):
+class Token(DataObjectBase):
+    """Tokens here are the basic units of text. Tokens can be characters, words,
+    sub-words, or other segments of text or code, depending on the method of
+    tokenization chosen or the task being implemented.
+    """
+
     start: int
     end: int
     text: str
+
+
+@caikit.core.dataobject(package="caikit_data_model.caikit_nlp")
+class TokenizationResult(DataObjectBase):
+    results: List[Token]
