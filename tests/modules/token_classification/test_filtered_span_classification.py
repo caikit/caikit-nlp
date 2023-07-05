@@ -1,6 +1,7 @@
 """Tests for filtered span classification module
 """
 # Standard
+from typing import List
 import os
 import tempfile
 
@@ -19,7 +20,11 @@ from caikit_nlp.data_model.classification import (
 )
 from caikit_nlp.data_model.text import Token, TokenizationResult
 from caikit_nlp.modules.text_classification import SequenceClassification
-from caikit_nlp.modules.token_classification import FilteredSpanClassification
+from caikit_nlp.modules.token_classification import (
+    FilteredSpanClassification,
+    TokenClassificationTask,
+)
+from caikit_nlp.modules.tokenization.tokenization_task import TokenizationTask
 from tests.fixtures import SEQ_CLASS_MODEL
 
 ## Setup ########################################################################
@@ -32,9 +37,14 @@ DOCUMENT = (
 )
 
 # Span/sentence splitter for tests
-@module("4c9387f9-3683-4a94-bed9-8ecc1bf3ce47", "FakeTestSentenceSplitter", "0.0.1")
+@module(
+    "4c9387f9-3683-4a94-bed9-8ecc1bf3ce47",
+    "FakeTestSentenceSplitter",
+    "0.0.1",
+    task=TokenizationTask,
+)
 class FakeTestSentenceSplitter(ModuleBase):
-    def run(self, text: str):
+    def run(self, text: str) -> TokenizationResult:
         return TokenizationResult(
             results=[
                 Token(
@@ -61,6 +71,41 @@ class FakeTestSentenceSplitter(ModuleBase):
 
 SENTENCE_TOKENIZER = FakeTestSentenceSplitter()
 
+# Module that already returns token classification for tests
+@module(
+    "44d61711-c64b-4774-a39f-a9f40f1fcff0",
+    "FakeTokenClassificationModule",
+    "0.0.1",
+    task=TokenClassificationTask,
+)
+class FakeTokenClassificationModule(ModuleBase):
+    def run(self, text: str) -> TokenClassificationResult:
+        pass
+
+    def run_batch(self, texts: List[str]) -> List[TokenClassificationResult]:
+        return [
+            TokenClassificationResult(
+                results=[
+                    TokenClassification(
+                        start=7, end=12, word="goose", entity="animal", score=0.3
+                    ),
+                    TokenClassification(
+                        start=0, end=5, word="moose", entity="animal", score=0.8
+                    ),
+                ]
+            ),
+            TokenClassificationResult(
+                results=[
+                    TokenClassification(
+                        start=0, end=4, word="iris", entity="plant", score=0.7
+                    )
+                ]
+            ),
+        ]
+
+
+TOKEN_CLASSIFICATION_MODULE = FakeTokenClassificationModule()
+
 ## Tests ########################################################################
 
 
@@ -69,7 +114,7 @@ def test_bootstrap_run():
     model = FilteredSpanClassification.bootstrap(
         lang="en",
         tokenizer=SENTENCE_TOKENIZER,
-        sequence_classifier=BOOTSTRAPPED_SEQ_CLASS_MODEL,
+        classifier=BOOTSTRAPPED_SEQ_CLASS_MODEL,
         default_threshold=0.5,
     )
     token_classification_result = model.run(DOCUMENT)
@@ -90,7 +135,7 @@ def test_bootstrap_run_with_threshold():
     model = FilteredSpanClassification.bootstrap(
         lang="en",
         tokenizer=SENTENCE_TOKENIZER,
-        sequence_classifier=BOOTSTRAPPED_SEQ_CLASS_MODEL,
+        classifier=BOOTSTRAPPED_SEQ_CLASS_MODEL,
         default_threshold=0.5,
     )
     token_classification_result = model.run(DOCUMENT, threshold=0.0)
@@ -105,7 +150,7 @@ def test_bootstrap_run_with_optional_labels_to_output():
     model = FilteredSpanClassification.bootstrap(
         lang="en",
         tokenizer=SENTENCE_TOKENIZER,
-        sequence_classifier=BOOTSTRAPPED_SEQ_CLASS_MODEL,
+        classifier=BOOTSTRAPPED_SEQ_CLASS_MODEL,
         default_threshold=0.5,
         labels_to_output=["LABEL_0"],
     )
@@ -120,12 +165,32 @@ def test_bootstrap_run_with_optional_labels_to_output():
     assert approx(first_result.score) == 0.49526197
 
 
+def test_bootstrap_run_with_token_classification():
+    """Check if we can run span classification models with classifier that does token classification"""
+    model = FilteredSpanClassification.bootstrap(
+        lang="en",
+        tokenizer=SENTENCE_TOKENIZER,
+        classifier=BOOTSTRAPPED_SEQ_CLASS_MODEL,
+        default_threshold=0.5,
+    )
+    token_classification_result = model.run(DOCUMENT)
+    assert isinstance(token_classification_result, TokenClassificationResult)
+    assert len(token_classification_result.results) == 2  # 2 results over 0.5 expected
+    assert isinstance(token_classification_result.results[0], TokenClassification)
+    first_result = token_classification_result.results[0]
+    assert first_result.start == 0
+    assert first_result.end == 5
+    assert first_result.word == "moose"
+    assert first_result.entity == "animal"
+    assert first_result.score == 0.8
+
+
 def test_save_load_and_run_model():
     """Check if we can run a saved model successfully"""
     model = FilteredSpanClassification.bootstrap(
         lang="en",
         tokenizer=SENTENCE_TOKENIZER,
-        sequence_classifier=BOOTSTRAPPED_SEQ_CLASS_MODEL,
+        classifier=BOOTSTRAPPED_SEQ_CLASS_MODEL,
         default_threshold=0.5,
     )
     with tempfile.TemporaryDirectory() as model_dir:
@@ -152,7 +217,7 @@ def test_run_bidi_stream_model():
     model = FilteredSpanClassification.bootstrap(
         lang="en",
         tokenizer=SENTENCE_TOKENIZER,
-        sequence_classifier=BOOTSTRAPPED_SEQ_CLASS_MODEL,
+        classifier=BOOTSTRAPPED_SEQ_CLASS_MODEL,
         default_threshold=0.5,
     )
     token_classification_result = model.run_bidi_stream(stream_input)
