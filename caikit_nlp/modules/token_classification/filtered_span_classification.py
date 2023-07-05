@@ -238,7 +238,7 @@ class FilteredSpanClassification(ModuleBase):
 
         with module_saver:
             module_saver.save_module(self.span_splitter, "span_split")
-            module_saver.save_module(self.classifier, "sequence_classification")
+            module_saver.save_module(self.classifier, "classification")
             config_options = {
                 "language": self.lang,
                 "default_threshold": self.default_threshold,
@@ -261,7 +261,7 @@ class FilteredSpanClassification(ModuleBase):
         config = ModuleConfig.load(os.path.abspath(model_path))
         loader = ModuleLoader(model_path)
         span_splitter = loader.load_module("span_split")
-        classifier = loader.load_module("sequence_classification")
+        classifier = loader.load_module("classification")
         return cls(
             span_splitter=span_splitter,
             classifier=classifier,
