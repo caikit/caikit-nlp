@@ -31,11 +31,12 @@ error = error_handler.get(log)
 
 @module(
     id="1e04e21b-7009-499e-abdd-41e5984c2e7d",
-    name="Sentence Splitter",
+    name="Regex Sentence Splitter",
     version="0.1.0",
     task=TokenizationTask,
 )
 class RegexSentenceSplitter(ModuleBase):
+    # pylint: disable=anomalous-backslash-in-string
     """Use python regexes to split document into sentences.
 
     Sample regex string:
@@ -52,6 +53,7 @@ class RegexSentenceSplitter(ModuleBase):
                 String containing pattern that can be complied with python re
                 module
         """
+        super().__init__()
         error.type_check("<NLP48846517E>", str, regex_str=regex_str)
         self.regex = re.compile(regex_str)
 
