@@ -290,9 +290,6 @@ class FilteredSpanClassification(ModuleBase):
             classifier: ModuleBase
                 Classification model instance returning Classification or
                 TokenClassification output on .run
-
-            sequence_classifier: SequenceClassification
-                Sequence classification model
             default_threshold: float
                 Default threshold for scores
             labels_to_output: List[str]
