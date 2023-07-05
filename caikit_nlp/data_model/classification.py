@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 """These interfaces can be promoted to caikit/caikit for wider usage
 when applicable to multiple modules
 """
@@ -20,6 +21,12 @@ from typing import List
 # First Party
 from caikit.core import DataObjectBase
 import caikit
+
+
+@caikit.core.dataobject(package="caikit_data_model.caikit_nlp")
+class ClassificationTrainRecord(DataObjectBase):
+    text: str
+    labels: List[str]
 
 
 @caikit.core.dataobject(package="caikit_data_model.caikit_nlp")

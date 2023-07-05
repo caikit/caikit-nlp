@@ -35,6 +35,10 @@ token_classification_result = dm.TokenClassificationResult(
     results=[token_classification1, token_classification2]
 )
 
+classification_train_record = dm.ClassificationTrainRecord(
+    text="It is 20 degrees today", labels=["temperature"]
+)
+
 ## Tests ########################################################################
 
 ### Classification
@@ -145,3 +149,28 @@ def test_classification_result_from_json_and_back():
     assert new.results[0].score == 0.8
     assert new.results[1].end == 12
     assert new.results[1].entity == "animal"
+
+
+### ClassificationTrainRecord
+
+
+def test_all_fields_accessible():
+    classification_train_record = dm.ClassificationTrainRecord(
+        text="It is 20 degrees today", labels=["temperature"]
+    )
+    assert classification_train_record.text == "It is 20 degrees today"
+    assert classification_train_record.labels == ["temperature"]
+
+
+def test_from_proto_and_back():
+    new = dm.ClassificationTrainRecord.from_proto(
+        classification_train_record.to_proto()
+    )
+    assert new.text == "It is 20 degrees today"
+    assert new.labels == ["temperature"]
+
+
+def test_from_json_and_back():
+    new = dm.ClassificationTrainRecord.from_json(classification_train_record.to_json())
+    assert new.text == "It is 20 degrees today"
+    assert new.labels == ["temperature"]
