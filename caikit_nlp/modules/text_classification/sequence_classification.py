@@ -65,7 +65,8 @@ class SequenceClassification(ModuleBase):
     ################################## API functions #############################################
 
     def run(self, text: str) -> ClassificationResult:
-        """Run the sequence classification, truncates sequences too long for model
+        """Run the sequence classification.
+            NOTE: This will truncate sequences that are too long for model
 
         Args:
             text: str
