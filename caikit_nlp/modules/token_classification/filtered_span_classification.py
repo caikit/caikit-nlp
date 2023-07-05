@@ -115,7 +115,7 @@ class FilteredSpanClassification(ModuleBase):
         span_list = self.span_splitter.run(text)
         # Run each span through the classifier and determine based
         # on threshold and labels_to_output what results should be returned
-        text_list = [span.text for span in span_list]
+        text_list = [span.text for span in span_list.results]
         classification_results = self.sequence_classifier.run_batch(text_list)
         for idx, classification_result in enumerate(classification_results):
             # Each classification result is list of classifications

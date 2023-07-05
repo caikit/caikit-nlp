@@ -35,10 +35,16 @@ DOCUMENT = (
 @module("4c9387f9-3683-4a94-bed9-8ecc1bf3ce47", "FakeTestSentenceSplitter", "0.0.1")
 class FakeTestSentenceSplitter(ModuleBase):
     def run(self, text: str):
-        return [
-            Token(start=0, end=44, text="The quick brown fox jumps over the lazy dog."),
-            Token(start=45, end=80, text="Once upon a time in a land far away"),
-        ]
+        return TokenizationResult(
+            results=[
+                Token(
+                    start=0,
+                    end=44,
+                    text="The quick brown fox jumps over the lazy dog.",
+                ),
+                Token(start=45, end=80, text="Once upon a time in a land far away"),
+            ]
+        )
 
     def save(self, model_path: str):
         module_saver = ModuleSaver(
@@ -142,24 +148,10 @@ def test_save_load_and_run_model():
 def test_run_bidi_stream_model():
     """Check if model prediction works as expected for bi-directional stream"""
 
-    # TODO: Figure out if the sentence splitter needs to return List or TokenizationResults datamodel
-    class TestSentenceSplitter(FakeTestSentenceSplitter):
-        def run(self, text: str):
-            return TokenizationResult(
-                results=[
-                    Token(
-                        start=0,
-                        end=44,
-                        text="The quick brown fox jumps over the lazy dog.",
-                    ),
-                    Token(start=45, end=80, text="Once upon a time in a land far away"),
-                ]
-            )
-
     stream_input = data_model.DataStream.from_iterable(DOCUMENT[0])
     model = FilteredSpanClassification.bootstrap(
         lang="en",
-        span_splitter=TestSentenceSplitter(),
+        span_splitter=SENTENCE_SPLITTER,
         sequence_classifier=BOOTSTRAPPED_SEQ_CLASS_MODEL,
         default_threshold=0.5,
     )
