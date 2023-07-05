@@ -151,7 +151,7 @@ class FilteredSpanClassification(ModuleBase):
                 # is below threshold, do we want to skip yielding that response and try to get
                 # another one ? What if none cross / passes threshold.
                 yield TokenClassification(
-                    start=span_output.span.start,
+                    start=span_output.start,
                     end=span_output.span.end,
                     word=span_output.span.text,
                     entity=label,

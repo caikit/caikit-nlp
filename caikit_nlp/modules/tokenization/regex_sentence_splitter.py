@@ -31,7 +31,7 @@ error = error_handler.get(log)
 
 @module(
     id="1e04e21b-7009-499e-abdd-41e5984c2e7d",
-    name="Sentence Splitter",
+    name="Regex Sentence Splitter",
     version="0.1.0",
     task=TokenizationTask,
 )
@@ -85,4 +85,4 @@ class RegexSentenceSplitter(ModuleBase):
             token = Token(start=match.start(), end=match.end(), text=match.group())
             tokens.append(token)
 
-        return TokenizationResult(tokens=tokens)
+        return TokenizationResult(results=tokens)
