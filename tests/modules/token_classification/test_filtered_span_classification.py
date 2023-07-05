@@ -69,7 +69,7 @@ class FakeTestSentenceSplitter(ModuleBase):
         return FakeTestSentenceSplitter()
 
 
-SENTENCE_SPLITTER = FakeTestSentenceSplitter()
+SENTENCE_TOKENIZER = FakeTestSentenceSplitter()
 
 # Module that already returns token classification for tests
 @module(
@@ -113,8 +113,8 @@ def test_bootstrap_run():
     """Check if we can bootstrap and run span classification models with min arguments"""
     model = FilteredSpanClassification.bootstrap(
         lang="en",
-        span_splitter=SENTENCE_SPLITTER,
         classifier=BOOTSTRAPPED_SEQ_CLASS_MODEL,
+        tokenizer=SENTENCE_TOKENIZER,
         default_threshold=0.5,
     )
     token_classification_result = model.run(DOCUMENT)
@@ -134,8 +134,8 @@ def test_bootstrap_run_with_threshold():
     """Check if we can bootstrap span classification models with overriden threshold"""
     model = FilteredSpanClassification.bootstrap(
         lang="en",
-        span_splitter=SENTENCE_SPLITTER,
         classifier=BOOTSTRAPPED_SEQ_CLASS_MODEL,
+        tokenizer=SENTENCE_TOKENIZER,
         default_threshold=0.5,
     )
     token_classification_result = model.run(DOCUMENT, threshold=0.0)
@@ -149,7 +149,7 @@ def test_bootstrap_run_with_optional_labels_to_output():
     """Check if we can run span classification models with labels_to_output"""
     model = FilteredSpanClassification.bootstrap(
         lang="en",
-        span_splitter=SENTENCE_SPLITTER,
+        tokenizer=SENTENCE_TOKENIZER,
         classifier=BOOTSTRAPPED_SEQ_CLASS_MODEL,
         default_threshold=0.5,
         labels_to_output=["LABEL_0"],
@@ -169,7 +169,7 @@ def test_bootstrap_run_with_token_classification():
     """Check if we can run span classification models with classifier that does token classification"""
     model = FilteredSpanClassification.bootstrap(
         lang="en",
-        span_splitter=SENTENCE_SPLITTER,
+        tokenizer=SENTENCE_TOKENIZER,
         classifier=TOKEN_CLASSIFICATION_MODULE,
         default_threshold=0.5,
     )
@@ -189,15 +189,15 @@ def test_save_load_and_run_model():
     """Check if we can run a saved model successfully"""
     model = FilteredSpanClassification.bootstrap(
         lang="en",
-        span_splitter=SENTENCE_SPLITTER,
+        tokenizer=SENTENCE_TOKENIZER,
         classifier=BOOTSTRAPPED_SEQ_CLASS_MODEL,
         default_threshold=0.5,
     )
     with tempfile.TemporaryDirectory() as model_dir:
         model.save(model_dir)
         assert os.path.exists(os.path.join(model_dir, "config.yml"))
-        assert os.path.exists(os.path.join(model_dir, "span_split"))
-        assert os.path.exists(os.path.join(model_dir, "sequence_classification"))
+        assert os.path.exists(os.path.join(model_dir, "tokenizer"))
+        assert os.path.exists(os.path.join(model_dir, "classification"))
 
         new_model = FilteredSpanClassification.load(model_dir)
         token_classification_result = new_model.run(DOCUMENT)
@@ -216,7 +216,7 @@ def test_run_bidi_stream_model():
     stream_input = data_model.DataStream.from_iterable(DOCUMENT[0])
     model = FilteredSpanClassification.bootstrap(
         lang="en",
-        span_splitter=SENTENCE_SPLITTER,
+        tokenizer=SENTENCE_TOKENIZER,
         classifier=BOOTSTRAPPED_SEQ_CLASS_MODEL,
         default_threshold=0.5,
     )
