@@ -49,7 +49,6 @@ class SequenceClassification(ModuleBase):
     def __init__(
         self,
         resource: HFAutoSequenceClassifier,
-        device: Union[str, int, None],
     ):
         super().__init__()
         error.type_check(
@@ -60,12 +59,12 @@ class SequenceClassification(ModuleBase):
         self.resource = resource
         self.tokenizer = resource.tokenizer
         self.model = resource.model
-        self.device = device
 
     ################################## API functions #############################################
 
     def run(self, text: str) -> ClassificationResult:
-        """Run the sequence classification, truncates sequences too long for model
+        """Run the sequence classification.
+            NOTE: This will truncate sequences that are too long for model
 
         Args:
             text: str
@@ -131,8 +130,7 @@ class SequenceClassification(ModuleBase):
         """
         loader = ModuleLoader(model_path)
         resource = loader.load_module("sequence_classifier")
-        device = SequenceClassification._get_device()
-        return cls(resource=resource, device=device)
+        return cls(resource=resource)
 
     @classmethod
     def bootstrap(cls, base_model_path: str) -> "SequenceClassification":
@@ -147,10 +145,8 @@ class SequenceClassification(ModuleBase):
         resource = HFAutoSequenceClassifier.bootstrap(
             model_name=base_model_path, tokenizer_name=base_model_path
         )
-        device = SequenceClassification._get_device()
         return cls(
             resource=resource,
-            device=device,
         )
 
     ################################## Private Functions #########################################
@@ -167,6 +163,8 @@ class SequenceClassification(ModuleBase):
                 Dict with key label, and values as the array of scores,
                 each corresponding to text(s)
         """
+        # NOTE: no explicit GPU support at this time
+
         # Apply tokenizer
         tokenized_text = self.tokenizer(
             text,
@@ -174,11 +172,8 @@ class SequenceClassification(ModuleBase):
             truncation=True,
             return_tensors="pt",  # PyTorch
         )
-        # NOTE: no simple/efficient way to detect whether truncation
-        # happened since padding also occurs, and this can be applied on
-        # a batch of strings.
-        if self.device == "cuda":
-            tokenized_text = tokenized_text.to(self.device)
+        # NOTE: no truncation warning given at this time
+        # difficult to detect if truncation happened since padding also occurs
         with torch.no_grad():
             logits = self.model(**tokenized_text).logits
 
@@ -190,13 +185,15 @@ class SequenceClassification(ModuleBase):
 
         softmax = torch.nn.Softmax(dim=1)
         raw_scores = softmax(logits)
-        if self.device == "cuda":
-            scores = raw_scores.cpu().numpy()
-        else:
-            scores = raw_scores.numpy()
+        scores = raw_scores.numpy()
+        num_labels = self.model.num_labels
+        log.error(
+            "<NLP33929938E>",
+            scores.shape == (len(text), num_labels),
+            "model logits expected to be of shape (num_texts, num_labels)",
+        )
 
         scores_dict = {}
-        num_labels = self.model.num_labels
         for label_idx in range(num_labels):
             if self.model.config.id2label:
                 label = self.model.config.id2label[label_idx]
@@ -228,18 +225,3 @@ class SequenceClassification(ModuleBase):
                 Classification(label=str(label), score=score_array[text_idx])
             )
         return ClassificationResult(results=classification_list)
-
-    # NOTE: similar to prompt tuning but no user override, could consolidate eventually
-    @staticmethod
-    def _get_device() -> Union[str, int, None]:
-        """Get the device which we expect to run our models on. Defaults to GPU
-        if one is available, otherwise falls back to None (cpu).
-
-        Returns:
-            Union[str, int, None]
-                Device string that we should move our models / tensors .to() at training
-                and inference time.
-        """
-        device = "cuda" if torch.cuda.is_available() else None
-        log.debug("Using device: %s", device)
-        return device
