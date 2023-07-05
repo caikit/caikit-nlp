@@ -187,9 +187,12 @@ class SequenceClassification(ModuleBase):
         raw_scores = softmax(logits)
         scores = raw_scores.numpy()
         num_labels = self.model.num_labels
-        log.error(
+        num_texts = 1  # str
+        if isinstance(text, List):
+            num_texts = len(text)
+        error.value_check(
             "<NLP33929938E>",
-            scores.shape == (len(text), num_labels),
+            scores.shape == (num_texts, num_labels),
             "model logits expected to be of shape (num_texts, num_labels)",
         )
 
