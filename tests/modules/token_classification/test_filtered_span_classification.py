@@ -17,7 +17,7 @@ from caikit_nlp.data_model.classification import (
     TokenClassification,
     TokenClassificationResult,
 )
-from caikit_nlp.data_model.text import Span, TokenizationResult
+from caikit_nlp.data_model.text import Token, TokenizationResult
 from caikit_nlp.modules.text_classification import SequenceClassification
 from caikit_nlp.modules.token_classification import FilteredSpanClassification
 from tests.fixtures import SEQ_CLASS_MODEL
@@ -36,8 +36,8 @@ DOCUMENT = (
 class FakeTestSentenceSplitter(ModuleBase):
     def run(self, text: str):
         return [
-            Span(start=0, end=44, text="The quick brown fox jumps over the lazy dog."),
-            Span(start=45, end=80, text="Once upon a time in a land far away"),
+            Token(start=0, end=44, text="The quick brown fox jumps over the lazy dog."),
+            Token(start=45, end=80, text="Once upon a time in a land far away"),
         ]
 
     def save(self, model_path: str):
@@ -146,13 +146,13 @@ def test_run_bidi_stream_model():
     class TestSentenceSplitter(FakeTestSentenceSplitter):
         def run(self, text: str):
             return TokenizationResult(
-                tokens=[
-                    Span(
+                results=[
+                    Token(
                         start=0,
                         end=44,
                         text="The quick brown fox jumps over the lazy dog.",
                     ),
-                    Span(start=45, end=80, text="Once upon a time in a land far away"),
+                    Token(start=45, end=80, text="Once upon a time in a land far away"),
                 ]
             )
 

@@ -22,7 +22,7 @@ from caikit.core.toolkit import error_handler
 import alog
 
 # Local
-from ...data_model import Span, Token, TokenizationResult
+from ...data_model import Token, TokenizationResult
 from .tokenization_task import TokenizationTask
 
 log = alog.use_channel("RGX_SNT_SPLT")
@@ -82,7 +82,7 @@ class RegexSentenceSplitter(ModuleBase):
         matches = self.regex.finditer(text)
         tokens = []
         for match in matches:
-            span = Span(start=match.start(), end=match.end(), text=match.group())
-            tokens.append(Token(span=span))
+            token = Token(start=match.start(), end=match.end(), text=match.group())
+            tokens.append(token)
 
         return TokenizationResult(tokens=tokens)

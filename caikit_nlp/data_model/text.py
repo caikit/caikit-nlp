@@ -24,25 +24,17 @@ import caikit
 
 
 @caikit.core.dataobject(package="caikit_data_model.caikit_nlp")
-class Span(DataObjectBase):
-    start: int
-    end: int
-    text: str
-
-
-@caikit.core.dataobject(package="caikit_data_model.caikit_nlp")
 class Token(DataObjectBase):
     """Tokens here are the basic units of text. Tokens can be characters, words,
     sub-words, or other segments of text or code, depending on the method of
     tokenization chosen or the task being implemented.
     """
 
-    # NOTE: This data model is purposefully created separate from "Span"
-    # to provide flexibility for adding more token level constructs in future
-    # if needed, like lemma, part of speech etc.
-    span: Span
+    start: int
+    end: int
+    text: str
 
 
 @caikit.core.dataobject(package="caikit_data_model.caikit_nlp")
 class TokenizationResult(DataObjectBase):
-    tokens: List[Token]
+    results: List[Token]

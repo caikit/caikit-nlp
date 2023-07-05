@@ -247,7 +247,7 @@ class FilteredSpanClassification(ModuleBase):
         detected_spans = None
         for text in text_stream:
             stream_accumulator += text
-            detected_spans = self.span_splitter.run(stream_accumulator).tokens
+            detected_spans = self.span_splitter.run(stream_accumulator).results
 
             if len(detected_spans) > 1:
                 # we have detected more than 1 sentences,
