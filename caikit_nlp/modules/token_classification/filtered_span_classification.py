@@ -336,7 +336,7 @@ class FilteredSpanClassification(ModuleBase):
 
             if len(detected_spans) > 1:
 
-                # we have detected more than 1 sentences,
+                # we have detected more than 1 sentence
                 # return 1st sentence
                 new_span = detected_spans.pop(0)
 
@@ -354,7 +354,7 @@ class FilteredSpanClassification(ModuleBase):
 
                 # since we are resetting the accumulator, this means
                 # the spans returned by the tokenizer will all now
-                # start last token offset + 1. So we store the last processed count
+                # start with last token offset + 1. So we store the last processed count
                 # as the starting point for the subsequent one
                 span_start_offset = new_span.end + 1
 
