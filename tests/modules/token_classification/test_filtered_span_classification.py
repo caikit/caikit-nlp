@@ -224,6 +224,7 @@ def test_run_bidi_stream_model():
         classifier=BOOTSTRAPPED_SEQ_CLASS_MODEL,
         default_threshold=0.5,
     )
+
     streaming_token_classification_result = model.run_bidi_stream(stream_input)
     assert isinstance(streaming_token_classification_result, Iterable)
     # Convert to list to more easily check outputs
@@ -239,7 +240,7 @@ def test_run_bidi_stream_model():
 
     # Check processed indices
     assert result_list[0].processed_index == 44
-    assert result_list[1].processed_index == 80
+    assert result_list[1].processed_index == len(stream_input)
 
     # Assert total number of results should be equal to expected number of sentences
     expected_number_of_sentences = 2  # Sentence tokenizer returns 2 results
