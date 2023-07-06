@@ -140,7 +140,6 @@ class FilteredSpanClassification(ModuleBase):
             # TokenClassificationTask classifiers would hold span info
             # so we do not need to span split again
             text_list = [text]
-        # Split document into spans
         # Run each span through the classifier and determine based
         # on threshold and labels_to_output what results should be returned
         classification_results = self.classifier.run_batch(text_list)
@@ -196,8 +195,8 @@ class FilteredSpanClassification(ModuleBase):
         offset = 0
         for span_output in self._stream_span_output(text_stream):
             classification_result = self.classifier.run(span_output.text)
+            results_to_end_of_span = False
             for classification in classification_result.results:
-                # TODO: refactor common code between .run and here
                 if self.classification_task == TextClassificationTask:
                     label = classification.label
                     start = span_output.start
@@ -208,20 +207,33 @@ class FilteredSpanClassification(ModuleBase):
                     start = classification.start
                     end = classification.end
                     word = classification.word
+
                 if classification.score >= threshold:
                     if not self.labels_to_output or (
                         self.labels_to_output and label in self.labels_to_output
                     ):
-                        # TODO: update output DM
                         # Need to add offset to track actual place of spans within a stream,
                         # as the span splitting will be expected to stream and detect spans
-                        yield TokenClassification(
-                            start=start + offset,
-                            end=end + offset,
-                            word=word,
-                            entity=label,
-                            score=classification.score,
+                        yield StreamingTokenClassificationResult(
+                            results=[
+                                TokenClassification(
+                                    start=start + offset,
+                                    end=end + offset,
+                                    word=word,
+                                    entity=label,
+                                    score=classification.score,
+                                )
+                            ],
+                            processed_index=end + offset,
                         )
+                        if end == span_output.end:
+                            results_to_end_of_span = True
+
+            if not results_to_end_of_span:
+                yield StreamingTokenClassificationResult(
+                    results=[], processed_index=span_output.end + offset
+                )
+
             # The implication here is the span start is always 0
             offset += span_output.end
 
