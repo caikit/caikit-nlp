@@ -14,16 +14,21 @@
 """This task can be promoted to caikit/caikit for wider usage when applicable
 to multiple modules
 """
+# Standard
+from typing import Iterable
+
 # First Party
 from caikit.core import TaskBase, task
 
 # Local
-from ...data_model import TokenClassificationResult
+from ...data_model import StreamingTokenClassificationResult, TokenClassificationResult
 
 
 @task(
-    required_parameters={"text": str},
-    output_type=TokenClassificationResult,
+    unary_parameters={"text": str},
+    streaming_parameters={"text_stream": Iterable[str]},
+    unary_output_type=TokenClassificationResult,
+    streaming_output_type=Iterable[StreamingTokenClassificationResult],
 )
 class TokenClassificationTask(TaskBase):
     pass

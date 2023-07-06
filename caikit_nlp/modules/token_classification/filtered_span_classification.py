@@ -114,6 +114,7 @@ class FilteredSpanClassification(ModuleBase):
 
     ################################## API functions #############################################
 
+    @TokenClassificationTask.taskmethod()
     def run(
         self, text: str, threshold: Optional[float] = None
     ) -> TokenClassificationResult:
@@ -172,6 +173,7 @@ class FilteredSpanClassification(ModuleBase):
                         token_classification_results.append(token_classification)
         return TokenClassificationResult(results=token_classification_results)
 
+    @TokenClassificationTask.taskmethod(input_streaming=True, output_streaming=True)
     def run_bidi_stream(
         self, text_stream: Iterable[str], threshold: Optional[float] = None
     ) -> Iterable[StreamingTokenClassificationResult]:
@@ -332,6 +334,6 @@ class FilteredSpanClassification(ModuleBase):
 
                 detected_span_count += 1
 
-        # # For last remaining sentence
+        # For last remaining sentence
         if detected_spans and len(detected_spans) > detected_span_count:
             yield detected_spans[detected_span_count]
