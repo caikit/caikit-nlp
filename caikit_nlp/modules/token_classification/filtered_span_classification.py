@@ -175,14 +175,14 @@ class FilteredSpanClassification(ModuleBase):
 
     @TokenClassificationTask.taskmethod(input_streaming=True, output_streaming=True)
     def run_bidi_stream(
-        self, text: Iterable[str], threshold: Optional[float] = None
+        self, text_stream: Iterable[str], threshold: Optional[float] = None
     ) -> Iterable[StreamingTokenClassificationResult]:
         """Run bi-directional streaming inferencing for this module.
         Run classification on text split into spans. Returns results
         based on score threshold for labels that are to be outputted
 
         Args:
-            text: Iterable[str]
+            text_stream: Iterable[str]
                 Text stream to run classification on
             threshold: float
                 (Optional) Threshold based on which to return score results
@@ -194,7 +194,7 @@ class FilteredSpanClassification(ModuleBase):
         if threshold is None:
             threshold = self.default_threshold
 
-        for span_output in self._stream_span_output(text):
+        for span_output in self._stream_span_output(text_stream):
             classification_result = self.classifier.run(span_output.text)
             results_to_end_of_span = False
             for classification in classification_result.results:
