@@ -26,7 +26,7 @@ from ...data_model import StreamingTokenClassificationResult, TokenClassificatio
 
 @task(
     unary_parameters={"text": str},
-    streaming_parameters={"text": Iterable[str]},
+    streaming_parameters={"text_stream": Iterable[str]},
     unary_output_type=TokenClassificationResult,
     streaming_output_type=Iterable[StreamingTokenClassificationResult],
 )
