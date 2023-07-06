@@ -170,7 +170,7 @@ def test_bootstrap_run_with_token_classification():
     model = FilteredSpanClassification.bootstrap(
         lang="en",
         tokenizer=SENTENCE_TOKENIZER,
-        classifier=BOOTSTRAPPED_SEQ_CLASS_MODEL,
+        classifier=TOKEN_CLASSIFICATION_MODULE,
         default_threshold=0.5,
     )
     token_classification_result = model.run(DOCUMENT)
@@ -196,8 +196,8 @@ def test_save_load_and_run_model():
     with tempfile.TemporaryDirectory() as model_dir:
         model.save(model_dir)
         assert os.path.exists(os.path.join(model_dir, "config.yml"))
-        assert os.path.exists(os.path.join(model_dir, "span_split"))
-        assert os.path.exists(os.path.join(model_dir, "sequence_classification"))
+        assert os.path.exists(os.path.join(model_dir, "tokenizer"))
+        assert os.path.exists(os.path.join(model_dir, "classification"))
 
         new_model = FilteredSpanClassification.load(model_dir)
         token_classification_result = new_model.run(DOCUMENT)

@@ -134,7 +134,7 @@ class FilteredSpanClassification(ModuleBase):
         token_classification_results = []
         if self.classification_task == TextClassificationTask:
             # Split document into spans
-            span_list = self.tokenizer.run(text)
+            span_list = self.tokenizer.run(text).results
             text_list = [span.text for span in span_list]
         else:
             # TokenClassificationTask classifiers would hold span info
@@ -238,7 +238,7 @@ class FilteredSpanClassification(ModuleBase):
         )
 
         with module_saver:
-            module_saver.save_module(self.tokenizer, "span_split")
+            module_saver.save_module(self.tokenizer, "tokenizer")
             module_saver.save_module(self.classifier, "classification")
             config_options = {
                 "language": self.lang,
