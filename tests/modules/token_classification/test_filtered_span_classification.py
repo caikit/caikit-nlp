@@ -41,6 +41,7 @@ DOCUMENT = (
     "The quick brown fox jumps over the lazy dog. Once upon a time in a land far away"
 )
 
+# Token classifications in document
 FOX_CLASS = TokenClassification(
     start=16, end=19, word="fox", entity="animal", score=0.8
 )
@@ -52,7 +53,7 @@ LAND_CLASS = TokenClassification(
 )
 TOK_CLASSIFICATION_RESULT = TokenClassificationResult(results=[FOX_CLASS, DOG_CLASS])
 
-# Module that already returns token classification for tests
+# Modules that already returns token classification for tests
 @module(
     "44d61711-c64b-4774-a39f-a9f40f1fcff0",
     "FakeTokenClassificationModule",
@@ -72,9 +73,6 @@ class FakeTokenClassificationModule(ModuleBase):
 
 
 class StreamFakeTokenClassificationModule(FakeTokenClassificationModule):
-    def __init__(self):
-        self.calls = 0
-
     # Make module return results per sentence
     def run(self, text: str) -> TokenClassificationResult:
         if "land" in text:
@@ -276,7 +274,7 @@ def test_run_bidi_stream_with_token_classification():
     assert result_list[1].processed_index == 43  # token - dog
     assert result_list[2].processed_index == 44  # end of first sentence
     assert result_list[3].processed_index == 71  # token - land
-    assert result_list[4].processed_index == 80  # end of second sentence - 80??
+    assert result_list[4].processed_index == 80  # end of second sentence
 
     # We expect 5 results here since there are 3 tokens found
     # and the rest of each of the 2 sentences

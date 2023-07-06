@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Module that provides capability to split documents into sentences """
+"""Module that provides capability to split documents into sentences via regex"""
 
 # Standard
 import os
