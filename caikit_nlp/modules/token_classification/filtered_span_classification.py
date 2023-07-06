@@ -192,7 +192,6 @@ class FilteredSpanClassification(ModuleBase):
         if threshold is None:
             threshold = self.default_threshold
 
-        offset = 0
         for span_output in self._stream_span_output(text_stream):
             classification_result = self.classifier.run(span_output.text)
             results_to_end_of_span = False
@@ -204,8 +203,8 @@ class FilteredSpanClassification(ModuleBase):
                     word = span_output.text
                 else:
                     label = classification.entity
-                    start = classification.start
-                    end = classification.end
+                    start = classification.start + span_output.start
+                    end = classification.end + span_output.start
                     word = classification.word
 
                 if classification.score >= threshold:
@@ -217,25 +216,22 @@ class FilteredSpanClassification(ModuleBase):
                         yield StreamingTokenClassificationResult(
                             results=[
                                 TokenClassification(
-                                    start=start + offset,
-                                    end=end + offset,
+                                    start=start,
+                                    end=end,
                                     word=word,
                                     entity=label,
                                     score=classification.score,
                                 )
                             ],
-                            processed_index=end + offset,
+                            processed_index=end,
                         )
                         if end == span_output.end:
                             results_to_end_of_span = True
 
             if not results_to_end_of_span:
                 yield StreamingTokenClassificationResult(
-                    results=[], processed_index=span_output.end + offset
+                    results=[], processed_index=span_output.end
                 )
-
-            # The implication here is the span start is always 0
-            offset += span_output.end
 
     def save(self, model_path: str):
         """Save model in target path
@@ -322,17 +318,20 @@ class FilteredSpanClassification(ModuleBase):
         """Function to yield span output from input text stream"""
         stream_accumulator = ""
         detected_spans = None
+        detected_span_count = 0
         for text in text_stream:
+            # FIXME: stream_accumulator is an ever increasing, so this will
+            # slow down tokenization as the stream becomes filled with more
+            # characters. However, this is done to get around the offset problem
             stream_accumulator += text
             detected_spans = self.tokenizer.run(stream_accumulator).results
 
-            if len(detected_spans) > 1:
-                # we have detected more than 1 sentences,
-                # return 1st sentence
-                yield detected_spans.pop(0)
-                # Reset stream_accumulator
-                stream_accumulator = text
+            if len(detected_spans) > (detected_span_count + 1):
+                # we have detected new sentence, return the new sentence
+                yield detected_spans[detected_span_count]
 
-        # For last remaining sentence
-        if detected_spans and len(detected_spans) > 0:
-            yield detected_spans.pop(0)
+                detected_span_count += 1
+
+        # # For last remaining sentence
+        if detected_spans and len(detected_spans) > detected_span_count:
+            yield detected_spans[detected_span_count]
