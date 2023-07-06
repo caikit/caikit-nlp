@@ -114,6 +114,7 @@ class FilteredSpanClassification(ModuleBase):
 
     ################################## API functions #############################################
 
+    @TokenClassificationTask.taskmethod()
     def run(
         self, text: str, threshold: Optional[float] = None
     ) -> TokenClassificationResult:
@@ -172,15 +173,16 @@ class FilteredSpanClassification(ModuleBase):
                         token_classification_results.append(token_classification)
         return TokenClassificationResult(results=token_classification_results)
 
+    @TokenClassificationTask.taskmethod(input_streaming=True, output_streaming=True)
     def run_bidi_stream(
-        self, text_stream: Iterable[str], threshold: Optional[float] = None
+        self, text: Iterable[str], threshold: Optional[float] = None
     ) -> Iterable[StreamingTokenClassificationResult]:
         """Run bi-directional streaming inferencing for this module.
         Run classification on text split into spans. Returns results
         based on score threshold for labels that are to be outputted
 
         Args:
-            text_stream: Iterable[str]
+            text: Iterable[str]
                 Text stream to run classification on
             threshold: float
                 (Optional) Threshold based on which to return score results
@@ -192,7 +194,7 @@ class FilteredSpanClassification(ModuleBase):
         if threshold is None:
             threshold = self.default_threshold
 
-        for span_output in self._stream_span_output(text_stream):
+        for span_output in self._stream_span_output(text):
             classification_result = self.classifier.run(span_output.text)
             results_to_end_of_span = False
             for classification in classification_result.results:
@@ -332,6 +334,6 @@ class FilteredSpanClassification(ModuleBase):
 
                 detected_span_count += 1
 
-        # # For last remaining sentence
+        # For last remaining sentence
         if detected_spans and len(detected_spans) > detected_span_count:
             yield detected_spans[detected_span_count]
