@@ -321,19 +321,45 @@ class FilteredSpanClassification(ModuleBase):
         stream_accumulator = ""
         detected_spans = None
         detected_span_count = 0
+        span_start_offset = 0
+
+        def __update_spans(token):
+            # Fix offset since we are restarting stream accumulator every-time.
+            # (See comment below)
+            token.start += span_start_offset
+            token.end += span_start_offset
+            return token
+
         for text in text_stream:
-            # FIXME: stream_accumulator is an ever increasing, so this will
-            # slow down tokenization as the stream becomes filled with more
-            # characters. However, this is done to get around the offset problem
             stream_accumulator += text
             detected_spans = self.tokenizer.run(stream_accumulator).results
 
-            if len(detected_spans) > (detected_span_count + 1):
+            if len(detected_spans) > 1:
+
+                # we have detected more than 1 sentence
+                # return 1st sentence
+                new_span = detected_spans.pop(0)
+
+                new_span = __update_spans(new_span)
+
                 # we have detected new sentence, return the new sentence
-                yield detected_spans[detected_span_count]
+                yield new_span
 
                 detected_span_count += 1
 
+                # Reset stream accumulator to optimize detection.
+                # this way we don't have to keep tokenizing already tokenized
+                # sentences
+                stream_accumulator = text
+
+                # since we are resetting the accumulator, this means
+                # the spans returned by the tokenizer will all now
+                # start with last token offset + 1. So we store the last processed count
+                # as the starting point for the subsequent one
+                span_start_offset = new_span.end + 1
+
         # For last remaining sentence
-        if detected_spans and len(detected_spans) > detected_span_count:
-            yield detected_spans[detected_span_count]
+        if detected_spans and len(detected_spans) > 0:
+            new_span = detected_spans.pop(0)
+            new_span = __update_spans(new_span)
+            yield new_span
