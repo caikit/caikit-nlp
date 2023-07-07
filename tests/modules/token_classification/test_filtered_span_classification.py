@@ -38,7 +38,7 @@ SENTENCE_TOKENIZER = RegexSentenceSplitter.bootstrap(
 )
 
 DOCUMENT = (
-    "The quick brown fox jumps over the lazy dog. Once upon a time in a land far away"
+    "The quick brown fox jumps over the lazy dog. Once upon a time in a land far away."
 )
 
 # Token classifications in document
@@ -275,7 +275,7 @@ def test_run_bidi_stream_with_token_classification():
     assert result_list[1].processed_index == 43  # token - dog
     assert result_list[2].processed_index == 44  # end of first sentence
     assert result_list[3].processed_index == 71  # token - land
-    assert result_list[4].processed_index == 80  # end of second sentence
+    assert result_list[4].processed_index == len(stream_input)  # end of second sentence
 
     # We expect 5 results here since there are 3 tokens found
     # and the rest of each of the 2 sentences
