@@ -305,3 +305,83 @@ def test_run_bidi_stream_with_token_classification_no_results():
 
     # Assert total number of results should be equal to expected number of sentences
     assert count == expected_results
+
+
+def test_run_bidi_stream_chunk_stream_input():
+    """Check if model prediction with token classification
+    with chunks of text input works as expected for bi-directional stream"""
+
+    chunkded_document_input = (
+        "The quick brown fox jumps over the ",
+        "lazy dog. Once upon a time in a land far away",
+    )
+    stream_input = data_model.DataStream.from_iterable(chunkded_document_input)
+    model = FilteredSpanClassification.bootstrap(
+        lang="en",
+        tokenizer=SENTENCE_TOKENIZER,
+        classifier=STREAM_TOKEN_CLASSIFICATION_MODULE,
+        default_threshold=0.3,
+    )
+    streaming_token_classification_result = model.run_bidi_stream(stream_input)
+    result_list = list(streaming_token_classification_result)
+    # Convert to list to more easily check outputs
+    first_result = result_list[0].results[0]
+    assert isinstance(first_result, TokenClassification)
+    assert first_result.start == 16
+    assert first_result.end == 19
+    assert first_result.word == "fox"
+    assert first_result.entity == "animal"
+    assert first_result.score == 0.8
+
+    # Check processed indices
+    assert result_list[0].processed_index == 19  # token - fox
+    assert result_list[1].processed_index == 43  # token - dog
+    assert result_list[2].processed_index == 44  # end of first sentence
+    assert result_list[3].processed_index == 71  # token - land
+    assert result_list[4].processed_index == 80  # end of second sentence
+
+    # We expect 5 results here since there are 3 tokens found
+    # and the rest of each of the 2 sentences
+    # (to indicate the rest of the sentences are processed)
+    expected_results = 5
+    count = len(result_list)
+    assert count == expected_results
+
+
+def test_run_bidi_stream_with_multiple_spans_in_chunk():
+    """Check if model prediction on stream with multiple sentences/spans
+    works as expected for bi-directional stream"""
+    doc_stream = (DOCUMENT, " I am another sentence.")
+    stream_input = data_model.DataStream.from_iterable(doc_stream)
+    model = FilteredSpanClassification.bootstrap(
+        lang="en",
+        tokenizer=SENTENCE_TOKENIZER,
+        classifier=BOOTSTRAPPED_SEQ_CLASS_MODEL,
+        default_threshold=0.5,
+    )
+
+    streaming_token_classification_result = model.run_bidi_stream(stream_input)
+    assert isinstance(streaming_token_classification_result, Iterable)
+    # Convert to list to more easily check outputs
+    result_list = list(streaming_token_classification_result)
+
+    first_result = result_list[0].results[0]
+    assert isinstance(first_result, TokenClassification)
+    assert first_result.start == 0
+    assert first_result.end == 44
+    assert first_result.word == "The quick brown fox jumps over the lazy dog."
+    assert first_result.entity == "LABEL_1"
+    assert approx(first_result.score) == 0.50473803
+    assert result_list[1].results[0].word == "Once upon a time in a land far away."
+    assert result_list[2].results[0].word == "I am another sentence."
+
+    # Check processed indices
+    assert result_list[0].processed_index == 44  # end of first sentence (in DOC)
+    assert result_list[1].processed_index == 81  # end of second sentence (in DOC)
+
+    assert result_list[2].processed_index == 104  # end of third sentence (separate)
+
+    # Assert total number of results should be equal to expected number of sentences
+    expected_number_of_sentences = 3
+    count = len(result_list)
+    assert count == expected_number_of_sentences
