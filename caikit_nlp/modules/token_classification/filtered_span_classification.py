@@ -320,14 +320,21 @@ class FilteredSpanClassification(ModuleBase):
         """Function to yield span output from input text stream"""
         stream_accumulator = ""
         detected_spans = None
-        detected_span_count = 0
         span_start_offset = 0
 
         def __update_spans(token):
-            # Fix offset since we are restarting stream accumulator every-time.
-            # (See comment below)
-            token.start += span_start_offset
-            token.end += span_start_offset
+            # Check if the starting offset for the token is greater than
+            # span_start_offset already, in which case, we need not
+            # update the span
+            if token.start < span_start_offset:
+                # This is indicating that starting offset of token is off as we expect the token
+                # to start at span_start_offset+1. So we need to recalibrate the token offsets
+                # and have them start at span_start_offset. This means we need to know
+                # the length of the token to manipulate the token.end, which we do by
+                # subtracting end - start
+                original_start = token.start
+                token.start = span_start_offset
+                token.end = span_start_offset + (token.end - original_start)
             return token
 
         for text in text_stream:
@@ -345,12 +352,10 @@ class FilteredSpanClassification(ModuleBase):
                 # we have detected new sentence, return the new sentence
                 yield new_span
 
-                detected_span_count += 1
-
                 # Reset stream accumulator to optimize detection.
                 # this way we don't have to keep tokenizing already tokenized
                 # sentences
-                stream_accumulator = text
+                stream_accumulator = stream_accumulator[new_span.end :]
 
                 # since we are resetting the accumulator, this means
                 # the spans returned by the tokenizer will all now
