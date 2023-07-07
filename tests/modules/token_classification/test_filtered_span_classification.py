@@ -311,11 +311,11 @@ def test_run_bidi_stream_chunk_stream_input():
     """Check if model prediction with token classification
     with chunks of text input works as expected for bi-directional stream"""
 
-    chunkded_document_input = (
+    chunked_document_input = (
         "The quick brown fox jumps over the ",
         "lazy dog. Once upon a time in a land far away",
     )
-    stream_input = data_model.DataStream.from_iterable(chunkded_document_input)
+    stream_input = data_model.DataStream.from_iterable(chunked_document_input)
     model = FilteredSpanClassification.bootstrap(
         lang="en",
         tokenizer=SENTENCE_TOKENIZER,
@@ -385,3 +385,49 @@ def test_run_bidi_stream_with_multiple_spans_in_chunk():
     expected_number_of_sentences = 3
     count = len(result_list)
     assert count == expected_number_of_sentences
+
+
+def test_run_stream_vs_no_stream():
+    """Check if model prediction on stream with multiple sentences/spans
+    works as expected for bi-directional stream and gives expected span results
+    as non-stream"""
+    multiple_sentences = (
+        "The dragon hoarded gold. The cow ate grass. What is happening? What a day!"
+    )
+    model = FilteredSpanClassification.bootstrap(
+        lang="en",
+        tokenizer=SENTENCE_TOKENIZER,
+        classifier=BOOTSTRAPPED_SEQ_CLASS_MODEL,
+        default_threshold=0.5,
+    )
+
+    # Non-stream run
+    nonstream_classification_result = model.run(multiple_sentences)
+    assert len(nonstream_classification_result.results) == 4
+    assert nonstream_classification_result.results[0].word == "The dragon hoarded gold."
+    assert nonstream_classification_result.results[0].start == 0
+    assert nonstream_classification_result.results[0].end == 24
+    assert nonstream_classification_result.results[3].word == "What a day!"
+    assert nonstream_classification_result.results[3].start == 63
+    assert nonstream_classification_result.results[3].end == 74
+
+    # Char-based stream
+    stream_input = data_model.DataStream.from_iterable(multiple_sentences)
+    stream_classification_result = model.run_bidi_stream(stream_input)
+    # Convert to list to more easily check outputs
+    result_list = list(stream_classification_result)
+    assert len(result_list) == 4  # one per sentence
+    assert result_list[0].processed_index == 24
+    assert result_list[1].processed_index == 43
+    assert result_list[2].processed_index == 62
+    assert result_list[3].processed_index == 74
+
+    # Chunk-based stream
+    chunk_stream_input = data_model.DataStream.from_iterable((multiple_sentences,))
+    chunk_stream_classification_result = model.run_bidi_stream(chunk_stream_input)
+    result_list = list(chunk_stream_classification_result)
+    assert len(result_list) == 4  # one per sentence
+    assert result_list[0].processed_index == 24
+    assert result_list[1].processed_index == 43
+    assert result_list[2].processed_index == 62
+    assert result_list[3].processed_index == 74

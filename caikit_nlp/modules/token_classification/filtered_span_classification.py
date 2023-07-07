@@ -339,7 +339,11 @@ class FilteredSpanClassification(ModuleBase):
 
         for text in text_stream:
             stream_accumulator += text
-            detected_spans = self.tokenizer.run(stream_accumulator).results
+            # In order to avoid processing all of the spans again, we only
+            # send out the spans that are not yet finalized in detected_spans
+            detected_spans = self.tokenizer.run(
+                stream_accumulator[span_start_offset:]
+            ).results
 
             if len(detected_spans) > 1:
 
@@ -352,19 +356,14 @@ class FilteredSpanClassification(ModuleBase):
                 # we have detected new sentence, return the new sentence
                 yield new_span
 
-                # Reset stream accumulator to optimize detection.
-                # this way we don't have to keep tokenizing already tokenized
-                # sentences
-                stream_accumulator = stream_accumulator[new_span.end :]
-
-                # since we are resetting the accumulator, this means
+                # since we only send out part of the text, this means
                 # the spans returned by the tokenizer will all now
                 # start with last token offset + 1. So we store the last processed count
                 # as the starting point for the subsequent one
                 span_start_offset = new_span.end + 1
 
-        # For last remaining sentence
+        # Return remaining sentence(s)
         if detected_spans and len(detected_spans) > 0:
-            new_span = detected_spans.pop(0)
-            new_span = __update_spans(new_span)
-            yield new_span
+            for detected_span in detected_spans:
+                new_span = __update_spans(detected_span)
+                yield new_span
