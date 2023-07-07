@@ -17,27 +17,27 @@ from caikit_nlp import data_model as dm
 
 ## Setup #########################################################################
 
-dummy_span = dm.Span(start=0, end=11, text="Hello World")
+dummy_token = dm.Token(start=0, end=11, text="Hello World")
 
 ## Tests ########################################################################
 
 
 def test_all_fields_accessible():
-    span = dm.Span(start=0, end=11, text="Hello World")
-    assert span.start == 0
-    assert span.end == 11
-    assert span.text == "Hello World"
+    token = dm.Token(start=0, end=11, text="Hello World")
+    assert token.start == 0
+    assert token.end == 11
+    assert token.text == "Hello World"
 
 
 def test_from_proto_and_back():
-    new = dm.Span.from_proto(dummy_span.to_proto())
+    new = dm.Token.from_proto(dummy_token.to_proto())
     assert new.start == 0
     assert new.end == 11
     assert new.text == "Hello World"
 
 
 def test_from_json_and_back():
-    new = dm.Span.from_json(dummy_span.to_json())
+    new = dm.Token.from_json(dummy_token.to_json())
     assert new.start == 0
     assert new.end == 11
     assert new.text == "Hello World"

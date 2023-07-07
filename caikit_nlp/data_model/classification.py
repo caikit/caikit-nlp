@@ -58,3 +58,10 @@ class TokenClassification(DataObjectBase):
 @caikit.core.dataobject(package="caikit_data_model.caikit_nlp")
 class TokenClassificationResult(DataObjectBase):
     results: List[TokenClassification]
+
+
+# Streaming result that indicates up to where in stream is processed
+@caikit.core.dataobject(package="caikit_data_model.caikit_nlp")
+class StreamingTokenClassificationResult(TokenClassificationResult):
+    # Result index up to which text is processed
+    processed_index: int
