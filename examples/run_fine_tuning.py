@@ -72,75 +72,74 @@ def parse_args() -> argparse.Namespace:
         description="Fine-tuning a text generation model.",
     )
     # Register all of the common args, as well as specific tuning args for subcommands
-    register_common_arguments()
+    register_common_arguments(parser)
 
     args = parser.parse_args()
     # Reconfigure logging level based on verbosity, while preserving filters etc.
-    default_level = "debug" if args.verbose else "info"
-    alog_settings = {**ALOG_OPTS, **{"default_level": default_level}}
+
+    alog_settings = {**ALOG_OPTS, **{"default_level": "debug"}}
     alog.configure(**alog_settings)
     # Validate common arg values
     validate_common_args(args)
     return args
 
-def register_common_arguments(subparsers: Tuple[argparse.ArgumentParser] =  []) -> None:
+def register_common_arguments(subparser: argparse.ArgumentParser) -> None:
     """Registers common arguments intended to be shared across all subparsers.
 
     Args:
-        subparsers: Tuple[argparse.ArgumentParser]
+        subparser: argparse.ArgumentParser
             Iterable of argument subparsers that should have common args.
     """
-    for subparser in subparsers:
-        subparser.add_argument(
-            "--dataset",
-            help="Dataset to use to train prompt vectors. Options: {}".format(
-                list(SUPPORTED_DATASETS.keys())
-            ),
-            default="twitter_complaints",
-        )
-        subparser.add_argument(
-            "--model_name",
-            help="Name of base model or path to model to use to train prompt vectors",
-            default="t5-small",
-        )
-        subparser.add_argument(
-            "--output_dir",
-            help="Name of the directory that we want to export the model to",
-            default="sample_tuned_model",
-        )
-        subparser.add_argument(
-            "--num_epochs",
-            help="Number of epochs to use for prompt tuning",
-            type=int,
-            default=10,
-        )
-        subparser.add_argument(
-            "--learning_rate",
-            help="Learning rate to use while training",
-            type=float,
-            default=3e-2,
+    subparser.add_argument(
+        "--dataset",
+        help="Dataset to use to train prompt vectors. Options: {}".format(
+            list(SUPPORTED_DATASETS.keys())
         ),
-        subparser.add_argument(
-            "--batch_size", help="Batch size to use while training", type=int, default=8
-        )
-        subparser.add_argument(
-            "--max_source_length",
-            help="Maximum source sequence length.",
-            default=256,
-            type=int,
-        )
-        subparser.add_argument(
-            "--max_target_length",
-            help="Maximum target sequence length.",
-            default=128,
-            type=int,
-        )
-        subparser.add_argument(
-            "--accumulate_steps",
-            help="Gradient accumulation steps",
-            default=1,
-            type=int,
-        )
+        default="twitter_complaints",
+    )
+    subparser.add_argument(
+        "--model_name",
+        help="Name of base model or path to model to use to train prompt vectors",
+        default="t5-small",
+    )
+    subparser.add_argument(
+        "--output_dir",
+        help="Name of the directory that we want to export the model to",
+        default="sample_tuned_model",
+    )
+    subparser.add_argument(
+        "--num_epochs",
+        help="Number of epochs to use for prompt tuning",
+        type=int,
+        default=10,
+    )
+    subparser.add_argument(
+        "--learning_rate",
+        help="Learning rate to use while training",
+        type=float,
+        default=3e-2,
+    ),
+    subparser.add_argument(
+        "--batch_size", help="Batch size to use while training", type=int, default=8
+    )
+    subparser.add_argument(
+        "--max_source_length",
+        help="Maximum source sequence length.",
+        default=256,
+        type=int,
+    )
+    subparser.add_argument(
+        "--max_target_length",
+        help="Maximum target sequence length.",
+        default=128,
+        type=int,
+    )
+    subparser.add_argument(
+        "--accumulate_steps",
+        help="Gradient accumulation steps",
+        default=1,
+        type=int,
+    )
 
 
 def validate_common_args(args: argparse.Namespace):

@@ -104,7 +104,6 @@ class FineTuning(ModuleBase):
             tokenizer=base_model.tokenizer,
             max_source_length=max_source_length,
             max_target_length=max_target_length,
-            batch_size=batch_size,
             shuffle=shuffle,
         )
 
@@ -118,7 +117,9 @@ class FineTuning(ModuleBase):
             per_device_train_batch_size=batch_size,
             per_device_eval_batch_size=batch_size,
             num_train_epochs=num_epochs,
-            evaluation_strategy = "epoch",
+            # NOTE: We have disabled evaluation for now
+            do_eval = False,
+            # evaluation_strategy = "epoch",
             learning_rate=lr,
             weight_decay=0.01,
             save_total_limit=3,
@@ -134,15 +135,15 @@ class FineTuning(ModuleBase):
             # eval_steps=1,
         )
 
+        data_collator = DataCollatorForSeq2Seq(tokenizer=base_model.tokenizer, model=base_model.model)
+
         trainer = Seq2SeqTrainer(
-            base_model,
+            base_model.model,
             training_args,
             train_dataset=training_dataset,
-            # eval_dataset=eval_data_loader,
-            data_collator=DataCollatorForSeq2Seq,
+            data_collator=data_collator,
             tokenizer=base_model.tokenizer,
             # compute_metrics=compute_metrics,
-            per_device_train_batch_size=batch_size,
         )
 
         # Start training via Trainer.train function
