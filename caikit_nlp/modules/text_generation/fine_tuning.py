@@ -17,7 +17,8 @@
 import os
 
 # Third Party
-from transformers import AutoConfig
+from torch.utils.data import IterableDataset
+from transformers import AutoConfig, AutoTokenizer, DataCollatorForSeq2Seq, Seq2SeqTrainingArguments, Seq2SeqTrainer
 
 # First Party
 from caikit.core.data_model import DataStream
@@ -35,6 +36,8 @@ from ...resources.pretrained_model import (
     HFAutoSeq2SeqLM,
     PretrainedModelBase,
 )
+from ...toolkit.data_stream_wrapper import SimpleIterableStreamWrapper
+from ...toolkit.data_type_utils import get_torch_dtype, str_to_torch_dtype
 from .text_generation_task import TextGenerationTask
 
 log = alog.use_channel("TXT_GEN")
@@ -43,7 +46,7 @@ error = error_handler.get(log)
 
 # pylint: disable=too-many-lines,too-many-instance-attributes
 @module(
-    id="f9181353-4ccf-4572-bd1e-f12bcda26792",
+    id="28a81449-32ce-4be3-b688-545bde68f738",
     name="Text Generation",
     version="0.1.0",
     task=TextGenerationTask,
@@ -58,14 +61,159 @@ class FineTuning(ModuleBase):
     def train(
         cls,
         base_model: str,  # TODO: Union[str, PretrainedModelBase]
-        train_stream: DataStream[GenerationTrainRecord],):
+        train_stream: DataStream[GenerationTrainRecord],
+        torch_dtype: str = None,  # TODO: Optional[Union[torch.dtype, str]]
+        max_source_length: int = 256,
+        max_target_length: int = 128,
+        batch_size: int = 8,
+        num_epochs: int = 5,
+        accumulate_steps: int = 32,
+        shuffle: bool = True,
+        lr: float = 2e-5,
+        checkpoint_dir: str = "/tmp", # Directory where model predictions and checkpoints will be written
+        ):
+        """
+            # FIXME: Below is currently configured for Seq2Seq only
+        """
 
+        torch_dtype = get_torch_dtype(torch_dtype)
+
+        ## Load base model
+        if isinstance(base_model, str):
+            model_config = AutoConfig.from_pretrained(base_model)
+
+            resource_type = None
+            for resource in cls.supported_resources:
+                if model_config.model_type in resource.SUPPORTED_MODEL_TYPES:
+                    resource_type = resource
+                    break
+
+            if not resource_type:
+                error(
+                    "<NLP61784225E>",
+                    "{} model type is not supported currently!".format(
+                        model_config.model_type
+                    ),
+                )
+            log.debug("Bootstrapping base resource [%s]", base_model)
+            base_model = resource_type.bootstrap(base_model, torch_dtype=torch_dtype)
 
         ## Generate data loader from stream
+        training_dataset: IterableDataset = cls._preprocess_function(
+            train_stream=train_stream,
+            tokenizer=base_model.tokenizer,
+            max_source_length=max_source_length,
+            max_target_length=max_target_length,
+            batch_size=batch_size,
+            shuffle=shuffle,
+        )
 
-        ## Fetch trainer from resource
+        ## TODO: Fetch trainer from resource
 
-        ## Call Trainer.train function
+        # TODO: Make this whole thing configurable by end-users, by optionally accepting `training_args`
+        # as argument to this train function.
+        # TODO: Remove all the default used below and make them all configurable
+        training_args = Seq2SeqTrainingArguments(
+            output_dir=checkpoint_dir,
+            per_device_train_batch_size=batch_size,
+            per_device_eval_batch_size=batch_size,
+            num_train_epochs=num_epochs,
+            evaluation_strategy = "epoch",
+            learning_rate=lr,
+            weight_decay=0.01,
+            save_total_limit=3,
+            predict_with_generate=True,
+            fp16=True,
+            push_to_hub=False,
+            no_cuda=False, # Default
+            generation_max_length=max_target_length,
+            remove_unused_columns=False,
+            dataloader_pin_memory=False,
+            gradient_accumulation_steps=accumulate_steps,
+            eval_accumulation_steps=accumulate_steps,
+            # eval_steps=1,
+        )
+
+        trainer = Seq2SeqTrainer(
+            base_model,
+            training_args,
+            train_dataset=training_dataset,
+            # eval_dataset=eval_data_loader,
+            data_collator=DataCollatorForSeq2Seq,
+            tokenizer=base_model.tokenizer,
+            # compute_metrics=compute_metrics,
+            per_device_train_batch_size=batch_size,
+        )
+
+        # Start training via Trainer.train function
+        trainer.train()
+        # NOTE: By default the model would be available in different ways
+        # depending on where and how it was trained. So we need to fetch the model
+        # from the trainer depending on the training method, like fsdp, ddp etc.
+
+        # for simplicity, currently we will use trainer as the model since it anyways
+        # enable the `predict` function on it and has all the layers of the model
+        # distributed already, so it will be most optimized to use trainer to
+        # perform prediction at this stage.
+
+        return trainer
 
 
 
+
+    def run(self, text, preserve_input_text=False, max_new_tokens=20, min_new_tokens=0) -> "GeneratedResult":
+        """Run inference against the model running in TGIS.
+
+        Args:
+            text: str
+                Source string to be encoded for generation.
+            preserve_input_text: bool
+                Whether or not the source string should be contained in the generated output,
+                e.g., as a prefix.
+            max_new_tokens: int
+                The maximum numbers of tokens to generate.
+                Default: 20
+            min_new_tokens: int
+                The minimum numbers of tokens to generate.
+                Default: 0 - means no minimum
+        Returns:
+            GeneratedResult
+                Generated text result
+        """
+
+    ################################## Private Functions ###########################################
+
+    @staticmethod
+    def _preprocess_function(
+        train_stream: DataStream[GenerationTrainRecord],
+        tokenizer: AutoTokenizer,
+        max_source_length: int,
+        max_target_length: int,
+        shuffle: bool
+        ):
+        """Pre-process each example to get it prepared for training.
+        """
+
+        # FIXME: Below is currently configured for Seq2Seq only
+
+        def _tokenization_func(example: GenerationTrainRecord,):
+            model_inputs = tokenizer(
+                example.input,
+                max_length=max_source_length,
+                truncation=True,
+            )
+
+            labels = tokenizer(
+                    example.output,
+                    max_length=max_target_length,
+                    padding="max_length",
+                    truncation=True,
+                )
+
+            model_inputs["labels"] = labels["input_ids"]
+
+            return model_inputs
+
+        return SimpleIterableStreamWrapper(
+            train_stream.map(_tokenization_func), shuffle=shuffle
+        )
