@@ -13,9 +13,6 @@
 # limitations under the License.
 
 
-# Standard
-import os
-
 # Third Party
 from torch.utils.data import IterableDataset
 from transformers import (
@@ -29,22 +26,14 @@ from transformers import (
 
 # First Party
 from caikit.core.data_model import DataStream
-from caikit.core.module_backends import BackendBase, backend_types
-from caikit.core.modules import ModuleBase, ModuleConfig, ModuleSaver, module
+from caikit.core.modules import ModuleBase, module
 from caikit.core.toolkit import error_handler, wip_decorator
-from caikit_tgis_backend import TGISBackend
-from caikit_tgis_backend.protobufs import generation_pb2
 import alog
 
 # Local
 from ...data_model import GeneratedResult, GenerationTrainRecord
-from ...resources.pretrained_model import (
-    HFAutoCausalLM,
-    HFAutoSeq2SeqLM,
-    PretrainedModelBase,
-)
 from ...toolkit.data_stream_wrapper import SimpleIterableStreamWrapper
-from ...toolkit.data_type_utils import get_torch_dtype, str_to_torch_dtype
+from ...toolkit.data_type_utils import get_torch_dtype
 from .text_generation_task import TextGenerationTask
 
 log = alog.use_channel("TXT_GEN")
@@ -68,10 +57,12 @@ class FineTuning(ModuleBase):
         super().__init__()
 
         self.tokenizer = tokenizer
-        # NOTE: self.model here can also be HF trainer. This is because if we have just trained the model
-        # then the models weights might be available in different devices (and configuration), depending on
-        # how it was trained. For now (July 10, 2023), we are not trying to extract the model out from trainer
-        # itself, since that would require us to essentially save it or reconstruct it to do normal inferring.
+        # NOTE: self.model here can also be HF trainer. This is because
+        # if we have just trained the model then the models weights might be
+        # available in different devices (and configuration), depending on
+        # how it was trained. For now (July 10, 2023), we are not trying to
+        # extract the model out from trainer itself, since that would require
+        # us to essentially save it or reconstruct it to do normal inferring.
         self.model = model
 
     @classmethod
@@ -180,6 +171,7 @@ class FineTuning(ModuleBase):
             model=trainer,
         )
 
+    # pylint: disable=unused-argument
     def run(
         self, text, preserve_input_text=False, max_new_tokens=20, min_new_tokens=0
     ) -> "GeneratedResult":
@@ -221,7 +213,7 @@ class FineTuning(ModuleBase):
             )
 
         else:
-            NotImplementedError(
+            raise NotImplementedError(
                 "model prediction on pre-finetuned model currently not supported"
             )
 
