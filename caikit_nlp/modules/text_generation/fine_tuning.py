@@ -205,7 +205,11 @@ class FineTuning(ModuleBase):
             # and subsequent release of `transformers` and updating the lib version in `caikit-nlp`
             # TODO: Add support for passing extra arguments to prediction_step
             _, generated_tokens, _ = self.model.prediction_step(
-                self.model.model, tok_tensors, prediction_loss_only=False
+                self.model.model,
+                tok_tensors,
+                prediction_loss_only=False,
+                max_new_tokens=max_new_tokens,
+                min_new_tokens=min_new_tokens,
             )
 
             generated_text = self.tokenizer.batch_decode(
