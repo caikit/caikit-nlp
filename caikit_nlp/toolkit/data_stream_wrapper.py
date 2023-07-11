@@ -20,7 +20,7 @@ DataLoaders, with minimal boilerplate.
 import math
 
 # Third Party
-from torch.utils.data import get_worker_info, IterableDataset
+from torch.utils.data import IterableDataset, get_worker_info
 
 # First Party
 from caikit.core.toolkit import error_handler
@@ -52,7 +52,7 @@ class SimpleIterableStreamWrapper(IterableDataset):
     def __iter__(self):
         worker_info = get_worker_info()
 
-        if worker_info is None: #single-process data loading, return the full iterator
+        if worker_info is None:  # single-process data loading, return the full iterator
             if self.shuffle:
                 log.debug4("Reshuffling training data!")
                 return iter(self.stream.shuffle(self.buffer_size))
@@ -61,9 +61,11 @@ class SimpleIterableStreamWrapper(IterableDataset):
         # When num_workers > 0, each worker process will have a different copy of the dataset object,
         # so we configure each copy independently to avoid having duplicate data returned from
         # each worker
-        else: # in a worker process
+        else:  # in a worker process
             # split workload
-            per_worker = int(math.ceil((self.end - self.start) / float(worker_info.num_workers)))
+            per_worker = int(
+                math.ceil((self.end - self.start) / float(worker_info.num_workers))
+            )
             worker_id = worker_info.id
             iter_start = self.start + worker_id * per_worker
             iter_end = min(iter_start + per_worker, self.end)

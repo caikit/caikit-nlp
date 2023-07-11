@@ -22,6 +22,7 @@ from utils import (
 
 # First Party
 from caikit.core.data_model import DataStream
+from caikit.core.toolkit import wip_decorator
 import alog
 
 # Local
@@ -32,6 +33,9 @@ from caikit_nlp.resources.pretrained_model import (
     HFAutoSeq2SeqLM,
     PretrainedModelBase,
 )
+
+# TODO: Remove me once fine-tuning is out of WIP
+wip_decorator.disable_wip()
 
 
 def get_resource_type(model_name: str) -> PretrainedModelBase:
@@ -82,6 +86,7 @@ def parse_args() -> argparse.Namespace:
     # Validate common arg values
     validate_common_args(args)
     return args
+
 
 def register_common_arguments(subparser: argparse.ArgumentParser) -> None:
     """Registers common arguments intended to be shared across all subparsers.
@@ -193,7 +198,6 @@ def show_experiment_configuration(args, dataset_info, model_type) -> None:
     print_colored("\n".join([print_str for print_str in print_strs if print_str]))
 
 
-
 if __name__ == "__main__":
     configure_random_seed_and_logging()
     args = parse_args()
@@ -226,3 +230,9 @@ if __name__ == "__main__":
     # model.save(args.output_dir, save_base_model=not args.prompt_only)
 
     print_colored("[Training Complete]")
+
+    # Prediction
+    sample_text = "this is sample text"
+    prediction_results = model.run(sample_text)
+
+    print("Generated text: ", prediction_results)

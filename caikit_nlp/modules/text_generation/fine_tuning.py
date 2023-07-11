@@ -18,13 +18,20 @@ import os
 
 # Third Party
 from torch.utils.data import IterableDataset
-from transformers import AutoConfig, AutoTokenizer, DataCollatorForSeq2Seq, Seq2SeqTrainingArguments, Seq2SeqTrainer
+from transformers import (
+    AutoConfig,
+    AutoTokenizer,
+    DataCollatorForSeq2Seq,
+    Seq2SeqTrainer,
+    Seq2SeqTrainingArguments,
+    Trainer,
+)
 
 # First Party
 from caikit.core.data_model import DataStream
 from caikit.core.module_backends import BackendBase, backend_types
 from caikit.core.modules import ModuleBase, ModuleConfig, ModuleSaver, module
-from caikit.core.toolkit import error_handler
+from caikit.core.toolkit import error_handler, wip_decorator
 from caikit_tgis_backend import TGISBackend
 from caikit_tgis_backend.protobufs import generation_pb2
 import alog
@@ -51,11 +58,21 @@ error = error_handler.get(log)
     version="0.1.0",
     task=TextGenerationTask,
 )
+@wip_decorator.work_in_progress(
+    category=wip_decorator.WipCategory.WIP, action=wip_decorator.Action.ERROR
+)
 class FineTuning(ModuleBase):
     """Module to provide fine-tuning support for text generation task"""
 
-    def __init__(self):
+    def __init__(self, tokenizer, model):
         super().__init__()
+
+        self.tokenizer = tokenizer
+        # NOTE: self.model here can also be HF trainer. This is because if we have just trained the model
+        # then the models weights might be available in different devices (and configuration), depending on
+        # how it was trained. For now (July 10, 2023), we are not trying to extract the model out from trainer
+        # itself, since that would require us to essentially save it or reconstruct it to do normal inferring.
+        self.model = model
 
     @classmethod
     def train(
@@ -70,10 +87,10 @@ class FineTuning(ModuleBase):
         accumulate_steps: int = 32,
         shuffle: bool = True,
         lr: float = 2e-5,
-        checkpoint_dir: str = "/tmp", # Directory where model predictions and checkpoints will be written
-        ):
+        checkpoint_dir: str = "/tmp",  # Directory where model predictions and checkpoints will be written
+    ):
         """
-            # FIXME: Below is currently configured for Seq2Seq only
+        # FIXME: Below is currently configured for Seq2Seq only
         """
 
         torch_dtype = get_torch_dtype(torch_dtype)
@@ -118,7 +135,7 @@ class FineTuning(ModuleBase):
             per_device_eval_batch_size=batch_size,
             num_train_epochs=num_epochs,
             # NOTE: We have disabled evaluation for now
-            do_eval = False,
+            do_eval=False,
             # evaluation_strategy = "epoch",
             learning_rate=lr,
             weight_decay=0.01,
@@ -126,7 +143,7 @@ class FineTuning(ModuleBase):
             predict_with_generate=True,
             fp16=True,
             push_to_hub=False,
-            no_cuda=False, # Default
+            no_cuda=False,  # Default
             generation_max_length=max_target_length,
             remove_unused_columns=False,
             dataloader_pin_memory=False,
@@ -135,7 +152,9 @@ class FineTuning(ModuleBase):
             # eval_steps=1,
         )
 
-        data_collator = DataCollatorForSeq2Seq(tokenizer=base_model.tokenizer, model=base_model.model)
+        data_collator = DataCollatorForSeq2Seq(
+            tokenizer=base_model.tokenizer, model=base_model.model
+        )
 
         trainer = Seq2SeqTrainer(
             base_model.model,
@@ -151,18 +170,19 @@ class FineTuning(ModuleBase):
         # NOTE: By default the model would be available in different ways
         # depending on where and how it was trained. So we need to fetch the model
         # from the trainer depending on the training method, like fsdp, ddp etc.
-
-        # for simplicity, currently we will use trainer as the model since it anyways
+        # For simplicity, currently we will use trainer as the model since it anyways
         # enable the `predict` function on it and has all the layers of the model
         # distributed already, so it will be most optimized to use trainer to
         # perform prediction at this stage.
 
-        return trainer
+        return cls(
+            tokenizer=base_model.tokenizer,
+            model=trainer,
+        )
 
-
-
-
-    def run(self, text, preserve_input_text=False, max_new_tokens=20, min_new_tokens=0) -> "GeneratedResult":
+    def run(
+        self, text, preserve_input_text=False, max_new_tokens=20, min_new_tokens=0
+    ) -> "GeneratedResult":
         """Run inference against the model running in TGIS.
 
         Args:
@@ -181,6 +201,31 @@ class FineTuning(ModuleBase):
             GeneratedResult
                 Generated text result
         """
+        if isinstance(self.model, Trainer):
+            # Apply the tokenizer to the sample text & move to correct device
+            tok_tensors = self.tokenizer(text, return_tensors="pt")
+            # NOTE: below function is prediction on trainer, for which we need to supply the actual underlying model as well
+            # NOTE: We are using prediction_step instead of calling `self.model.generate` because this way HF Trainer
+            # automatically handles device placement of the data and model. Since the model is with Trainer at this point
+            # and thus the device placement be according to training strategy, its better to let Trainer handle the
+            # evaluation / prediction
+            # NOTE: Below statement requires merge of HF PR https://github.com/huggingface/transformers/pull/24759
+            # and subsequent release of `transformers` and updating the lib version in `caikit-nlp`
+            # TODO: Add support for passing extra arguments to prediction_step
+            _, generated_tokens, _ = self.model.prediction_step(
+                self.model.model, tok_tensors, prediction_loss_only=False
+            )
+
+            generated_text = self.tokenizer.batch_decode(
+                generated_tokens.detach().cpu().numpy(), skip_special_tokens=True
+            )
+
+        else:
+            NotImplementedError(
+                "model prediction on pre-finetuned model currently not supported"
+            )
+
+        return GeneratedResult(text=generated_text)
 
     ################################## Private Functions ###########################################
 
@@ -190,14 +235,15 @@ class FineTuning(ModuleBase):
         tokenizer: AutoTokenizer,
         max_source_length: int,
         max_target_length: int,
-        shuffle: bool
-        ):
-        """Pre-process each example to get it prepared for training.
-        """
+        shuffle: bool,
+    ):
+        """Pre-process each example to get it prepared for training."""
 
         # FIXME: Below is currently configured for Seq2Seq only
 
-        def _tokenization_func(example: GenerationTrainRecord,):
+        def _tokenization_func(
+            example: GenerationTrainRecord,
+        ):
             model_inputs = tokenizer(
                 example.input,
                 max_length=max_source_length,
@@ -205,11 +251,11 @@ class FineTuning(ModuleBase):
             )
 
             labels = tokenizer(
-                    example.output,
-                    max_length=max_target_length,
-                    padding="max_length",
-                    truncation=True,
-                )
+                example.output,
+                max_length=max_target_length,
+                padding="max_length",
+                truncation=True,
+            )
 
             model_inputs["labels"] = labels["input_ids"]
 
