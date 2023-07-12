@@ -89,6 +89,7 @@ class FineTuning(ModuleBase):
         ## NOTE: Below code has been used in couple of places at this point, like in
         # text_generation module. In future, we would want to consolidate this into
         # a base class or a toolkit function
+        # pylint: disable=duplicate-code
         ## Load base model
         if isinstance(base_model, str):
             model_config = AutoConfig.from_pretrained(base_model)
