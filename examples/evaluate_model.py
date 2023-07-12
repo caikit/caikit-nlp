@@ -12,12 +12,9 @@ from utils import (
     SUPPORTED_DATASETS,
     SUPPORTED_METRICS,
     configure_random_seed_and_logging,
-    get_wrapped_evaluate_metric,
-    is_float,
     kill_tgis_container_if_exists,
     load_model,
     print_colored,
-    string_to_float,
 )
 
 # Local

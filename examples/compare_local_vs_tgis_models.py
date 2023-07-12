@@ -2,19 +2,9 @@
 # is added to the syspath if not running inside of a container.
 # Standard
 import json
-import time
 
 # Third Party
-from datasets import load_dataset
 from utils import SUPPORTED_DATASETS, load_model
-import torch
-
-# First Party
-import caikit
-
-# Local
-from caikit_nlp import data_model
-import caikit_nlp
 
 NUM_SAMPLES_TO_RUN = 100
 
