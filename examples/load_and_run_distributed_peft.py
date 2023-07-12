@@ -15,13 +15,9 @@ import subprocess
 import sys
 
 # First Party
-from caikit.core.module_backend_config import _CONFIGURED_BACKENDS, configure
 from caikit_tgis_backend import TGISBackend
 import alog
 import caikit
-
-# Local
-import caikit_nlp
 
 alog.configure("debug4")
 
@@ -37,15 +33,9 @@ if not which("text-generation-launcher"):
     ), "Text generation script not found!"
 
 # Configure caikit to prioritize TGIS backend
-_CONFIGURED_BACKENDS.clear()
-# load_timeout: 320
-#           grpc_port: null
-#           http_port: 3001
-#           health_poll_delay: 1.0
 caikit.configure(
     config_dict={"module_backends": {"priority": [TGISBackend.backend_type]}}
 )  # should not be necessary but just in case
-configure()  # backend configure
 
 # Load with TGIS backend
 prefix_model_path = os.path.join(PREFIX_PATH, "sample_prompt")
