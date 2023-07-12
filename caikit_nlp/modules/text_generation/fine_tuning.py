@@ -76,9 +76,9 @@ class FineTuning(ModuleBase):
         batch_size: int = 8,
         num_epochs: int = 5,
         accumulate_steps: int = 32,
-        shuffle: bool = True,
         lr: float = 2e-5,
-        checkpoint_dir: str = "/tmp",  # Directory where model predictions and checkpoints will be written
+        # Directory where model predictions and checkpoints will be written
+        checkpoint_dir: str = "/tmp",
     ):
         """
         # FIXME: Below is currently configured for Seq2Seq only
@@ -86,6 +86,9 @@ class FineTuning(ModuleBase):
 
         torch_dtype = get_torch_dtype(torch_dtype)
 
+        ## NOTE: Below code has been used in couple of places at this point, like in
+        # text_generation module. In future, we would want to consolidate this into
+        # a base class or a toolkit function
         ## Load base model
         if isinstance(base_model, str):
             model_config = AutoConfig.from_pretrained(base_model)
@@ -112,12 +115,13 @@ class FineTuning(ModuleBase):
             tokenizer=base_model.tokenizer,
             max_source_length=max_source_length,
             max_target_length=max_target_length,
-            shuffle=shuffle,
+            shuffle=True,
         )
 
         ## TODO: Fetch trainer from resource
 
-        # TODO: Make this whole thing configurable by end-users, by optionally accepting `training_args`
+        # TODO: Make this whole thing configurable by end-users,
+        # by optionally accepting `training_args`
         # as argument to this train function.
         # TODO: Remove all the default used below and make them all configurable
         training_args = Seq2SeqTrainingArguments(
@@ -196,12 +200,15 @@ class FineTuning(ModuleBase):
         if isinstance(self.model, Trainer):
             # Apply the tokenizer to the sample text & move to correct device
             tok_tensors = self.tokenizer(text, return_tensors="pt")
-            # NOTE: below function is prediction on trainer, for which we need to supply the actual underlying model as well
-            # NOTE: We are using prediction_step instead of calling `self.model.generate` because this way HF Trainer
-            # automatically handles device placement of the data and model. Since the model is with Trainer at this point
-            # and thus the device placement be according to training strategy, its better to let Trainer handle the
-            # evaluation / prediction
-            # NOTE: Below statement requires merge of HF PR https://github.com/huggingface/transformers/pull/24759
+            # NOTE: below function is prediction on trainer, for which we need to supply
+            # the actual underlying model as well
+            # NOTE: We are using prediction_step instead of calling `self.model.generate`
+            # because this way HF Trainer automatically handles device placement of the
+            # data and model. Since the model is with Trainer at this point
+            # and thus the device placement be according to training strategy,
+            # its better to let Trainer handle the evaluation / prediction
+            # NOTE: Below statement requires merge of HF PR
+            # https://github.com/huggingface/transformers/pull/24759
             # and subsequent release of `transformers` and updating the lib version in `caikit-nlp`
             # TODO: Add support for passing extra arguments to prediction_step
             _, generated_tokens, _ = self.model.prediction_step(
@@ -217,8 +224,11 @@ class FineTuning(ModuleBase):
             )
 
         else:
-            raise NotImplementedError(
-                "model prediction on pre-finetuned model currently not supported"
+            error(
+                "<NLP38929392E>",
+                NotImplementedError(
+                    "model prediction on pre-finetuned model currently not supported"
+                ),
             )
 
         return GeneratedResult(text=generated_text)

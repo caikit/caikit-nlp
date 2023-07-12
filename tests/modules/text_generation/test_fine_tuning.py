@@ -1,7 +1,6 @@
-
 # Third Party
-import torch
 from transformers import Trainer
+import torch
 
 # First Party
 import caikit
@@ -9,11 +8,9 @@ import caikit
 # Local
 from caikit_nlp.data_model import GeneratedResult, GenerationTrainRecord
 from caikit_nlp.modules.text_generation import FineTuning
-from caikit_nlp.resources.pretrained_model import HFAutoCausalLM, HFAutoSeq2SeqLM
-from tests.fixtures import (
-    disable_wip,
-    SEQ2SEQ_LM_MODEL
-)
+from caikit_nlp.resources.pretrained_model import HFAutoSeq2SeqLM
+from tests.fixtures import SEQ2SEQ_LM_MODEL, disable_wip
+
 
 @pytest.mark.skip(
     """
@@ -39,11 +36,9 @@ def test_train_model(disable_wip):
                 ),
             ]
         ),
-        "torch_dtype": torch.bfloat16,
+        "torch_dtype": torch.float32,
     }
-    model = FineTuning.train(
-        **train_kwargs
-    )
+    model = FineTuning.train(**train_kwargs)
     assert isinstance(model.model, Trainer)
     # Ensure that we can get something out of it
     pred = model.run("@bar what a cute cat!")
