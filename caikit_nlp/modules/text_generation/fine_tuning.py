@@ -36,7 +36,7 @@ from ...toolkit.data_stream_wrapper import SimpleIterableStreamWrapper
 from ...toolkit.data_type_utils import get_torch_dtype
 from .text_generation_task import TextGenerationTask
 
-log = alog.use_channel("TXT_GEN")
+log = alog.use_channel("FIN_TUN_GEN")
 error = error_handler.get(log)
 
 
