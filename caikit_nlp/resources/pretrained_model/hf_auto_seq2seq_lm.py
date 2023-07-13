@@ -15,10 +15,16 @@
 Huggingface auto causal LM resource type
 """
 # Standard
-from typing import Callable, List, Tuple
+from typing import Callable, List, Tuple, Union
 
 # Third Party
-from transformers import AutoModelForSeq2SeqLM
+from torch.utils.data import IterableDataset
+from transformers import (
+    AutoModelForSeq2SeqLM,
+    DataCollatorForSeq2Seq,
+    Seq2SeqTrainer,
+    Seq2SeqTrainingArguments,
+)
 from transformers.models.auto import modeling_auto
 
 # First Party
