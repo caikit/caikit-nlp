@@ -4,10 +4,9 @@
 import os
 import tempfile
 
-
 # Local
-from caikit_nlp.modules.text_generation import TextGenerationLocal
 from caikit_nlp.data_model import GeneratedResult
+from caikit_nlp.modules.text_generation import TextGenerationLocal
 from tests.fixtures import CAUSAL_LM_MODEL, SEQ2SEQ_LM_MODEL
 
 ### Stub Modules

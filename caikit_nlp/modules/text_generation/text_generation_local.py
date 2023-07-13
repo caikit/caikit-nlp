@@ -115,7 +115,7 @@ class TextGenerationLocal(ModuleBase):
             base_model,
             eos_token=eos_token,
         )
-    
+
     @classmethod
     def load(cls, model_path: str) -> "TextGeneration":
         """Function to load text-generation model
@@ -161,7 +161,18 @@ class TextGenerationLocal(ModuleBase):
                     base_model_dirname=artifacts_dir,
                 )
 
-    def run(self, text, preserve_input_text=False, repetition_penalty=2.5, length_penalty=1.0, early_stopping=True, num_beams=1, max_new_tokens=20, min_new_tokens=0, **kwargs):
+    def run(
+        self,
+        text,
+        preserve_input_text=False,
+        repetition_penalty=2.5,
+        length_penalty=1.0,
+        early_stopping=True,
+        num_beams=1,
+        max_new_tokens=20,
+        min_new_tokens=0,
+        **kwargs
+    ):
         """Run inference against the model running in TGIS.
 
         Args:
@@ -170,14 +181,14 @@ class TextGenerationLocal(ModuleBase):
             preserve_input_text: bool
                 Whether or not the source string should be contained in the generated output,
                 e.g., as a prefix.
-            repetition_penalty: float 
+            repetition_penalty: float
                 The parameter for repetition penalty. 1.0 means no penalty.
-                Default: 2.5 
+                Default: 2.5
             length_penalty: float
                 Exponential penalty to the length that is used with beam-based generation.
                 It is applied as an exponent to the sequence length, which in turn is used to divide the score of the sequence.
                 Since the score is the log likelihood of the sequence (i.e. negative), length_penalty > 0.0 promotes longer sequences, while length_penalty < 0.0 encourages shorter sequences.
-                Default: 1.0. 
+                Default: 1.0.
             early_stopping: bool
                 Controls the stopping condition for beam-based methods, like beam-search.
                 It accepts the following values: True, where the generation stops as soon as there are num_beams complete candidates;
@@ -219,13 +230,18 @@ class TextGenerationLocal(ModuleBase):
             for g in generate_ids
         ]
         if generate_ids[0][-1].item() == self._eos_token:
-            stop_reason = 'EOS_TOKEN'
+            stop_reason = "EOS_TOKEN"
         elif generate_ids.size(1) - 1 == max_new_tokens:
-            stop_reason = 'MAX_TOKENS'
+            stop_reason = "MAX_TOKENS"
         else:
-            stop_reason = 'OTHER'
+            stop_reason = "OTHER"
         if preserve_input_text:
             generated_text = text + ": " + preds[0]
         else:
             generated_text = preds[0]
-        return GeneratedResult(generated_token_count=token_count, text=generated_text, stop_reason=stop_reason, producer_id=self.PRODUCER_ID)
+        return GeneratedResult(
+            generated_token_count=token_count,
+            text=generated_text,
+            stop_reason=stop_reason,
+            producer_id=self.PRODUCER_ID,
+        )
