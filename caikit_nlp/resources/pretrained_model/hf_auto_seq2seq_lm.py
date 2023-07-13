@@ -15,10 +15,16 @@
 Huggingface auto causal LM resource type
 """
 # Standard
-from typing import List
+from typing import List, Union
 
 # Third Party
-from transformers import AutoModelForSeq2SeqLM
+from torch.utils.data import IterableDataset
+from transformers import (
+    AutoModelForSeq2SeqLM,
+    DataCollatorForSeq2Seq,
+    Seq2SeqTrainer,
+    Seq2SeqTrainingArguments,
+)
 from transformers.models.auto import modeling_auto
 
 # First Party
@@ -64,3 +70,37 @@ class HFAutoSeq2SeqLM(PretrainedModelBase):
             "<NLP71505742E>", 0 < num_transformer_submodules <= cls.MAX_NUM_TRANSFORMERS
         )
         return num_transformer_submodules
+
+    def get_trainer(
+        self,
+        train_dataset: IterableDataset,
+        eval_dataset: Union[IterableDataset, None] = None,
+        optimizers=(None, None),
+        **kwargs
+    ):
+        """
+        NOTE: following parameters are not supported currently:
+            1. model_init
+            2. compute_metrics
+            3. callbacks
+            4. preprocess_logits_for_metrics
+        """
+
+        training_args = Seq2SeqTrainingArguments(**kwargs)
+
+        # TODO: Fetch DataCollator either from property of this
+        # class or fetch it as an argument.
+        data_collator = DataCollatorForSeq2Seq(
+            tokenizer=self._tokenizer, model=self._model
+        )
+
+        # pylint: disable=duplicate-code
+        trainer_arguments = {
+            "train_dataset": train_dataset,
+            "data_collator": data_collator,
+            "tokenizer": self._tokenizer,
+            "optimizers": optimizers,
+            "eval_dataset": eval_dataset,
+        }
+
+        return Seq2SeqTrainer(self._model, training_args, **trainer_arguments)
