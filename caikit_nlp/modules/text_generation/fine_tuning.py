@@ -15,14 +15,7 @@
 
 # Third Party
 from torch.utils.data import IterableDataset
-from transformers import (
-    AutoConfig,
-    AutoTokenizer,
-    DataCollatorForSeq2Seq,
-    Seq2SeqTrainer,
-    Seq2SeqTrainingArguments,
-    Trainer,
-)
+from transformers import AutoConfig, AutoTokenizer, Trainer
 
 # First Party
 from caikit.core.data_model import DataStream
@@ -32,6 +25,7 @@ import alog
 
 # Local
 from ...data_model import GeneratedResult, GenerationTrainRecord
+from ...resources.pretrained_model.base import PretrainedModelBase
 from ...toolkit.data_stream_wrapper import SimpleIterableStreamWrapper
 from ...toolkit.data_type_utils import get_torch_dtype
 from .text_generation_task import TextGenerationTask
@@ -79,6 +73,7 @@ class FineTuning(ModuleBase):
         lr: float = 2e-5,
         # Directory where model predictions and checkpoints will be written
         checkpoint_dir: str = "/tmp",
+        **training_arguments
     ):
         """
         # FIXME: Below is currently configured for Seq2Seq only
@@ -110,6 +105,7 @@ class FineTuning(ModuleBase):
             log.debug("Bootstrapping base resource [%s]", base_model)
             base_model = resource_type.bootstrap(base_model, torch_dtype=torch_dtype)
 
+        error.type_check("<NLP03221895E>", PretrainedModelBase, base_model=base_model)
         ## Generate data loader from stream
         training_dataset: IterableDataset = cls._preprocess_function(
             train_stream=train_stream,
@@ -125,40 +121,33 @@ class FineTuning(ModuleBase):
         # by optionally accepting `training_args`
         # as argument to this train function.
         # TODO: Remove all the default used below and make them all configurable
-        training_args = Seq2SeqTrainingArguments(
-            output_dir=checkpoint_dir,
-            per_device_train_batch_size=batch_size,
-            per_device_eval_batch_size=batch_size,
-            num_train_epochs=num_epochs,
+
+        training_args = {
+            "output_dir": checkpoint_dir,
+            "per_device_train_batch_size": batch_size,
+            "per_device_eval_batch_size": batch_size,
+            "num_train_epochs": num_epochs,
             # NOTE: We have disabled evaluation for now
-            do_eval=False,
-            # evaluation_strategy = "epoch",
-            learning_rate=lr,
-            weight_decay=0.01,
-            save_total_limit=3,
-            predict_with_generate=True,
-            fp16=True,
-            push_to_hub=False,
-            no_cuda=False,  # Default
-            generation_max_length=max_target_length,
-            remove_unused_columns=False,
-            dataloader_pin_memory=False,
-            gradient_accumulation_steps=accumulate_steps,
-            eval_accumulation_steps=accumulate_steps,
+            "do_eval": False,
+            "# evaluation_strategy ": "epoch",
+            "learning_rate": lr,
+            "weight_decay": 0.01,
+            "save_total_limit": 3,
+            "predict_with_generate": True,
+            "fp16": True,
+            "push_to_hub": False,
+            "no_cuda": False,  # Default
+            "generation_max_length": max_target_length,
+            "remove_unused_columns": False,
+            "dataloader_pin_memory": False,
+            "gradient_accumulation_steps": accumulate_steps,
+            "eval_accumulation_steps": accumulate_steps,
             # eval_steps=1,
-        )
+            **training_arguments,
+        }
 
-        data_collator = DataCollatorForSeq2Seq(
-            tokenizer=base_model.tokenizer, model=base_model.model
-        )
-
-        trainer = Seq2SeqTrainer(
-            base_model.model,
-            training_args,
-            train_dataset=training_dataset,
-            data_collator=data_collator,
-            tokenizer=base_model.tokenizer,
-            # compute_metrics=compute_metrics,
+        trainer = base_model.get_trainer(
+            train_dataset=training_dataset, **training_args
         )
 
         # Start training via Trainer.train function

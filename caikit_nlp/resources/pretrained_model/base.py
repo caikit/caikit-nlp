@@ -14,12 +14,13 @@
 
 # Standard
 from abc import ABC, abstractmethod
-from typing import List, Optional, Type
+from typing import List, Optional, Type, Union
 import json
 import os
 
 # Third Party
-from transformers import AutoTokenizer
+from torch.utils.data import IterableDataset
+from transformers import AutoTokenizer, DataCollator, Trainer, TrainingArguments
 from transformers.models.auto.auto_factory import _BaseAutoModelClass
 import torch
 
@@ -232,6 +233,38 @@ class PretrainedModelBase(ABC, ModuleBase):
             )
             self.tokenizer.save_pretrained(tok_abs_path)
             self.model.save_pretrained(model_abs_path)
+
+    def get_trainer(
+        self,
+        train_dataset: IterableDataset,
+        eval_dataset: Union[IterableDataset, None] = None,
+        optimizers=(None, None),
+        **kwargs,
+    ):
+        """
+        NOTE: following parameters are not supported currently:
+            1. model_init
+            2. compute_metrics
+            3. callbacks
+            4. preprocess_logits_for_metrics
+        """
+
+        training_args = TrainingArguments(**kwargs)
+
+        # TODO: Fetch DataCollator either from property of this
+        # class or fetch it as an argument.
+        data_collator = DataCollator(tokenizer=self._tokenizer, model=self._model)
+
+        # pylint: disable=duplicate-code
+        trainer_arguments = {
+            "train_dataset": train_dataset,
+            "data_collator": data_collator,
+            "tokenizer": self._tokenizer,
+            "optimizers": optimizers,
+            "eval_dataset": eval_dataset,
+        }
+
+        return Trainer(self._model, training_args, **trainer_arguments)
 
     # pylint: disable=unused-argument
     @classmethod
