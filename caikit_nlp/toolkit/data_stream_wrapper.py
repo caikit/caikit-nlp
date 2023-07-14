@@ -48,10 +48,33 @@ class SimpleIterableStreamWrapper(IterableDataset):
         log.debug("Shuffling buffer size: {}".format(self.buffer_size))
 
     def __iter__(self):
+
+        # FIXME: We are currently not handling case where we have to work with
+        # multiple workers, so currently duplicate data will get processed by
+        # each worker.
         if self.shuffle:
             log.debug4("Reshuffling training data!")
             return iter(self.stream.shuffle(self.buffer_size))
         return iter(self.stream)
+        # worker_info = get_worker_info()
+        # if worker_info is None:  # single-process data loading, return the full iterator
+        #     if self.shuffle:
+        #         log.debug4("Reshuffling training data!")
+        #         return iter(self.stream.shuffle(self.buffer_size))
+        #     return iter(self.stream)
+
+        # When num_workers > 0, each worker process will have a different copy of
+        # the dataset object, so we configure each copy independently to avoid
+        # having duplicate data returned from each worker
+        # else:  # in a worker process
+        # # split workload
+        # per_worker = int(
+        #     math.ceil((self.end - self.start) / float(worker_info.num_workers))
+        # )
+        # worker_id = worker_info.id
+        # iter_start = self.start + worker_id * per_worker
+        # iter_end = min(iter_start + per_worker, self.end)
+        # return iter(range(iter_start, iter_end))
 
     def __len__(self):
         return len(self.stream)

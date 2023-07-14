@@ -28,6 +28,15 @@ CAUSAL_LM_MODEL = os.path.join(TINY_MODELS_DIR, "BloomForCausalLM")
 SEQ2SEQ_LM_MODEL = os.path.join(TINY_MODELS_DIR, "T5ForConditionalGeneration")
 
 
+@pytest.fixture
+def disable_wip(request):
+    """Fixture to temporarily disable wip decorator"""
+    previous_state = caikit.core.toolkit.wip_decorator._ENABLE_DECORATOR
+    caikit.core.toolkit.wip_decorator.disable_wip()
+    yield
+    caikit.core.toolkit.wip_decorator._ENABLE_DECORATOR = previous_state
+
+
 ### Fixtures for downloading objects needed to run tests via public internet
 @pytest.fixture
 def downloaded_dataset(request):
