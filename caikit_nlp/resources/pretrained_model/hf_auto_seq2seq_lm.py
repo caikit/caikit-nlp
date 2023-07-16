@@ -94,13 +94,15 @@ class HFAutoSeq2SeqLM(PretrainedModelBase):
             tokenizer=self._tokenizer, model=self._model
         )
 
-        # pylint: disable=duplicate-code
         trainer_arguments = {
             "train_dataset": train_dataset,
             "data_collator": data_collator,
             "tokenizer": self._tokenizer,
             "optimizers": optimizers,
             "eval_dataset": eval_dataset,
+            # Following only applicable for seq2seq
+            "predict_with_generate": True,
+            # "generation_max_length": max_target_length,
         }
 
         return Seq2SeqTrainer(self._model, training_args, **trainer_arguments)

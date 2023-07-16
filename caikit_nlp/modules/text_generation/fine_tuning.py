@@ -129,15 +129,13 @@ class FineTuning(ModuleBase):
             "num_train_epochs": num_epochs,
             # NOTE: We have disabled evaluation for now
             "do_eval": False,
-            "# evaluation_strategy ": "epoch",
+            # "evaluation_strategy ": "epoch",
             "learning_rate": lr,
             "weight_decay": 0.01,
             "save_total_limit": 3,
-            "predict_with_generate": True,
             "fp16": True,
             "push_to_hub": False,
             "no_cuda": False,  # Default
-            "generation_max_length": max_target_length,
             "remove_unused_columns": False,
             "dataloader_pin_memory": False,
             "gradient_accumulation_steps": accumulate_steps,
