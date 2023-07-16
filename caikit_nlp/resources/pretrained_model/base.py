@@ -20,7 +20,7 @@ import os
 
 # Third Party
 from torch.utils.data import IterableDataset
-from transformers import AutoTokenizer, DataCollator, Trainer, TrainingArguments
+from transformers import AutoTokenizer, DataCollatorWithPadding, Trainer, TrainingArguments
 from transformers.models.auto.auto_factory import _BaseAutoModelClass
 import torch
 
@@ -251,11 +251,8 @@ class PretrainedModelBase(ABC, ModuleBase):
 
         training_args = TrainingArguments(**kwargs)
 
-        # TODO: Fetch DataCollator either from property of this
-        # class or fetch it as an argument.
-        data_collator = DataCollator(tokenizer=self._tokenizer, model=self._model)
+        data_collator = self._get_data_collator(**kwargs)
 
-        # pylint: disable=duplicate-code
         trainer_arguments = {
             "train_dataset": train_dataset,
             "data_collator": data_collator,
@@ -265,6 +262,31 @@ class PretrainedModelBase(ABC, ModuleBase):
         }
 
         return Trainer(self._model, training_args, **trainer_arguments)
+
+
+    def _get_data_collator(self, **kwargs):
+        """Function to return appropriate data collator based on resource.
+
+        The default implementation of the base resource uses
+        DataCollatorWithPadding which will dynamically pad the inputs received.
+
+        Args:
+            **kwargs:
+                All the keyword arguments passed to this function
+                will get filtered out to appropriate ones that are
+                applicable to implemented data collator.
+        Returns:
+            transformers.DataCollator
+        """
+
+        applicable_args = ["max_length", "pad_to_multiple_of"]
+        collator_kwargs = {key: kwargs[key] for key in applicable_args if key in kwargs}
+
+        return DataCollatorWithPadding(
+            tokenizer=self._tokenizer,
+            padding=True,
+            **collator_kwargs
+        )
 
     # pylint: disable=unused-argument
     @classmethod
