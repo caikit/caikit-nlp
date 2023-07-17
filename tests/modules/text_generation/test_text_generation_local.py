@@ -6,7 +6,7 @@ import tempfile
 
 # Local
 from caikit_nlp.data_model import GeneratedResult
-from caikit_nlp.modules.text_generation import TextGenerationLocal
+from caikit_nlp.modules.text_generation import TextGeneration
 from tests.fixtures import CAUSAL_LM_MODEL, SEQ2SEQ_LM_MODEL
 
 ### Stub Modules
@@ -15,27 +15,27 @@ from tests.fixtures import CAUSAL_LM_MODEL, SEQ2SEQ_LM_MODEL
 def test_bootstrap_and_run_causallm():
     """Check if we can bootstrap and run causallm models"""
 
-    model = TextGenerationLocal.bootstrap(CAUSAL_LM_MODEL)
+    model = TextGeneration.bootstrap(CAUSAL_LM_MODEL)
 
     sample_text = "Hello stub"
-    generated_text = model.run(sample_text, preserve_input_text=True)
+    generated_text = model.run(sample_text)
     assert isinstance(generated_text, GeneratedResult)
 
 
 def test_bootstrap_and_run_seq2seq():
     """Check if we can bootstrap and run seq2seq models"""
 
-    model = TextGenerationLocal.bootstrap(SEQ2SEQ_LM_MODEL)
+    model = TextGeneration.bootstrap(SEQ2SEQ_LM_MODEL)
 
     sample_text = "Hello stub"
-    generated_text = model.run(sample_text, preserve_input_text=True)
+    generated_text = model.run(sample_text)
     assert isinstance(generated_text, GeneratedResult)
 
 
 def test_bootstrap_and_save_model():
     """Check if we can bootstrap and save the model successfully"""
 
-    model = TextGenerationLocal.bootstrap(SEQ2SEQ_LM_MODEL)
+    model = TextGeneration.bootstrap(SEQ2SEQ_LM_MODEL)
 
     with tempfile.TemporaryDirectory() as model_dir:
         model.save(model_dir)
@@ -44,12 +44,12 @@ def test_bootstrap_and_save_model():
 
 def test_save_model_can_run():
     """Check if the model we bootstrap and save is able to load and run successfully"""
-    model = TextGenerationLocal.bootstrap(SEQ2SEQ_LM_MODEL)
+    model = TextGeneration.bootstrap(SEQ2SEQ_LM_MODEL)
 
     with tempfile.TemporaryDirectory() as model_dir:
         model.save(model_dir)
         del model
-        new_model = TextGenerationLocal.load(model_dir)
+        new_model = TextGeneration.load(model_dir)
         sample_text = "Hello stub"
-        generated_text = new_model.run(sample_text, preserve_input_text=True)
+        generated_text = new_model.run(sample_text)
         assert isinstance(generated_text, GeneratedResult)

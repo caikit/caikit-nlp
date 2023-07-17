@@ -41,12 +41,12 @@ error = error_handler.get(log)
 
 # pylint: disable=too-many-lines,too-many-instance-attributes
 @module(
-    id="f9174353-4aaf-4162-bc1e-f12dcda15292",
+    id="f9181353-4ccf-4572-bd1e-f12bcda26792",
     name="Text Generation",
     version="0.1.0",
     task=TextGenerationTask,
 )
-class TextGenerationLocal(ModuleBase):
+class TextGeneration(ModuleBase):
     """Module to provide text generation capabilities"""
 
     supported_resources = [HFAutoCausalLM, HFAutoSeq2SeqLM]
@@ -164,7 +164,6 @@ class TextGenerationLocal(ModuleBase):
     def run(
         self,
         text,
-        preserve_input_text=False,
         repetition_penalty=2.5,
         length_penalty=1.0,
         early_stopping=True,
@@ -178,21 +177,25 @@ class TextGenerationLocal(ModuleBase):
         Args:
             text: str
                 Source string to be encoded for generation.
-            preserve_input_text: bool
-                Whether or not the source string should be contained in the generated output,
-                e.g., as a prefix.
             repetition_penalty: float
                 The parameter for repetition penalty. 1.0 means no penalty.
                 Default: 2.5
             length_penalty: float
                 Exponential penalty to the length that is used with beam-based generation.
-                It is applied as an exponent to the sequence length, which in turn is used to divide the score of the sequence.
-                Since the score is the log likelihood of the sequence (i.e. negative), length_penalty > 0.0 promotes longer sequences, while length_penalty < 0.0 encourages shorter sequences.
+                It is applied as an exponent to the sequence length, \
+                    which is used to divide the score of the sequence.
+                Since the score is the log likelihood of the sequence (i.e. negative), \
+                    length_penalty > 0.0 promotes longer sequences, \
+                    while length_penalty < 0.0 encourages shorter sequences.
                 Default: 1.0.
             early_stopping: bool
                 Controls the stopping condition for beam-based methods, like beam-search.
-                It accepts the following values: True, where the generation stops as soon as there are num_beams complete candidates;
-                False, where an heuristic is applied and the generation stops when is it very unlikely to find better candidates; "never", where the beam search procedure only stops when there cannot be better candidates (canonical beam search algorithm).
+                It accepts the following values:
+                True, where the generation stops as soon as there are num_beams complete candidates;
+                False, where an heuristic is applied and the generation stops when \
+                    is it very unlikely to find better candidates;
+                "never", where the beam search procedure only stops \
+                    when there cannot be better candidates (canonical beam search algorithm).
             num_beams: int
                 Number of beams for beam search. 1 means no beam search.
                 Default: 1
@@ -235,13 +238,9 @@ class TextGenerationLocal(ModuleBase):
             stop_reason = "MAX_TOKENS"
         else:
             stop_reason = "OTHER"
-        if preserve_input_text:
-            generated_text = text + ": " + preds[0]
-        else:
-            generated_text = preds[0]
         return GeneratedResult(
             generated_token_count=token_count,
-            text=generated_text,
+            text=preds[0],
             stop_reason=stop_reason,
             producer_id=self.PRODUCER_ID,
         )
