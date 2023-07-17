@@ -16,5 +16,5 @@
 from .fine_tuning import FineTuning
 from .peft_prompt_tuning import PeftPromptTuning
 from .peft_tgis_remote import PeftPromptTuningTGIS
-from .text_generation import TextGeneration
-from .text_generation_local import TextGenerationLocal
+from .text_generation_local import TextGeneration
+from .text_generation_tgis import TextGenerationTGIS

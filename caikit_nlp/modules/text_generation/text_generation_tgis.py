@@ -17,13 +17,10 @@
 from typing import Iterable, Optional
 import os
 
-# Third Party
-from transformers import AutoConfig
-
 # First Party
-from caikit import get_config
+from caikit.core import modules
 from caikit.core.module_backends import BackendBase, backend_types
-from caikit.core.modules import ModuleBase, ModuleConfig, ModuleSaver, module
+from caikit.core.modules import ModuleBase, ModuleConfig, ModuleSaver
 from caikit.core.toolkit import error_handler
 from caikit.interfaces.nlp.data_model import (
     GeneratedTextResult,
@@ -39,21 +36,14 @@ from ...resources.pretrained_model import (
     HFAutoSeq2SeqLM,
     PretrainedModelBase,
 )
-from ...toolkit.tgis_utils import TGISGenerationClient
+from .text_generation_local import TextGeneration
 
 log = alog.use_channel("TXT_GEN")
 error = error_handler.get(log)
 
 
-# pylint: disable=too-many-lines,too-many-instance-attributes
-@module(
-    id="f9181353-4ccf-4572-bd1e-f12bcda26792",
-    name="Text Generation",
-    version="0.1.0",
-    backend_type=TGISBackend.backend_type,
-    task=TextGenerationTask,
-)
-class TextGeneration(ModuleBase):
+@modules.module(backend_type=TGISBackend.backend_type, base_module=TextGeneration)
+class TextGenerationTGIS(ModuleBase):
     """Module to provide text generation capabilities"""
 
     SUPPORTED_LOAD_BACKENDS = [TGISBackend.backend_type, backend_types.LOCAL]
@@ -121,35 +111,14 @@ class TextGeneration(ModuleBase):
             caikit_nlp.blocks.text_generation.TextGeneration
                 Object of TextGeneration class (model)
         """
-        # pylint: disable=duplicate-code
-        model_config = AutoConfig.from_pretrained(
-            base_model_path,
-            local_files_only=not get_config().allow_downloads,
-        )
-        resource_type = None
-        for resource in cls.supported_resources:
-            if model_config.model_type in resource.SUPPORTED_MODEL_TYPES:
-                resource_type = resource
-                break
-
-        if not resource_type:
-            error(
-                "<NLP61784225E>",
-                "{} model type is not supported currently!".format(
-                    model_config.model_type
-                ),
-            )
-        log.debug("Bootstrapping base resource [%s]", base_model_path)
-        base_model = resource_type.bootstrap(
-            base_model_path, tokenizer_name=base_model_path
-        )
-        bos_token = base_model._tokenizer.bos_token
-        sep_token = base_model._tokenizer.sep_token
-        eos_token = base_model._tokenizer.eos_token or None
-        pad_token = base_model._tokenizer.pad_token
+        text_generation_inst = TextGeneration.bootstrap(base_model_path)
+        bos_token = text_generation_inst.base_model._tokenizer.bos_token
+        sep_token = text_generation_inst.base_model._tokenizer.sep_token
+        eos_token = text_generation_inst.base_model._tokenizer.eos_token or None
+        pad_token = text_generation_inst.base_model._tokenizer.pad_token
         return cls(
-            base_model_path,
-            base_model,
+            text_generation_inst.base_model_name,
+            text_generation_inst.base_model,
             bos_token=bos_token,
             sep_token=sep_token,
             eos_token=eos_token,
