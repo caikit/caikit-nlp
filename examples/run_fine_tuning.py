@@ -6,6 +6,7 @@ Supported model types:
 
 # Standard
 from typing import Any, Tuple
+from tqdm import tqdm
 import argparse
 import os
 import shutil
@@ -15,6 +16,7 @@ from transformers import AutoConfig
 from utils import (
     ALOG_OPTS,
     SUPPORTED_DATASETS,
+    SUPPORTED_METRICS,
     DatasetInfo,
     configure_random_seed_and_logging,
     print_colored,
@@ -145,6 +147,11 @@ def register_common_arguments(subparser: argparse.ArgumentParser) -> None:
         default=1,
         type=int,
     )
+    subparser.add_argument(
+        "--evaluate",
+        help="Enable evaluation on trained model",
+        action="store_true",
+    )
 
 
 def validate_common_args(args: argparse.Namespace):
@@ -193,10 +200,40 @@ def show_experiment_configuration(args, dataset_info, model_type) -> None:
         "- Maximum source sequence length: [{}]".format(args.max_source_length),
         "- Maximum target sequence length: [{}]".format(args.max_target_length),
         "- Gradient accumulation steps: [{}]".format(args.accumulate_steps),
+        "- Enable evaluation: [{}]".format(args.evaluate),
     ]
     # Log and sleep for a few seconds in case people actually want to read this...
     print_colored("\n".join([print_str for print_str in print_strs if print_str]))
 
+def get_model_preds_and_references(model, validation_stream):
+    """Given a model & a validation stream, run the model against every example in the validation
+    stream and compare the outputs to the target/output sequence.
+
+    Args:
+        model
+            Fine-tuned Model to be evaluated (may leverage different backends).
+        validation_stream: DataStream[GenerationTrainRecord]
+            Validation stream with labeled targets that we want to compare to our model's
+            predictions.
+
+    Returns:
+        Tuple(List)
+            Tuple of 2 lists; the model predictions and the expected output sequences.
+    """
+    model_preds = []
+    targets = []
+
+    for datum in tqdm(validation_stream):
+        # Local .run() currently prepends the input text to the generated string;
+        # Ensure that we're just splitting the first predicted token & beyond.
+        raw_model_text = model.run(datum.input).text
+        parse_pred_text = raw_model_text.split(datum.input)[-1].strip()
+        model_preds.append(parse_pred_text)
+        targets.append(datum.output)
+    return (
+        model_preds,
+        targets,
+    )
 
 if __name__ == "__main__":
     configure_random_seed_and_logging()
@@ -236,3 +273,17 @@ if __name__ == "__main__":
     prediction_results = model.run(sample_text)
 
     print("Generated text: ", prediction_results)
+
+    ## Evaluation
+    print_colored("[Starting Evaluation]")
+
+    validation_stream = dataset_info.dataset_loader()[1]
+
+    print_colored("Getting model predictions...")
+    predictions, references = get_model_preds_and_references(model, validation_stream)
+
+    metric_funcs = list(SUPPORTED_METRICS.values())
+
+    for metric_func in metric_funcs:
+        metric_res = metric_func(predictions=predictions, references=references)
+        print_colored(metric_res)
