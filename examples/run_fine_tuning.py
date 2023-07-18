@@ -8,6 +8,7 @@ Supported model types:
 from typing import Any, Tuple
 from tqdm import tqdm
 import argparse
+import json
 import os
 import shutil
 
@@ -152,6 +153,11 @@ def register_common_arguments(subparser: argparse.ArgumentParser) -> None:
         help="Enable evaluation on trained model",
         action="store_true",
     )
+    subparser.add_argument(
+        "--preds_file",
+        help="JSON file to dump raw source / target texts to.",
+        default="model_preds.json",
+    )
 
 
 def validate_common_args(args: argparse.Namespace):
@@ -235,6 +241,37 @@ def get_model_preds_and_references(model, validation_stream):
         targets,
     )
 
+
+
+def export_model_preds(preds_file, predictions, validation_stream):
+    """Exports a JSON file containing a list of objects, where every object contains:
+        - source: str - Source string used for generation.
+        - target: str - Ground truth target label used for generation.
+        - predicted_target: str - Predicted model target.
+
+    Args:
+        preds_file: str
+            Path on disk to JSON file to be written.
+        predictions: List
+            Model prediction list, where each predicted text excludes source text as a prefix.
+        validation_stream: DataStream
+            Datastream object of GenerationTrainRecord objects used for validation against a model
+            to generate predictions.
+    """
+    pred_objs = []
+    for pred, record in zip(predictions, validation_stream):
+        pred_objs.append(
+            {
+                "source": record.input,
+                "target": record.output,
+                "predicted_target": pred,
+            }
+        )
+    with open(preds_file, "w") as jfile:
+        json.dump(pred_objs, jfile, indent=4, sort_keys=True)
+
+
+
 if __name__ == "__main__":
     configure_random_seed_and_logging()
     args = parse_args()
@@ -281,6 +318,11 @@ if __name__ == "__main__":
 
     print_colored("Getting model predictions...")
     predictions, references = get_model_preds_and_references(model, validation_stream)
+
+
+    export_model_preds(
+        args.preds_file, predictions, validation_stream
+    )
 
     metric_funcs = list(SUPPORTED_METRICS.values())
 
