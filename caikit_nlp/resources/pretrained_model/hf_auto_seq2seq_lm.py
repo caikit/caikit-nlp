@@ -90,9 +90,7 @@ class HFAutoSeq2SeqLM(PretrainedModelBase):
 
         # TODO: Fetch DataCollator either from property of this
         # class or fetch it as an argument.
-        data_collator = DataCollatorForSeq2Seq(
-            tokenizer=self._tokenizer, model=self._model
-        )
+        data_collator = self._get_data_collator(**kwargs)
 
         trainer_arguments = {
             "train_dataset": train_dataset,
@@ -106,3 +104,27 @@ class HFAutoSeq2SeqLM(PretrainedModelBase):
         }
 
         return Seq2SeqTrainer(self._model, training_args, **trainer_arguments)
+
+
+    def _get_data_collator(self, **kwargs):
+        """Function to return appropriate data collator based on resource.
+
+        This implementation uses DataCollatorForSeq2Seq
+
+        Args:
+            **kwargs:
+                All the keyword arguments passed to this function
+                will get filtered out to appropriate ones that are
+                applicable to implemented data collator.
+        Returns:
+            transformers.DataCollator
+        """
+
+        applicable_args = ["max_length", "pad_to_multiple_of"]
+        collator_kwargs = {key: kwargs[key] for key in applicable_args if key in kwargs}
+
+        return DataCollatorForSeq2Seq(
+            tokenizer=self._tokenizer,
+            model=self._model,
+            **collator_kwargs
+        )
