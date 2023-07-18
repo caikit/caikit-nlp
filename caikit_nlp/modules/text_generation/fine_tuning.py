@@ -222,7 +222,7 @@ class FineTuning(ModuleBase):
 
             generated_text = self.tokenizer.batch_decode(
                 generated_tokens.detach().cpu().numpy(), skip_special_tokens=True
-            )
+            )[0]
 
         else:
             error(
