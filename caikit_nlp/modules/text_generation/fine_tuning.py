@@ -165,7 +165,7 @@ class FineTuning(ModuleBase):
             log.warning(
                 "<NLP64076114W>",
                 f"Number of epochs configured is {num_epochs} which is less than minimum 1. \
-                    No training will be performed"
+                    No training will be performed",
             )
 
             return cls(

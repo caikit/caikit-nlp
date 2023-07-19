@@ -45,7 +45,9 @@ def test_train_model(disable_wip):
     pred = model.run("@bar what a cute cat!")
     assert isinstance(pred, GeneratedResult)
 
+
 ############################## Error Cases ################################
+
 
 def test_zero_epoch_case(disable_wip):
     """Test to ensure 0 epoch training request doesn't explode"""

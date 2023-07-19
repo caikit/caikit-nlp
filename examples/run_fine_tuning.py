@@ -6,13 +6,13 @@ Supported model types:
 
 # Standard
 from typing import Any, Tuple
-from tqdm import tqdm
 import argparse
 import json
 import os
 import shutil
 
 # Third Party
+from tqdm import tqdm
 from transformers import AutoConfig
 from utils import (
     ALOG_OPTS,
@@ -217,6 +217,7 @@ def show_experiment_configuration(args, dataset_info, model_type) -> None:
     # Log and sleep for a few seconds in case people actually want to read this...
     print_colored("\n".join([print_str for print_str in print_strs if print_str]))
 
+
 def get_model_preds_and_references(model, validation_stream):
     """Given a model & a validation stream, run the model against every example in the validation
     stream and compare the outputs to the target/output sequence.
@@ -248,7 +249,6 @@ def get_model_preds_and_references(model, validation_stream):
     )
 
 
-
 def export_model_preds(preds_file, predictions, validation_stream):
     """Exports a JSON file containing a list of objects, where every object contains:
         - source: str - Source string used for generation.
@@ -275,7 +275,6 @@ def export_model_preds(preds_file, predictions, validation_stream):
         )
     with open(preds_file, "w") as jfile:
         json.dump(pred_objs, jfile, indent=4, sort_keys=True)
-
 
 
 if __name__ == "__main__":
@@ -325,10 +324,7 @@ if __name__ == "__main__":
     print_colored("Getting model predictions...")
     predictions, references = get_model_preds_and_references(model, validation_stream)
 
-
-    export_model_preds(
-        args.preds_file, predictions, validation_stream
-    )
+    export_model_preds(args.preds_file, predictions, validation_stream)
 
     metric_funcs = [SUPPORTED_METRICS[metric_name] for metric_name in args.metrics]
     print_colored("Metrics to be calculated: {}".format(args.metrics))

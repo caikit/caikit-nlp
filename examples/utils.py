@@ -246,6 +246,7 @@ def load_billsum_dataset() -> Tuple[caikit.core.data_model.DataStream]:
     test_stream = build_stream("test")
     return (train_stream, validation_stream, test_stream)
 
+
 def load_samsum_dataset() -> Tuple[caikit.core.data_model.DataStream]:
     """Load the samsum dataset."""
 
@@ -264,6 +265,7 @@ def load_samsum_dataset() -> Tuple[caikit.core.data_model.DataStream]:
     validation_stream = build_stream("validation")
     test_stream = build_stream("test")
     return (train_stream, validation_stream, test_stream)
+
 
 def get_wrapped_evaluate_metric(metric_name: str, convert_to_numeric: bool) -> Callable:
     """Wrapper for running metrics out of evaluate which operate on numeric arrays
