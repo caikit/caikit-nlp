@@ -125,7 +125,7 @@ def register_common_arguments(subparser: argparse.ArgumentParser) -> None:
         "--learning_rate",
         help="Learning rate to use while training",
         type=float,
-        default=3e-2,
+        default=2e-5,
     ),
     subparser.add_argument(
         "--batch_size", help="Batch size to use while training", type=int, default=8
@@ -157,6 +157,12 @@ def register_common_arguments(subparser: argparse.ArgumentParser) -> None:
         "--preds_file",
         help="JSON file to dump raw source / target texts to.",
         default="model_preds.json",
+    )
+    subparser.add_argument(
+        "--metrics",
+        help="Metrics to calculate. Options: {}".format(list(SUPPORTED_METRICS.keys())),
+        nargs="*",
+        default=["accuracy"],
     )
 
 
@@ -306,7 +312,7 @@ if __name__ == "__main__":
     print_colored("[Training Complete]")
 
     # Prediction
-    sample_text = "this is sample text"
+    sample_text = "summarize: The Inflation Reduction Act lowers prescription drug costs, health care costs, and energy costs. It's the most aggressive action on tackling the climate crisis in American history, which will lift up American workers and create good-paying, union jobs across the country. It'll lower the deficit and ask the ultra-wealthy and corporations to pay their fair share. And no one making under $400,000 per year will pay a penny more in taxes."
     prediction_results = model.run(sample_text)
 
     print("Generated text: ", prediction_results)
@@ -324,7 +330,8 @@ if __name__ == "__main__":
         args.preds_file, predictions, validation_stream
     )
 
-    metric_funcs = list(SUPPORTED_METRICS.values())
+    metric_funcs = [SUPPORTED_METRICS[metric_name] for metric_name in args.metrics]
+    print_colored("Metrics to be calculated: {}".format(args.metrics))
 
     for metric_func in metric_funcs:
         metric_res = metric_func(predictions=predictions, references=references)

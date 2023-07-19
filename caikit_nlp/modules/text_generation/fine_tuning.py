@@ -161,6 +161,18 @@ class FineTuning(ModuleBase):
             # compute_metrics=compute_metrics,
         )
 
+        if num_epochs < 1:
+            log.warning(
+                "<NLP64076114W>",
+                f"Number of epochs configured is {num_epochs} which is less than minimum 1. \
+                    No training will be performed"
+            )
+
+            return cls(
+                tokenizer=base_model.tokenizer,
+                model=trainer,
+            )
+
         # Start training via Trainer.train function
         trainer.train()
         # NOTE: By default the model would be available in different ways
@@ -178,7 +190,7 @@ class FineTuning(ModuleBase):
 
     # pylint: disable=unused-argument
     def run(
-        self, text, preserve_input_text=False, max_new_tokens=20, min_new_tokens=0
+        self, text, preserve_input_text=False, max_new_tokens=128, min_new_tokens=0
     ) -> "GeneratedResult":
         """Run inference against the model running in TGIS.
 
@@ -190,7 +202,7 @@ class FineTuning(ModuleBase):
                 e.g., as a prefix.
             max_new_tokens: int
                 The maximum numbers of tokens to generate.
-                Default: 20
+                Default: 128
             min_new_tokens: int
                 The minimum numbers of tokens to generate.
                 Default: 0 - means no minimum
