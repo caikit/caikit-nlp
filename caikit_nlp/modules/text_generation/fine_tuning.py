@@ -23,6 +23,7 @@ from transformers import (
     Seq2SeqTrainingArguments,
     Trainer,
 )
+import torch
 
 # First Party
 from caikit.core.data_model import DataStream
@@ -119,6 +120,23 @@ class FineTuning(ModuleBase):
             shuffle=True,
         )
 
+        ### Dtype based processing
+        # NOTE: Following is not exhaustive list of all parameters
+        # for all dtypes
+        if torch_dtype == torch.float16:
+            dtype_based_params = {
+                "fp16": True,
+            }
+        elif torch_dtype == torch.bfloat16:
+            dtype_based_params = {
+                "bf16": True,
+            }
+        else:
+            # default to float32
+            dtype_based_params = {}
+
+        ## TODO: Add automatic sharding selection based on number of parameters
+        # in base model
         ## TODO: Fetch trainer from resource
 
         # TODO: Make this whole thing configurable by end-users,
@@ -137,7 +155,6 @@ class FineTuning(ModuleBase):
             weight_decay=0.01,
             save_total_limit=3,
             predict_with_generate=True,
-            fp16=True,
             push_to_hub=False,
             no_cuda=False,  # Default
             generation_max_length=max_target_length,
@@ -146,6 +163,7 @@ class FineTuning(ModuleBase):
             gradient_accumulation_steps=accumulate_steps,
             eval_accumulation_steps=accumulate_steps,
             # eval_steps=1,
+            **dtype_based_params,
         )
 
         data_collator = DataCollatorForSeq2Seq(
