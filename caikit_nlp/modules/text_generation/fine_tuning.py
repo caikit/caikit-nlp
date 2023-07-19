@@ -220,9 +220,7 @@ class FineTuning(ModuleBase):
             # data and model. Since the model is with Trainer at this point
             # and thus the device placement be according to training strategy,
             # its better to let Trainer handle the evaluation / prediction
-            # NOTE: Below statement requires merge of HF PR
-            # https://github.com/huggingface/transformers/pull/24759
-            # and subsequent release of `transformers` and updating the lib version in `caikit-nlp`
+
             # TODO: Add support for passing extra arguments to prediction_step
             _, generated_tokens, _ = self.model.prediction_step(
                 self.model.model,

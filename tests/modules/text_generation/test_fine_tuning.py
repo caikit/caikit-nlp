@@ -13,13 +13,6 @@ from caikit_nlp.resources.pretrained_model import HFAutoSeq2SeqLM
 from tests.fixtures import SEQ2SEQ_LM_MODEL, disable_wip
 
 
-@pytest.mark.skip(
-    """
-We are skipping this test because we are waiting for new release
-of transformers library that includes bugfix that is currently breaking
-# run function
-"""
-)
 def test_train_model(disable_wip):
     """Ensure that we can train a model on some toy data for 1+ steps & run inference."""
     train_kwargs = {
