@@ -159,6 +159,12 @@ def register_common_arguments(subparser: argparse.ArgumentParser) -> None:
         default="model_preds.json",
     )
     subparser.add_argument(
+        "--torch_dtype",
+        help="Torch dtype to use for training",
+        type=str,
+        default="float16",
+    )
+    subparser.add_argument(
         "--metrics",
         help="Metrics to calculate. Options: {}".format(list(SUPPORTED_METRICS.keys())),
         nargs="*",
@@ -213,6 +219,8 @@ def show_experiment_configuration(args, dataset_info, model_type) -> None:
         "- Maximum target sequence length: [{}]".format(args.max_target_length),
         "- Gradient accumulation steps: [{}]".format(args.accumulate_steps),
         "- Enable evaluation: [{}]".format(args.evaluate),
+        "- Evaluation metrics: [{}]".format(args.metrics),
+        "- Torch dtype to use for training: [{}]".format(args.torch_dtype),
     ]
     # Log and sleep for a few seconds in case people actually want to read this...
     print_colored("\n".join([print_str for print_str in print_strs if print_str]))
@@ -301,6 +309,7 @@ if __name__ == "__main__":
         max_source_length=args.max_source_length,
         max_target_length=args.max_target_length,
         lr=args.learning_rate,
+        torch_dtype="float16",
         batch_size=args.batch_size,
         accumulate_steps=args.accumulate_steps,
         num_epochs=args.num_epochs,
