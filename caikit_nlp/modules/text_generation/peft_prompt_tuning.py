@@ -44,12 +44,12 @@ from caikit import get_config
 from caikit.core.data_model import DataStream
 from caikit.core.modules import ModuleBase, ModuleConfig, ModuleSaver, module
 from caikit.core.toolkit import error_handler
+from caikit.interfaces.nlp.data_model import GeneratedTextResult
 import alog
 
 # Local
 from ...data_model import (
     ClassificationTrainRecord,
-    GeneratedResult,
     GenerationTrainRecord,
     PromptOutputModelType,
     TuningConfig,
@@ -155,7 +155,7 @@ class PeftPromptTuning(ModuleBase):
 
     def run(
         self, text: str, device: Optional[Union[str, int]] = _DETECT_DEVICE
-    ) -> GeneratedResult:
+    ) -> GeneratedTextResult:
         """Run the full text generation model.
 
         Args:
@@ -165,7 +165,7 @@ class PeftPromptTuning(ModuleBase):
                 Device on which we should run inference; by default, we use teh detected device.
 
         Returns:
-            GeneratedResult
+            GeneratedTextResult
                 Generated text result produced by PEFT / Transformers.
         """
         # Apply the verbalizer to our text string
@@ -185,7 +185,7 @@ class PeftPromptTuning(ModuleBase):
             gen_text = self.tokenizer.batch_decode(
                 outputs.detach().cpu().numpy(), skip_special_tokens=True
             )
-        return GeneratedResult(text=gen_text[0])
+        return GeneratedTextResult(generated_text=gen_text[0])
 
     @classmethod
     def train(

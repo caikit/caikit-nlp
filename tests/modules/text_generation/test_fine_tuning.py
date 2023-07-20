@@ -4,10 +4,11 @@ import pytest
 import torch
 
 # First Party
+from caikit.interfaces.nlp.data_model import GeneratedTextResult
 import caikit
 
 # Local
-from caikit_nlp.data_model import GeneratedResult, GenerationTrainRecord
+from caikit_nlp.data_model import GenerationTrainRecord
 from caikit_nlp.modules.text_generation import FineTuning
 from caikit_nlp.resources.pretrained_model import HFAutoSeq2SeqLM
 from tests.fixtures import SEQ2SEQ_LM_MODEL, disable_wip
@@ -43,4 +44,4 @@ def test_train_model(disable_wip):
     assert isinstance(model.model, Trainer)
     # Ensure that we can get something out of it
     pred = model.run("@bar what a cute cat!")
-    assert isinstance(pred, GeneratedResult)
+    assert isinstance(pred, GeneratedTextResult)

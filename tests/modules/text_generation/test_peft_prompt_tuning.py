@@ -15,6 +15,7 @@ import pytest
 import torch
 
 # First Party
+from caikit.interfaces.nlp.data_model import GeneratedTextResult
 import caikit
 
 # Local
@@ -59,7 +60,7 @@ def test_save_and_reload_without_base_model(causal_lm_dummy_model):
 def test_run_model(causal_lm_dummy_model):
     """Ensure that we can run a model and get the right type out."""
     pred = causal_lm_dummy_model.run("This text doesn't matter")
-    assert isinstance(pred, caikit_nlp.data_model.GeneratedResult)
+    assert isinstance(pred, GeneratedTextResult)
 
 
 def test_verbalizer_rendering(causal_lm_dummy_model):
@@ -122,7 +123,7 @@ def test_train_model(causal_lm_train_kwargs):
     assert model.model.dtype is torch.float32
     # Ensure that we can get something out of it
     pred = model.run("@bar what a cute cat!")
-    assert isinstance(pred, caikit_nlp.data_model.GeneratedResult)
+    assert isinstance(pred, GeneratedTextResult)
 
 
 def test_train_model_classification_record(causal_lm_train_kwargs):
@@ -151,7 +152,7 @@ def test_train_model_classification_record(causal_lm_train_kwargs):
     assert model.model.dtype is torch.float32
     # Ensure that we can get something out of it
     pred = model.run("@bar what a cute cat!")
-    assert isinstance(pred, caikit_nlp.data_model.GeneratedResult)
+    assert isinstance(pred, GeneratedTextResult)
 
 
 ### Implementation details

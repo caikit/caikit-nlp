@@ -15,14 +15,12 @@
 # First Party
 # First party
 from caikit.core import TaskBase, task
-
-# Local
-from ...data_model import GeneratedResult
+from caikit.interfaces.nlp.data_model import GeneratedTextResult
 
 
 @task(
     required_parameters={"text": str},
-    output_type=GeneratedResult,
+    output_type=GeneratedTextResult,
 )
 class TextGenerationTask(TaskBase):
     pass
