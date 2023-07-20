@@ -162,8 +162,15 @@ class FineTuning(ModuleBase):
             dataloader_pin_memory=False,
             gradient_accumulation_steps=accumulate_steps,
             eval_accumulation_steps=accumulate_steps,
+            logging_strategy="epoch",
+            disable_tqdm=True,
+            # NOTE: Following not possible without save and eval strategy
+            # load_best_model_at_end=True,
             # eval_steps=1,
             **dtype_based_params,
+            ## TODO: Make below configurable
+            # fsdp="full_shard auto_wrap",
+            # local_rank=0,
         )
 
         data_collator = DataCollatorForSeq2Seq(

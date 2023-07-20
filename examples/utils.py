@@ -35,7 +35,7 @@ from caikit_nlp.data_model import GenerationTrainRecord
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
 ALOG_OPTS = {
-    "filters": "datasets:off,urllib3:off",
+    "filters": "datasets:off,urllib3:off,apscheduler:off,tzloc:off",
     "default_level": "error",
     "formatter": "pretty",
 }
