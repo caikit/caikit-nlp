@@ -70,6 +70,7 @@ from ...resources.pretrained_model import (
     HFAutoSeq2SeqLM,
     PretrainedModelBase,
 )
+from ...toolkit.data_prep_utils import build_tokenize_function
 from ...toolkit.data_stream_wrapper import SimpleIterableStreamWrapper
 from ...toolkit.data_type_utils import get_torch_dtype, str_to_torch_dtype
 from ...toolkit.task_specific_utils import convert_to_generation_record
@@ -1004,104 +1005,13 @@ class PeftPromptTuning(ModuleBase):
                 DataLoader to be used for training / evaluating the stream data.
         """
 
-        def tokenize_function_seq2seq(
-            example: GenerationTrainRecord,
-        ) -> "BatchEncoding":
-            """Tokenization function to be used for seq2seq training; this function consumes a
-            GenerationTrainRecord object and applies the verbalizer to it followed by
-            the model tokenizer. Finally, we postprocess by ignoring pad tokens in the label IDs.
-
-            TODO: Add support for right padded models.
-
-            Args:
-                example: GenerationTrainRecord
-                    Training data model object to convert a form we can learn on.
-
-            Returns:
-                transformers.tokenization_utils_base.BatchEncoding
-                    encoded tokenization output corresponding to the input example.
-            """
-            IGNORE_ID = -100
-
-            # Render the verbalizer template with the attributes of this data model example
-            source = render_verbalizer(verbalizer, example)
-
-            targets = example.output  # [label_column]
-            # model_inputs = tokenizer(
-            #     inputs,
-            #     max_length=max_length,
-            #     padding="max_length",
-            #     truncation=True,
-            #     return_tensors="pt"
-            # )
-            # labels = tokenizer(
-            #     targets,
-            #     max_length=3,
-            #     padding="max_length",
-            #     truncation=True,
-            #     return_tensors="pt"
-            # )
-            model_inputs = tokenizer(
-                source,
-                max_length=max_source_length,
-                padding="max_length",
-                truncation=True,
-            )
-            labels = tokenizer(
-                targets,
-                max_length=max_target_length,
-                padding="max_length",
-                truncation=True,
-            )
-
-            labels = labels["input_ids"]
-
-            labels = list(
-                map(lambda x: IGNORE_ID if x == tokenizer.pad_token_id else x, labels)
-            )
-            model_inputs["labels"] = labels
-            model_inputs["task_ids"] = 0
-            return model_inputs
-
-        def tokenize_function_language_model(example: GenerationTrainRecord):
-            # NOTE: Truncation size for source is kind of silly - source/target seqs are disconnected.
-            # Seq2seq should have the same issues...
-            source_ids = tokenizer(
-                example.input, max_length=max_source_length, truncation=True
-            )
-            target_ids = tokenizer(
-                example.output, max_length=max_target_length, truncation=True
-            )
-            source_ids["input_ids"] = source_ids.input_ids + target_ids.input_ids
-            # Here, we need to yield and manipulate the attention mask to attend
-            # to the input seq + the tokens we have seen so far...
-            num_target_samples = len(target_ids.input_ids)
-
-            def generator_func():
-                for idx in range(num_target_samples):
-                    # This may not actually be needed, but for now we do it, since the underlying data may be
-                    # referenced in multiple places, and the data will be dynamically padded by the LM collator
-                    s = deepcopy(source_ids)
-                    s["attention_mask"] = (
-                        s["attention_mask"]
-                        + [1] * (idx + 1)
-                        + [0] * (num_target_samples - idx - 1)
-                    )
-                    yield (s)
-
-            return DataStream(generator_func)
-
-        if task_type == HFAutoCausalLM.TASK_TYPE:
-            tokenize_function = tokenize_function_language_model
-            wrapped_stream = SimpleIterableStreamWrapper(
-                train_stream.map(tokenize_function).flatten(), shuffle=shuffle
-            )
-        else:
-            tokenize_function = tokenize_function_seq2seq
-            wrapped_stream = SimpleIterableStreamWrapper(
-                train_stream.map(tokenize_function), shuffle=shuffle
-            )
-
+        tokenize_function, requires_unwrapping = build_tokenize_function(
+            tokenizer, max_source_length, max_target_length, verbalizer, task_type
+        )
+        mapped_stream = train_stream.map(tokenize_function)
+        if requires_unwrapping:
+            mapped_stream = mapped_stream.flatten()
+        wrapped_stream = SimpleIterableStreamWrapper(mapped_stream, shuffle=shuffle)
         dataloader = DataLoader(
             wrapped_stream, collate_fn=collate_fn, batch_size=batch_size
         )
