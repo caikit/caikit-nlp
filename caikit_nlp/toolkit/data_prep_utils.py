@@ -95,6 +95,7 @@ def build_tokenize_function(
         # Here, we need to yield and manipulate the attention mask to attend
         # to the input seq + the tokens we have seen so far...
         num_target_samples = len(target_ids.input_ids)
+        source_ids["task_ids"] = 0
 
         def generator_func():
             for idx in range(num_target_samples):
