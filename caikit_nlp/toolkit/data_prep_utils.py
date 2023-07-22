@@ -26,6 +26,7 @@ import alog
 # Local
 from ..data_model import GenerationTrainRecord
 from ..resources.pretrained_model import HFAutoCausalLM, HFAutoSeq2SeqLM
+from .verbalizer_utils import render_verbalizer
 
 log = alog.use_channel("DATA_PREP")
 error = error_handler.get(log)
@@ -80,6 +81,10 @@ def build_tokenize_function(
             transformers.tokenization_utils_base.BatchEncoding
                 encoded tokenization output corresponding to the input example.
         """
+
+        # Render the verbalizer template with the attributes of this data model example
+        source = render_verbalizer(verbalizer, example)
+
         source_ids = tokenizer(
             example.input, max_length=max_source_length, truncation=True
         )
