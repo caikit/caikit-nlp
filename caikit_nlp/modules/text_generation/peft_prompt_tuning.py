@@ -13,7 +13,6 @@
 # limitations under the License.
 """This module contains prompt tuning through PEFT"""
 # Standard
-from copy import deepcopy
 from enum import Enum
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
 import gc
