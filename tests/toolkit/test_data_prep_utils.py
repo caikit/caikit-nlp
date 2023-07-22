@@ -16,6 +16,7 @@
 from unittest import mock
 
 # Third Party
+import pytest
 import torch
 import transformers
 
@@ -150,3 +151,16 @@ def test_seq2seq_tok_output_correctness(seq2seq_lm_dummy_model):
     # Ensure we support MPT
     assert hasattr(tok_sample, "task_ids")
     assert tok_sample["task_ids"] == 0
+
+
+### Misc test
+def test_build_with_bad_task(seq2seq_lm_dummy_model):
+    """Ensure that if we pass a bad task string to the builder, we explode!"""
+    with pytest.raises(ValueError):
+        build_tokenize_function(
+            tokenizer=seq2seq_lm_dummy_model.tokenizer,
+            max_source_length=20,
+            max_target_length=20,
+            verbalizer="{{input}}",
+            task_type="garbage task!",
+        )
