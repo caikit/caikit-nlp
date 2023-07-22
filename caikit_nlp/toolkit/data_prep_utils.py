@@ -85,9 +85,7 @@ def build_tokenize_function(
         # Render the verbalizer template with the attributes of this data model example
         source = render_verbalizer(verbalizer, example)
 
-        source_ids = tokenizer(
-            example.input, max_length=max_source_length, truncation=True
-        )
+        source_ids = tokenizer(source, max_length=max_source_length, truncation=True)
         target_ids = tokenizer(
             example.output, max_length=max_target_length, truncation=True
         )
@@ -99,15 +97,16 @@ def build_tokenize_function(
 
         def generator_func():
             for idx in range(num_target_samples):
-                # This may not actually be needed, but for now we do it, since the underlying data may be
-                # referenced in multiple places, and the data will be dynamically padded by the LM collator
+                # This may not actually be needed, but for now we do it, since the underlying
+                # data may be referenced in multiple places, and the data will be dynamically
+                # padded by the LM collator
                 s = deepcopy(source_ids)
                 s["attention_mask"] = (
                     s["attention_mask"]
                     + [1] * (idx + 1)
                     + [0] * (num_target_samples - idx - 1)
                 )
-                yield (s)
+                yield s
 
         return DataStream(generator_func)
 
@@ -154,11 +153,11 @@ def build_tokenize_function(
 
     if task_type == HFAutoCausalLM.TASK_TYPE:
         return (tokenize_function_language_model, True)
-    elif task_type == HFAutoSeq2SeqLM.TASK_TYPE:
+    if task_type == HFAutoSeq2SeqLM.TASK_TYPE:
         return (tokenize_function_seq2seq, False)
     error(
         "<NLP19427812E>",
         ValueError(
-            f"Tokenizer function building only support for Causal LM / Seq2Seq models"
+            "Tokenizer function building only support for Causal LM / Seq2Seq models"
         ),
     )
