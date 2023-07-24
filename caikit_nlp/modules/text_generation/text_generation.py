@@ -14,7 +14,7 @@
 
 
 # Standard
-from typing import Iterable, Optional
+from typing import Iterable
 import os
 
 # Third Party
@@ -27,8 +27,8 @@ from caikit.core.toolkit import error_handler
 from caikit.interfaces.nlp.data_model import (
     GeneratedTextResult,
     GeneratedTextStreamResult,
-    TextGenerationTask,
 )
+from caikit.interfaces.nlp.tasks import TextGenerationTask
 from caikit_tgis_backend import TGISBackend
 from caikit_tgis_backend.protobufs import generation_pb2
 import alog
@@ -273,17 +273,15 @@ class TextGeneration(ModuleBase):
                 producer_id=self.PRODUCER_ID,
             )
 
-
-
-    @TextGenerationTask.taskmethod(input_streaming=True, output_streaming=True)
-    def run_bidi_stream(
-        self, text_stream: Iterable[str], preserve_input_text=False, max_new_tokens=20, min_new_tokens=0
+    @TextGenerationTask.taskmethod(output_streaming=True)
+    def run_stream_out(
+        self, text: str, preserve_input_text=False, max_new_tokens=20, min_new_tokens=0
     ) -> Iterable[GeneratedTextStreamResult]:
-        """Run bi-directional streaming inferencing for text generation module.
+        """Run output streaming inferencing for text generation module.
 
         Args:
-            text_stream: Iterable[str]
-                Text stream to run classification on
+            text: str
+                Text to run classification on
             preserve_input_text: bool
                 Whether or not the source string should be contained in the generated output,
                 e.g., as a prefix.
@@ -315,7 +313,7 @@ class TextGeneration(ModuleBase):
                 stopping=stopping,
             )
 
-            gen_reqs = [generation_pb2.GenerationRequest(text=text_stream)]
+            gen_reqs = [generation_pb2.GenerationRequest(text=text)]
 
             request = generation_pb2.SingleGenerationRequest(
                 requests=gen_reqs,

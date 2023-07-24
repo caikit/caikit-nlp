@@ -45,6 +45,7 @@ from caikit.core.data_model import DataStream
 from caikit.core.modules import ModuleBase, ModuleConfig, ModuleSaver, module
 from caikit.core.toolkit import error_handler
 from caikit.interfaces.nlp.data_model import GeneratedTextResult
+from caikit.interfaces.nlp.tasks import TextGenerationTask
 import alog
 
 # Local
@@ -63,7 +64,6 @@ from ...toolkit.data_stream_wrapper import SimpleIterableStreamWrapper
 from ...toolkit.data_type_utils import get_torch_dtype, str_to_torch_dtype
 from ...toolkit.task_specific_utils import convert_to_generation_record
 from ...toolkit.verbalizer_utils import is_valid_verbalizer, render_verbalizer
-from .text_generation_task import TextGenerationTask
 
 log = alog.use_channel("PEFT_PROMPT")
 error = error_handler.get(log)
