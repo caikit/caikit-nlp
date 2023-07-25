@@ -27,6 +27,8 @@ from caikit.core.toolkit import error_handler
 from caikit.interfaces.nlp.data_model import (
     GeneratedTextResult,
     GeneratedTextStreamResult,
+    # GeneratedToken,
+    TokenStreamDetails,
 )
 from caikit.interfaces.nlp.tasks import TextGenerationTask
 from caikit_tgis_backend import TGISBackend
@@ -97,6 +99,7 @@ class TextGeneration(ModuleBase):
     def __del__(self):
         # nothing to unload if we didn't finish loading
         if self._model_loaded:
+            # TODO: update me! get_backend() no longer exists
             self.get_backend().unload_model(self._model_path)
 
     @classmethod
@@ -277,11 +280,11 @@ class TextGeneration(ModuleBase):
     def run_stream_out(
         self, text: str, preserve_input_text=False, max_new_tokens=20, min_new_tokens=0
     ) -> Iterable[GeneratedTextStreamResult]:
-        """Run output streaming inferencing for text generation module.
+        """Run output stream inferencing for text generation module.
 
         Args:
             text: str
-                Text to run classification on
+                Source string to be encoded for generation.
             preserve_input_text: bool
                 Whether or not the source string should be contained in the generated output,
                 e.g., as a prefix.
@@ -313,16 +316,31 @@ class TextGeneration(ModuleBase):
                 stopping=stopping,
             )
 
-            gen_reqs = [generation_pb2.GenerationRequest(text=text)]
+            gen_req = generation_pb2.GenerationRequest(text=text)
 
             request = generation_pb2.SingleGenerationRequest(
-                requests=gen_reqs,
+                request=gen_req,
                 model_id=self.base_model_name,
                 params=params,
             )
 
-            response = self._client.GenerateStream(request)
+            # stream GenerationResponse
+            stream_response = self._client.GenerateStream(request)
 
-            return GeneratedTextStreamResult(
-                generated_text=response.text,
-            )
+            for stream_part in stream_response:
+                # NOTE: some differences between TGIS finish reason
+                # and stop reason
+                details = TokenStreamDetails(
+                    finish_reason=stream_part.stop_reason,
+                    generated_tokens=stream_part.generated_token_count,
+                    seed=stream_part.seed,
+                )
+                # NOTE: some differences between TGI token and TGIS tokens
+                # token_list = []
+                # for token in stream_part.tokens:
+                #     token_list.append(GeneratedToken(text=token.text, logprob=token.logprob))
+                yield GeneratedTextStreamResult(
+                    generated_text=stream_part.text,
+                    # tokens=token_list,
+                    details=details,
+                )
