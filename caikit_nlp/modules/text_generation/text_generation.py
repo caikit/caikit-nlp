@@ -40,6 +40,7 @@ from ...resources.pretrained_model import (
     HFAutoSeq2SeqLM,
     PretrainedModelBase,
 )
+from ...toolkit.tgis_utils import get_params
 
 log = alog.use_channel("TXT_GEN")
 error = error_handler.get(log)
@@ -232,21 +233,11 @@ class TextGeneration(ModuleBase):
         log.debug("Building protobuf request to send to TGIS")
         # pylint: disable=duplicate-code
         if self._model_loaded:
-            res_options = generation_pb2.ResponseOptions(
-                input_text=preserve_input_text,
-                generated_tokens=True,
-                input_tokens=False,
-                token_logprobs=True,
-                token_ranks=True,
-            )
-            stopping = generation_pb2.StoppingCriteria(
-                stop_sequences=[self._eos_token],
+            params = get_params(
+                preserve_input_text=preserve_input_text,
+                eos_token=self._eos_token,
                 max_new_tokens=max_new_tokens,
                 min_new_tokens=min_new_tokens,
-            )
-            params = generation_pb2.Parameters(
-                response=res_options,
-                stopping=stopping,
             )
 
             gen_reqs = [generation_pb2.GenerationRequest(text=text)]
@@ -297,22 +288,11 @@ class TextGeneration(ModuleBase):
         """
         # pylint: disable=duplicate-code
         if self._model_loaded:
-
-            res_options = generation_pb2.ResponseOptions(
-                input_text=preserve_input_text,
-                generated_tokens=True,
-                input_tokens=False,
-                token_logprobs=True,
-                token_ranks=True,
-            )
-            stopping = generation_pb2.StoppingCriteria(
-                stop_sequences=[self._eos_token],
+            params = get_params(
+                preserve_input_text=preserve_input_text,
+                eos_token=self._eos_token,
                 max_new_tokens=max_new_tokens,
                 min_new_tokens=min_new_tokens,
-            )
-            params = generation_pb2.Parameters(
-                response=res_options,
-                stopping=stopping,
             )
 
             gen_req = generation_pb2.GenerationRequest(text=text)

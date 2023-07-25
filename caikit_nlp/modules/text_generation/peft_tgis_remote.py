@@ -35,6 +35,7 @@ import alog
 # Local
 from ...toolkit.verbalizer_utils import render_verbalizer
 from . import PeftPromptTuning
+from ...toolkit.tgis_utils import get_params
 
 log = alog.use_channel("PEFT_PROMPT_REMOTE")
 error = error_handler.get(log)
@@ -161,21 +162,12 @@ class PeftPromptTuningTGIS(ModuleBase):
         )
         verbalized_text = render_verbalizer(self.verbalizer, {"input": text})
         log.debug("Building protobuf request to send to TGIS")
-        res_options = generation_pb2.ResponseOptions(
-            input_text=preserve_input_text,
-            generated_tokens=True,
-            input_tokens=False,
-            token_logprobs=True,
-            token_ranks=True,
-        )
-        stopping = generation_pb2.StoppingCriteria(
-            stop_sequences=[self.eos_token],
+
+        params = get_params(
+            preserve_input_text=preserve_input_text,
+            eos_token=self.eos_token,
             max_new_tokens=max_new_tokens,
             min_new_tokens=min_new_tokens,
-        )
-        params = generation_pb2.Parameters(
-            response=res_options,
-            stopping=stopping,
         )
 
         gen_reqs = [generation_pb2.GenerationRequest(text=verbalized_text)]
@@ -235,21 +227,11 @@ class PeftPromptTuningTGIS(ModuleBase):
         verbalized_text = render_verbalizer(self.verbalizer, {"input": text})
         log.debug("Building protobuf request to send to TGIS")
 
-        res_options = generation_pb2.ResponseOptions(
-            input_text=preserve_input_text,
-            generated_tokens=True,
-            input_tokens=False,
-            token_logprobs=True,
-            token_ranks=True,
-        )
-        stopping = generation_pb2.StoppingCriteria(
-            stop_sequences=[self.eos_token],
+        params = get_params(
+            preserve_input_text=preserve_input_text,
+            eos_token=self.eos_token,
             max_new_tokens=max_new_tokens,
             min_new_tokens=min_new_tokens,
-        )
-        params = generation_pb2.Parameters(
-            response=res_options,
-            stopping=stopping,
         )
 
         gen_req = generation_pb2.GenerationRequest(text=verbalized_text)
