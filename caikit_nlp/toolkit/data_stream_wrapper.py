@@ -34,6 +34,16 @@ error = error_handler.get(log)
 class SimpleIterableStreamWrapper(IterableDataset):
     """DataStream wrapper as an iterable PyTorch dataset; we use this to add
     compatability with PyTorch data loaders.
+
+    NOTE: this wrapper does support shuffling iterable datasets with multiple
+    workers as a true partition, but for it to work correctly, you must
+    set persistent_workers=True when initializing your dataloader. Otherwise,
+    your workers will be destroyed, causing them to have the same shuffle
+    seed every time.
+
+    To verify that multiworker shuffling is working properly, you can turn on
+    debug logs and verify that the logged shuffle seed changes as you iterate
+    through your dataset.
     """
 
     def __init__(
