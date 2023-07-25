@@ -14,6 +14,8 @@
 """
 Huggingface auto sequence classifier resource type
 """
+# Standard
+from typing import Callable, Tuple
 
 # Third Party
 from transformers import AutoModelForSequenceClassification
@@ -51,3 +53,14 @@ class HFAutoSequenceClassifier(PretrainedModelBase):
         See help(PretrainedModelBase)
         """
         return super().bootstrap(*args, return_dict=True, **kwargs)
+
+    @staticmethod
+    def build_task_tokenize_function(
+        tokenizer: "AutoTokenizer",
+        max_source_length: int,
+        max_target_length: int,
+        verbalizer: str,
+    ) -> Tuple[Callable, bool]:
+        raise NotImplementedError(
+            "Tokenize func builder not implemented for sequence classifier"
+        )

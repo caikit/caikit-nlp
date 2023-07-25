@@ -69,7 +69,6 @@ from ...resources.pretrained_model import (
     HFAutoSeq2SeqLM,
     PretrainedModelBase,
 )
-from ...toolkit.data_prep_utils import build_tokenize_function
 from ...toolkit.data_stream_wrapper import SimpleIterableStreamWrapper
 from ...toolkit.data_type_utils import get_torch_dtype, str_to_torch_dtype
 from ...toolkit.task_specific_utils import convert_to_generation_record
@@ -808,7 +807,7 @@ class PeftPromptTuning(ModuleBase):
         # NOTE: Currently we do not expose the buffer size and we
         # default to loading the whole dataset into memory
         train_dataloader = cls._get_data_loaders_from_stream(
-            task_type,
+            base_model,
             train_stream,
             base_model.tokenizer,
             batch_size,
@@ -820,7 +819,7 @@ class PeftPromptTuning(ModuleBase):
         )
         if validation_stream is not None:
             val_dataloader = cls._get_data_loaders_from_stream(
-                task_type,
+                base_model,
                 validation_stream,
                 base_model.tokenizer,
                 batch_size,
@@ -966,7 +965,7 @@ class PeftPromptTuning(ModuleBase):
 
     @staticmethod
     def _get_data_loaders_from_stream(
-        task_type: str,
+        base_model: PretrainedModelBase,
         train_stream: DataStream[GenerationTrainRecord],
         tokenizer: AutoTokenizer,
         batch_size: int,
@@ -978,9 +977,8 @@ class PeftPromptTuning(ModuleBase):
     ) -> DataLoader:
         """Get the data loaders for train / evaluation.
         Args:
-            task_type: str
-                Str indicating which task is being accomplished; currently used for determining
-                tokenization / preprocessing behavior.
+            base_model: caikit_nlp.resources.pretrained_model.base.PretrainedModelBase
+                Base resource model used for underlying generation.
             train_stream: DataStream[GenerationTrainRecord]
                 Data to be used for training the prompt vectors of the generation model.
             tokenizer: AutoTokenizer
@@ -1003,9 +1001,11 @@ class PeftPromptTuning(ModuleBase):
             torch.utils.data.DataLoader
                 DataLoader to be used for training / evaluating the stream data.
         """
-
-        tokenize_function, requires_unwrapping = build_tokenize_function(
-            tokenizer, max_source_length, max_target_length, verbalizer, task_type
+        (
+            tokenize_function,
+            requires_unwrapping,
+        ) = base_model.build_task_tokenize_function(
+            tokenizer, max_source_length, max_target_length, verbalizer
         )
         mapped_stream = train_stream.map(tokenize_function)
         if requires_unwrapping:
