@@ -76,12 +76,12 @@ def test_iter_with_multi_worker():
     # Since we don't shuffle in this patched test, they should just be
     # divided as is.
     index_stream = [
-        {"label": 0}, # goes to worker 0
-        {"label": 1}, # goes to worker 1
-        {"label": 2}, # goes to worker 2
-        {"label": 3}, # goes to worker 0
-        {"label": 4}, # goes to worker 1
-        {"label": 5}, # goes to worker 2
+        {"label": 0},  # goes to worker 0
+        {"label": 1},  # goes to worker 1
+        {"label": 2},  # goes to worker 2
+        {"label": 3},  # goes to worker 0
+        {"label": 4},  # goes to worker 1
+        {"label": 5},  # goes to worker 2
     ]
     worker_info = [
         (w1_info, [index_stream[0], index_stream[3]]),
@@ -89,11 +89,12 @@ def test_iter_with_multi_worker():
         (w3_info, [index_stream[2], index_stream[5]]),
     ]
     for (dummy_worker, expected_elements) in worker_info:
-        with mock.patch.object(worker, '_worker_info', dummy_worker):
+        with mock.patch.object(worker, "_worker_info", dummy_worker):
             wrapper = SimpleIterableStreamWrapper(stream=index_stream, shuffle=False)
             for _ in range(NUM_CYCLES):
                 actual_elements = list(wrapper)
                 test_results.append(
-                    actual_elements == expected_elements and len(actual_elements) == len(expected_elements)
+                    actual_elements == expected_elements
+                    and len(actual_elements) == len(expected_elements)
                 )
     assert all(test_results)
