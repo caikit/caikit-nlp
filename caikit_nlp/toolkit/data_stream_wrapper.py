@@ -18,7 +18,7 @@ DataLoaders, with minimal boilerplate.
 """
 
 # Third Party
-from torch.utils.data import IterableDataset
+from torch.utils.data import IterableDataset, get_worker_info
 
 # First Party
 from caikit.core.toolkit import error_handler
@@ -33,11 +33,13 @@ class SimpleIterableStreamWrapper(IterableDataset):
     compatability with PyTorch data loaders.
     """
 
-    def __init__(self, stream, shuffle, buffer_size=None):
+    def __init__(self, stream, shuffle, buffer_size=None, seed=42):
         error.type_check("<NLP12855513E>", bool, shuffle=shuffle)
         error.type_check(
             "<NLP12813713E>", int, buffer_size=buffer_size, allow_none=True
         )
+        self.seed = seed
+        self.shuffles_completed = 0
         self.stream = stream
         self.shuffle = shuffle
         self.buffer_size = buffer_size
@@ -48,33 +50,40 @@ class SimpleIterableStreamWrapper(IterableDataset):
         log.debug("Shuffling buffer size: {}".format(self.buffer_size))
 
     def __iter__(self):
-
-        # FIXME: We are currently not handling case where we have to work with
-        # multiple workers, so currently duplicate data will get processed by
-        # each worker.
+        worker_info = get_worker_info()
         if self.shuffle:
-            log.debug4("Reshuffling training data!")
-            return iter(self.stream.shuffle(self.buffer_size))
-        return iter(self.stream)
-        # worker_info = get_worker_info()
-        # if worker_info is None:  # single-process data loading, return the full iterator
-        #     if self.shuffle:
-        #         log.debug4("Reshuffling training data!")
-        #         return iter(self.stream.shuffle(self.buffer_size))
-        #     return iter(self.stream)
+            # Get the next shuffle seed; we use the root seed + number of
+            # shuffles completed so far to ensure that every worker will
+            # shuffle the same way for each epoch.
+            shuffle_seed = self._get_shuffle_seed(worker_info)
+            log.debug(f"Reshuffling training data with seed: {shuffle_seed}")
+            cycle_stream = self.stream.shuffle(self.buffer_size, seed=shuffle_seed)
+            self._increment_shuffle_seed(worker_info)
+        else:
+            cycle_stream = self.stream
+        # Once shuffling has been handled, consider workers; if we have multiple
+        # then create a substream from the main cycle stream to form a partition.
+        if worker_info is not None:
+            cycle_stream = self._get_stream_partition(
+                cycle_stream, worker_info.id, worker_info.num_workers
+            )
+        return iter(cycle_stream)
 
-        # When num_workers > 0, each worker process will have a different copy of
-        # the dataset object, so we configure each copy independently to avoid
-        # having duplicate data returned from each worker
-        # else:  # in a worker process
-        # # split workload
-        # per_worker = int(
-        #     math.ceil((self.end - self.start) / float(worker_info.num_workers))
-        # )
-        # worker_id = worker_info.id
-        # iter_start = self.start + worker_id * per_worker
-        # iter_end = min(iter_start + per_worker, self.end)
-        # return iter(range(iter_start, iter_end))
+    def _get_shuffle_seed(self, worker_info):
+        if worker_info is None:
+            return self.seed + self.shuffles_completed
+        return self.seed + worker_info.dataset.shuffles_completed
+
+    def _increment_shuffle_seed(self, worker_info):
+        if worker_info is None:
+            self.shuffles_completed += 1
+        else:
+            worker_info.dataset.shuffles_completed += 1
+
+    def _get_stream_partition(self, cycle_stream, worker_id, num_workers):
+        for idx, elem in enumerate(cycle_stream):
+            if (idx - worker_id) % num_workers == 0:
+                yield (elem)
 
     def __len__(self):
         return len(self.stream)
