@@ -64,23 +64,6 @@ def test_bootstrap_and_run_causallm():
     assert result.finish_reason == 5
 
 
-def test_bootstrap_and_run_stream_out_causallm():
-    """Check if we can bootstrap and run_stream_out on causallm models"""
-
-    model = TextGeneration.bootstrap(CAUSAL_LM_MODEL, load_backend=StubBackend())
-
-    stream_result = model.run_stream_out(SAMPLE_TEXT, preserve_input_text=True)
-    assert isinstance(stream_result, Iterable)
-    # Convert to list to more easily check outputs
-    result_list = list(stream_result)
-    assert len(result_list) == 3
-    first_result = result_list[0]
-    assert first_result.generated_text == "moose"
-    assert first_result.details.finish_reason == 5
-    assert first_result.details.generated_tokens == 1
-    assert first_result.details.seed == 10
-
-
 def test_bootstrap_and_run_seq2seq():
     """Check if we can bootstrap and run seq2seq models"""
 
@@ -93,22 +76,6 @@ def test_bootstrap_and_run_seq2seq():
     assert result.finish_reason == 5
 
 
-def test_bootstrap_and_run_stream_out_seq2seq():
-    """Check if we can bootstrap and run_stream_out on seq2seq models"""
-    model = TextGeneration.bootstrap(SEQ2SEQ_LM_MODEL, load_backend=StubBackend())
-
-    stream_result = model.run_stream_out(SAMPLE_TEXT)
-    assert isinstance(stream_result, Iterable)
-    # Convert to list to more easily check outputs
-    result_list = list(stream_result)
-    assert len(result_list) == 3
-    first_result = result_list[0]
-    assert first_result.generated_text == "moose"
-    assert first_result.details.finish_reason == 5
-    assert first_result.details.generated_tokens == 1
-    assert first_result.details.seed == 10
-
-
 def test_run_multi_response_errors():
     """Check if multiple responses errors"""
     with mock.patch.object(StubClient, "Generate") as mock_gen_stream:
@@ -119,20 +86,6 @@ def test_run_multi_response_errors():
         model = TextGeneration.bootstrap(SEQ2SEQ_LM_MODEL, load_backend=StubBackend())
         with pytest.raises(ValueError):
             model.run(SAMPLE_TEXT, preserve_input_text=True)
-
-
-def test_run_stream_out_with_runtime_error():
-    """Check if runtime error from client raises"""
-
-    with mock.patch.object(StubClient, "GenerateStream") as mock_gen_stream:
-        mock_gen_stream.side_effect = RuntimeError("An error!")
-
-        model = TextGeneration.bootstrap(SEQ2SEQ_LM_MODEL, load_backend=StubBackend())
-        with pytest.raises(RuntimeError):
-            response = model.run_stream_out(SAMPLE_TEXT, preserve_input_text=True)
-            for _ in response:
-                # Need to iterate over stream for error
-                pass
 
 
 def test_bootstrap_and_save_model():
@@ -158,3 +111,36 @@ def test_save_model_can_run():
         assert result.generated_text == "moose"
         assert result.generated_tokens == 1
         assert result.finish_reason == 5
+
+
+### Output streaming tests ##############################################################
+
+
+def test_bootstrap_and_run_stream_out():
+    """Check if we can bootstrap and run_stream_out"""
+    model = TextGeneration.bootstrap(SEQ2SEQ_LM_MODEL, load_backend=StubBackend())
+
+    stream_result = model.run_stream_out(SAMPLE_TEXT)
+    assert isinstance(stream_result, Iterable)
+    # Convert to list to more easily check outputs
+    result_list = list(stream_result)
+    assert len(result_list) == 3
+    first_result = result_list[0]
+    assert first_result.generated_text == "moose"
+    assert first_result.details.finish_reason == 5
+    assert first_result.details.generated_tokens == 1
+    assert first_result.details.seed == 10
+
+
+def test_run_stream_out_with_runtime_error():
+    """Check if runtime error from client raises"""
+
+    with mock.patch.object(StubClient, "GenerateStream") as mock_gen_stream:
+        mock_gen_stream.side_effect = RuntimeError("An error!")
+
+        model = TextGeneration.bootstrap(SEQ2SEQ_LM_MODEL, load_backend=StubBackend())
+        with pytest.raises(RuntimeError):
+            response = model.run_stream_out(SAMPLE_TEXT, preserve_input_text=True)
+            for _ in response:
+                # Need to iterate over stream for error
+                pass

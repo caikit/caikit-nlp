@@ -24,10 +24,9 @@ from transformers import AutoConfig
 from caikit.core.module_backends import BackendBase, backend_types
 from caikit.core.modules import ModuleBase, ModuleConfig, ModuleSaver, module
 from caikit.core.toolkit import error_handler
-from caikit.interfaces.nlp.data_model import (
+from caikit.interfaces.nlp.data_model import (  # GeneratedToken,
     GeneratedTextResult,
     GeneratedTextStreamResult,
-    # GeneratedToken,
     TokenStreamDetails,
 )
 from caikit.interfaces.nlp.tasks import TextGenerationTask
