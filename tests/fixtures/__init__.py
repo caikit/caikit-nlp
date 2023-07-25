@@ -14,6 +14,7 @@ import torch
 import transformers
 
 # First Party
+from caikit_tgis_backend import TGISBackend
 import caikit
 
 # Local
@@ -144,6 +145,47 @@ def requires_determinism(request):
     np.random.seed(seed)
     torch.manual_seed(seed)
     transformers.set_seed(seed)
+
+
+### Common TGIS stub classes
+
+# Helper stubs / mocks; we use these to patch caikit so that we don't actually
+# test the TGIS backend directly, and instead stub the client and inspect the
+# args that we pass to it.
+class StubTGISClient:
+    def __init__(self, base_model_name):
+        pass
+
+    def Generate(self, request):
+        return StubTGISClient.unary_generate(request)
+
+    def GenerateStream(self, request):
+        return StubTGISClient.stream_generate(request)
+
+    @staticmethod
+    def unary_generate(request):
+        fake_response = mock.Mock()
+        fake_result = mock.Mock()
+        fake_result.stop_reason = 5
+        fake_result.generated_token_count = 1
+        fake_result.text = "moose"
+        fake_response.responses = [fake_result]
+        return fake_response
+
+    @staticmethod
+    def stream_generate(request):
+        fake_stream = mock.Mock()
+        fake_stream.stop_reason = 5
+        fake_stream.generated_token_count = 1
+        fake_stream.seed = 10
+        fake_stream.text = "moose"
+        for _ in range(3):
+            yield fake_stream
+
+
+class StubTGISBackend(TGISBackend):
+    def get_client(self, base_model_name):
+        return StubTGISClient(base_model_name)
 
 
 ### Args for commonly used datasets that we can use with our fixtures accepting params
