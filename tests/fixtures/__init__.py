@@ -178,6 +178,10 @@ class StubTGISClient:
         fake_stream.stop_reason = 5
         fake_stream.generated_token_count = 1
         fake_stream.seed = 10
+        token = mock.Mock()
+        token.text = "moose"
+        token.logprob = 0.2
+        fake_stream.tokens = [token]
         fake_stream.text = "moose"
         for _ in range(3):
             yield fake_stream

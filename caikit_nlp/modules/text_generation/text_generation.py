@@ -24,9 +24,10 @@ from transformers import AutoConfig
 from caikit.core.module_backends import BackendBase, backend_types
 from caikit.core.modules import ModuleBase, ModuleConfig, ModuleSaver, module
 from caikit.core.toolkit import error_handler
-from caikit.interfaces.nlp.data_model import (  # GeneratedToken,
+from caikit.interfaces.nlp.data_model import (
     GeneratedTextResult,
     GeneratedTextStreamResult,
+    GeneratedToken,
     TokenStreamDetails,
 )
 from caikit.interfaces.nlp.tasks import TextGenerationTask
@@ -307,19 +308,18 @@ class TextGeneration(ModuleBase):
             stream_response = self._client.GenerateStream(request)
 
             for stream_part in stream_response:
-                # NOTE: some differences between TGIS finish reason
-                # and stop reason
                 details = TokenStreamDetails(
                     finish_reason=stream_part.stop_reason,
                     generated_tokens=stream_part.generated_token_count,
                     seed=stream_part.seed,
                 )
-                # NOTE: some differences between TGI token and TGIS tokens
-                # token_list = []
-                # for token in stream_part.tokens:
-                #     token_list.append(GeneratedToken(text=token.text, logprob=token.logprob))
+                token_list = []
+                for token in stream_part.tokens:
+                    token_list.append(
+                        GeneratedToken(text=token.text, logprob=token.logprob)
+                    )
                 yield GeneratedTextStreamResult(
                     generated_text=stream_part.text,
-                    # tokens=token_list,
+                    tokens=token_list,
                     details=details,
                 )

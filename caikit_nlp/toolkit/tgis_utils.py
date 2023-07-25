@@ -20,16 +20,16 @@ from caikit_tgis_backend.protobufs import generation_pb2
 def get_params(preserve_input_text, eos_token, max_new_tokens, min_new_tokens):
     """
 
-     Args:
-        preserve_input_text: str
-            Whether or not the source string should be contained in the generated output,
-            e.g., as a prefix.
-        eos_token: str
-            A special token representing the end of a sentence.
-        max_new_tokens: int
-            The maximum numbers of tokens to generate.
-        min_new_tokens: int
-            The minimum numbers of tokens to generate.
+    Args:
+       preserve_input_text: str
+           Whether or not the source string should be contained in the generated output,
+           e.g., as a prefix.
+       eos_token: str
+           A special token representing the end of a sentence.
+       max_new_tokens: int
+           The maximum numbers of tokens to generate.
+       min_new_tokens: int
+           The minimum numbers of tokens to generate.
     """
     res_options = generation_pb2.ResponseOptions(
         input_text=preserve_input_text,

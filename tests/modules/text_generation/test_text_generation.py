@@ -101,6 +101,8 @@ def test_bootstrap_and_run_stream_out():
     assert len(result_list) == 3
     first_result = result_list[0]
     assert first_result.generated_text == "moose"
+    assert first_result.tokens[0].text == "moose"
+    assert first_result.tokens[0].logprob == 0.2
     assert first_result.details.finish_reason == 5
     assert first_result.details.generated_tokens == 1
     assert first_result.details.seed == 10
