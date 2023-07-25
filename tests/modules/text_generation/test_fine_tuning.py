@@ -14,13 +14,6 @@ from caikit_nlp.resources.pretrained_model import HFAutoSeq2SeqLM
 from tests.fixtures import SEQ2SEQ_LM_MODEL, disable_wip
 
 
-@pytest.mark.skip(
-    """
-We are skipping this test because we are waiting for new release
-of transformers library that includes bugfix that is currently breaking
-# run function
-"""
-)
 def test_train_model(disable_wip):
     """Ensure that we can train a model on some toy data for 1+ steps & run inference."""
     train_kwargs = {
@@ -45,3 +38,26 @@ def test_train_model(disable_wip):
     # Ensure that we can get something out of it
     pred = model.run("@bar what a cute cat!")
     assert isinstance(pred, GeneratedTextResult)
+
+
+############################## Error Cases ################################
+
+
+def test_zero_epoch_case(disable_wip):
+    """Test to ensure 0 epoch training request doesn't explode"""
+    train_kwargs = {
+        "base_model": HFAutoSeq2SeqLM.bootstrap(
+            model_name=SEQ2SEQ_LM_MODEL, tokenizer_name=SEQ2SEQ_LM_MODEL
+        ),
+        "num_epochs": 0,
+        "train_stream": caikit.core.data_model.DataStream.from_iterable(
+            [
+                GenerationTrainRecord(
+                    input="@foo what a cute dog!", output="no complaint"
+                ),
+            ]
+        ),
+        "torch_dtype": torch.float32,
+    }
+    model = FineTuning.train(**train_kwargs)
+    assert isinstance(model.model, Trainer)

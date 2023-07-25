@@ -23,6 +23,7 @@ from transformers import (
     Seq2SeqTrainingArguments,
     Trainer,
 )
+import torch
 
 # First Party
 from caikit.core.data_model import DataStream
@@ -120,6 +121,23 @@ class FineTuning(ModuleBase):
             shuffle=True,
         )
 
+        ### Dtype based processing
+        # NOTE: Following is not exhaustive list of all parameters
+        # for all dtypes
+        if torch_dtype == torch.float16:
+            dtype_based_params = {
+                "fp16": True,
+            }
+        elif torch_dtype == torch.bfloat16:
+            dtype_based_params = {
+                "bf16": True,
+            }
+        else:
+            # default to float32
+            dtype_based_params = {}
+
+        ## TODO: Add automatic sharding selection based on number of parameters
+        # in base model
         ## TODO: Fetch trainer from resource
 
         # TODO: Make this whole thing configurable by end-users,
@@ -138,7 +156,6 @@ class FineTuning(ModuleBase):
             weight_decay=0.01,
             save_total_limit=3,
             predict_with_generate=True,
-            fp16=True,
             push_to_hub=False,
             no_cuda=False,  # Default
             generation_max_length=max_target_length,
@@ -146,7 +163,15 @@ class FineTuning(ModuleBase):
             dataloader_pin_memory=False,
             gradient_accumulation_steps=accumulate_steps,
             eval_accumulation_steps=accumulate_steps,
+            logging_strategy="epoch",
+            disable_tqdm=True,
+            # NOTE: Following not possible without save and eval strategy
+            # load_best_model_at_end=True,
             # eval_steps=1,
+            **dtype_based_params,
+            ## TODO: Make below configurable
+            # fsdp="full_shard auto_wrap",
+            # local_rank=0,
         )
 
         data_collator = DataCollatorForSeq2Seq(
@@ -161,6 +186,18 @@ class FineTuning(ModuleBase):
             tokenizer=base_model.tokenizer,
             # compute_metrics=compute_metrics,
         )
+
+        if num_epochs < 1:
+            log.warning(
+                "<NLP64076114W>",
+                f"Number of epochs configured is {num_epochs} which is less than minimum 1. \
+                    No training will be performed",
+            )
+
+            return cls(
+                tokenizer=base_model.tokenizer,
+                model=trainer,
+            )
 
         # Start training via Trainer.train function
         trainer.train()
@@ -191,7 +228,7 @@ class FineTuning(ModuleBase):
                 e.g., as a prefix.
             max_new_tokens: int
                 The maximum numbers of tokens to generate.
-                Default: 20
+                Default: 128
             min_new_tokens: int
                 The minimum numbers of tokens to generate.
                 Default: 0 - means no minimum
@@ -209,9 +246,7 @@ class FineTuning(ModuleBase):
             # data and model. Since the model is with Trainer at this point
             # and thus the device placement be according to training strategy,
             # its better to let Trainer handle the evaluation / prediction
-            # NOTE: Below statement requires merge of HF PR
-            # https://github.com/huggingface/transformers/pull/24759
-            # and subsequent release of `transformers` and updating the lib version in `caikit-nlp`
+
             # TODO: Add support for passing extra arguments to prediction_step
             _, generated_tokens, _ = self.model.prediction_step(
                 self.model.model,
@@ -223,7 +258,7 @@ class FineTuning(ModuleBase):
 
             generated_text = self.tokenizer.batch_decode(
                 generated_tokens.detach().cpu().numpy(), skip_special_tokens=True
-            )
+            )[0]
 
         else:
             error(
@@ -233,7 +268,7 @@ class FineTuning(ModuleBase):
                 ),
             )
 
-        return GeneratedTextResult(text=generated_text)
+        return GeneratedTextResult(generated_text=generated_text)
 
     ################################## Private Functions ###########################################
 
