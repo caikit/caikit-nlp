@@ -98,8 +98,7 @@ class TextGeneration(ModuleBase):
     def __del__(self):
         # nothing to unload if we didn't finish loading
         if self._model_loaded:
-            # TODO: update me! get_backend() no longer exists
-            self.get_backend().unload_model(self._model_path)
+            self.load_backend.unload_model(self._model_path)
 
     @classmethod
     def bootstrap(cls, base_model_path: str, load_backend: BackendBase = None):
