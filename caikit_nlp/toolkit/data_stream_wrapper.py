@@ -16,15 +16,17 @@ Caikit modules leveraging such wrappers can use them to internally leverage comm
 and objects for training / evaluating PyTorch models built around DataStreams, e.g., PyTorch
 DataLoaders, with minimal boilerplate.
 """
+from typing import Any, Iterator, Optional
 
 # Third Party
 from torch.utils.data import IterableDataset, get_worker_info
 
 # First Party
 from caikit.core.toolkit import error_handler
+from caikit.core.data_model import DataStream
 import alog
 
-log = alog.use_channel("PEFT_PROMPT")
+log = alog.use_channel("STREAM_WRAP")
 error = error_handler.get(log)
 
 
@@ -33,11 +35,12 @@ class SimpleIterableStreamWrapper(IterableDataset):
     compatability with PyTorch data loaders.
     """
 
-    def __init__(self, stream, shuffle, buffer_size=None, seed=42):
+    def __init__(self, stream: DataStream[Any], shuffle: bool, buffer_size: Optional[int]=None, seed: int=42):
         error.type_check("<NLP12855513E>", bool, shuffle=shuffle)
         error.type_check(
             "<NLP12813713E>", int, buffer_size=buffer_size, allow_none=True
         )
+        error.type_check("<NLP15553711E>", int, seed=seed)
         self.seed = seed
         self.shuffles_completed = 0
         self.stream = stream
@@ -49,7 +52,16 @@ class SimpleIterableStreamWrapper(IterableDataset):
         log.debug("Shuffling enabled? {}".format(self.shuffle))
         log.debug("Shuffling buffer size: {}".format(self.buffer_size))
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Any]:
+        """Initialize a consumable iterator. If we have n workers, we handle the shuffle
+        behaviors first, then return every nth element, forming a partition across the
+        substreams produced by each iterator at the cost of having to skip items. If
+        we don't configure workers, we simply return prior to partitioning.
+
+        Returns:
+            Iterator
+                iterator pertaining to one worker or the full dataset.
+        """
         worker_info = get_worker_info()
         if self.shuffle:
             # Get the next shuffle seed; we use the root seed + number of
@@ -69,21 +81,65 @@ class SimpleIterableStreamWrapper(IterableDataset):
             )
         return iter(cycle_stream)
 
-    def _get_shuffle_seed(self, worker_info):
+    def _get_shuffle_seed(self, worker_info: Optional["WorkerInfo"]) -> int:
+        """Gets the current seed for this shuffle.
+
+        Args:
+            worker_info: Optional["torch.utils.data._utils.worker.WorkerInfo"]
+                Torch dataloader worker or None.
+
+        Returns:
+            int
+                the seed to be used while for the next shuffle on the
+                encapsulated stream.
+        """
         if worker_info is None:
             return self.seed + self.shuffles_completed
         return self.seed + worker_info.dataset.shuffles_completed
 
-    def _increment_shuffle_seed(self, worker_info):
+    def _increment_shuffle_seed(self, worker_info: Optional["WorkerInfo"]) -> None:
+        """Increments the current seed to prepare for the next shuffle.
+        IMPORTANT: we must use persistent loaders when shuffling across
+        multiple workers! Otherwise the worker will be destroyed, and our
+        shuffle counter will be lost, which will cause shuffle to look
+        like it's not working.
+
+        Args:
+            worker_info: Optional["torch.utils.data._utils.worker.WorkerInfo"]
+                Torch dataloader worker or None.
+        """
         if worker_info is None:
             self.shuffles_completed += 1
         else:
             worker_info.dataset.shuffles_completed += 1
 
-    def _get_stream_partition(self, cycle_stream, worker_id, num_workers):
+    def _get_stream_partition(self,
+                              cycle_stream: DataStream[Any],
+                              worker_id: int,
+                              num_workers: int):
+        """Generator for a subset of a wrapped datastream; here, we simply traverse a stream,
+        which is assumed to be preshuffled, and yield the elements that align with the
+        scheme 'worker n gets every nth entry' after shuffling. This ensures that each
+        record in the stream is encountered at most once per epoch as long as shuffling
+        is consistent across the different workers.
+
+        Args:
+            cycle_stream: DataStream[Any]
+                datastream that we're trying to partition.
+            worker_id: int
+                ID of the current worker.
+            num_workers: int
+                Number of workers being used to load the dataset.
+        """
         for idx, elem in enumerate(cycle_stream):
             if (idx - worker_id) % num_workers == 0:
-                yield (elem)
+                yield elem
 
-    def __len__(self):
+    def __len__(self) -> int:
+        """Gets the encapsulated stream length.
+        
+        Returns:
+            int
+                number of objects in the stream.
+        """
         return len(self.stream)
