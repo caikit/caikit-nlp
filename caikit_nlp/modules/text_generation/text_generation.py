@@ -209,6 +209,7 @@ class TextGeneration(ModuleBase):
             tgis_backend=load_backend,
         )
 
+    @TextGenerationTask.taskmethod()
     def run(self, text, preserve_input_text=False, max_new_tokens=20, min_new_tokens=0):
         """Run inference against the model running in TGIS.
 

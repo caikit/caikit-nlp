@@ -15,13 +15,19 @@
 prompt vectors in TGIS generation requests.
 """
 # Standard
+from typing import Iterable
 import os
 
 # First Party
 from caikit.core import ModuleBase, ModuleConfig, ModuleSaver, modules
 from caikit.core.module_backends import BackendBase, backend_types
 from caikit.core.toolkit import error_handler
-from caikit.interfaces.nlp.data_model import GeneratedTextResult
+from caikit.interfaces.nlp.data_model import (  # GeneratedToken,
+    GeneratedTextResult,
+    GeneratedTextStreamResult,
+    TokenStreamDetails,
+)
+from caikit.interfaces.nlp.tasks import TextGenerationTask
 from caikit_tgis_backend import TGISBackend
 from caikit_tgis_backend.protobufs import generation_pb2
 import alog
@@ -125,6 +131,7 @@ class PeftPromptTuningTGIS(ModuleBase):
                 }
             )
 
+    @TextGenerationTask.taskmethod()
     def run(self, text, preserve_input_text=False, max_new_tokens=20, min_new_tokens=0):
         """Run inference against the model running in TGIS. Currently we leverage greedy decoding
         and apply the same verbalizer used for training the local model prior to sending the
@@ -196,3 +203,81 @@ class PeftPromptTuningTGIS(ModuleBase):
             finish_reason=response.stop_reason,
             producer_id=self.PRODUCER_ID,
         )
+
+    @TextGenerationTask.taskmethod(output_streaming=True)
+    def run_stream_out(
+        self, text: str, preserve_input_text=False, max_new_tokens=20, min_new_tokens=0
+    ) -> Iterable[GeneratedTextStreamResult]:
+        """Run output stream inferencing against the model running in TGIS
+
+        Args:
+            text: str
+                Source string to be encoded for generation.
+            preserve_input_text: str
+                Whether or not the source string should be contained in the generated output,
+                e.g., as a prefix.
+            max_new_tokens: int
+                The maximum numbers of tokens to generate.
+                Default: 20
+            min_new_tokens: int
+                The minimum numbers of tokens to generate.
+                Default: 0 - means no minimum
+
+        Returns:
+            Iterable[GeneratedTextStreamResult]
+        """
+        # pylint: disable=duplicate-code
+        error.value_check(
+            "<NLP62995899E>",
+            self.enable_backend,
+            "Backend must be configured and loaded with this module before executing `run` call.",
+        )
+        verbalized_text = render_verbalizer(self.verbalizer, {"input": text})
+        log.debug("Building protobuf request to send to TGIS")
+
+        res_options = generation_pb2.ResponseOptions(
+            input_text=preserve_input_text,
+            generated_tokens=True,
+            input_tokens=False,
+            token_logprobs=True,
+            token_ranks=True,
+        )
+        stopping = generation_pb2.StoppingCriteria(
+            stop_sequences=[self.eos_token],
+            max_new_tokens=max_new_tokens,
+            min_new_tokens=min_new_tokens,
+        )
+        params = generation_pb2.Parameters(
+            response=res_options,
+            stopping=stopping,
+        )
+
+        gen_req = generation_pb2.GenerationRequest(text=verbalized_text)
+
+        request = generation_pb2.SingleGenerationRequest(
+            request=gen_req,
+            model_id=self.base_model_name,
+            prefix_id=self._prompt_cache_id,
+            params=params,
+        )
+
+        # stream GenerationResponse
+        stream_response = self._client.GenerateStream(request)
+
+        for stream_part in stream_response:
+            # NOTE: some differences between TGIS finish reason
+            # and stop reason
+            details = TokenStreamDetails(
+                finish_reason=stream_part.stop_reason,
+                generated_tokens=stream_part.generated_token_count,
+                seed=stream_part.seed,
+            )
+            # NOTE: some differences between TGI token and TGIS tokens
+            # token_list = []
+            # for token in stream_part.tokens:
+            #     token_list.append(GeneratedToken(text=token.text, logprob=token.logprob))
+            yield GeneratedTextStreamResult(
+                generated_text=stream_part.text,
+                # tokens=token_list,
+                details=details,
+            )

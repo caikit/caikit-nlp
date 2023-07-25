@@ -28,7 +28,14 @@ class StubClient:
     def __init__(self, base_model_name):
         pass
 
-    def Generate(request, context):
+    def Generate(self, request):
+        return StubClient.unary_generate(request)
+
+    def GenerateStream(self, request):
+        return StubClient.stream_generate(request)
+
+    @staticmethod
+    def unary_generate(request):
         fake_response = mock.Mock()
         fake_result = mock.Mock()
         fake_result.stop_reason = 5
@@ -37,13 +44,14 @@ class StubClient:
         fake_response.responses = [fake_result]
         return fake_response
 
-    def GenerateStream(request, context):
+    @staticmethod
+    def stream_generate(request):
         fake_stream = mock.Mock()
         fake_stream.stop_reason = 5
         fake_stream.generated_token_count = 1
         fake_stream.seed = 10
         fake_stream.text = "moose"
-        for i in range(3):
+        for _ in range(3):
             yield fake_stream
 
 
