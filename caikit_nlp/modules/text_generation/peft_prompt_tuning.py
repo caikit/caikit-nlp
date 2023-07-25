@@ -312,7 +312,9 @@ class PeftPromptTuning(ModuleBase):
         #   type of the concrete class to bootstrap
         torch_dtype = get_torch_dtype(torch_dtype)
         if isinstance(base_model, str):
-            model_config = AutoConfig.from_pretrained(base_model)
+            model_config = AutoConfig.from_pretrained(
+                base_model, local_files_only=not get_config().allow_downloads
+            )
 
             resource_type = None
             for resource in cls.supported_resources:
