@@ -23,7 +23,6 @@ import torch
 import transformers
 
 # First Party
-from caikit.core.module_backends.module_backend_config import configure
 from caikit_tgis_backend import TGISBackend
 import alog
 import caikit
@@ -80,12 +79,20 @@ def get_distributed_model(model_path):
         kill_tgis_container_if_exists()
 
     # TODO: Enforce validation that TGIS is mounting the same model type
-    caikit.configure(
+
+    caikit.config.configure(
         config_dict={
-            "module_backends": {"load_priority": [{"type": TGISBackend.backend_type}]}
+            "model_management": {
+                "initializers": {
+                    "default": {
+                        "config": {
+                            "backend_priority": {[{"type": TGISBackend.backend_type}]}
+                        }
+                    }
+                }
+            }
         }
     )  # should not be necessary but just in case
-    configure()  # backend configure
     dist_model = caikit.load(model_path)
     # Sanity check; if we have an environment variable override for the model TGIS is using,
     # make sure that its suffix (base model name) aligns with what we have in our config.

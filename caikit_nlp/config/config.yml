@@ -23,7 +23,3 @@ source_prompt_base: ""
 
 runtime:
   library: caikit_nlp
-  service_generation:
-    primitive_data_model_types:
-      - GenerationTrainRecord
-      - caikit_nlp.data_model.TuningConfig

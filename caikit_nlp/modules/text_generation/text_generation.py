@@ -23,12 +23,12 @@ from transformers import AutoConfig
 from caikit.core.module_backends import BackendBase, backend_types
 from caikit.core.modules import ModuleBase, ModuleConfig, ModuleSaver, module
 from caikit.core.toolkit import error_handler
+from caikit.interfaces.nlp.data_model import GeneratedTextResult
 from caikit_tgis_backend import TGISBackend
 from caikit_tgis_backend.protobufs import generation_pb2
 import alog
 
 # Local
-from ...data_model import GeneratedResult
 from ...resources.pretrained_model import (
     HFAutoCausalLM,
     HFAutoSeq2SeqLM,
@@ -220,7 +220,7 @@ class TextGeneration(ModuleBase):
                 The minimum numbers of tokens to generate.
                 Default: 0 - means no minimum
         Returns:
-            GeneratedResult
+            GeneratedTextResult
                 Generated text result produced by TGIS.
         """
         log.debug("Building protobuf request to send to TGIS")
@@ -262,9 +262,9 @@ class TextGeneration(ModuleBase):
             )
             response = batch_response.responses[0]
 
-            return GeneratedResult(
-                generated_token_count=response.generated_token_count,
-                text=response.text,
-                stop_reason=response.stop_reason,
+            return GeneratedTextResult(
+                generated_text=response.text,
+                generated_tokens=response.generated_token_count,
+                finish_reason=response.stop_reason,
                 producer_id=self.PRODUCER_ID,
             )

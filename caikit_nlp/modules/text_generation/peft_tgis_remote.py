@@ -21,12 +21,12 @@ import os
 from caikit.core import ModuleBase, ModuleConfig, ModuleSaver, modules
 from caikit.core.module_backends import BackendBase, backend_types
 from caikit.core.toolkit import error_handler
+from caikit.interfaces.nlp.data_model import GeneratedTextResult
 from caikit_tgis_backend import TGISBackend
 from caikit_tgis_backend.protobufs import generation_pb2
 import alog
 
 # Local
-from ...data_model.generation import GeneratedResult
 from ...toolkit.verbalizer_utils import render_verbalizer
 from . import PeftPromptTuning
 
@@ -144,7 +144,7 @@ class PeftPromptTuningTGIS(ModuleBase):
                 Default: 0 - means no minimum
 
         Returns:
-            GeneratedResult
+            GeneratedTextResult
                 Generated text result produced by TGIS.
         """
         error.value_check(
@@ -190,9 +190,9 @@ class PeftPromptTuningTGIS(ModuleBase):
         )
         response = batch_response.responses[0]
 
-        return GeneratedResult(
-            generated_token_count=response.generated_token_count,
-            text=response.text,
-            stop_reason=response.stop_reason,
+        return GeneratedTextResult(
+            generated_text=response.text,
+            generated_tokens=response.generated_token_count,
+            finish_reason=response.stop_reason,
             producer_id=self.PRODUCER_ID,
         )

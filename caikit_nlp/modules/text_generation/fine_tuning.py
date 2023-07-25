@@ -29,10 +29,11 @@ import torch
 from caikit.core.data_model import DataStream
 from caikit.core.modules import ModuleBase, module
 from caikit.core.toolkit import error_handler, wip_decorator
+from caikit.interfaces.nlp.data_model import GeneratedTextResult
 import alog
 
 # Local
-from ...data_model import GeneratedResult, GenerationTrainRecord
+from ...data_model import GenerationTrainRecord
 from ...toolkit.data_stream_wrapper import SimpleIterableStreamWrapper
 from ...toolkit.data_type_utils import get_torch_dtype
 from .text_generation_task import TextGenerationTask
@@ -215,8 +216,8 @@ class FineTuning(ModuleBase):
 
     # pylint: disable=unused-argument
     def run(
-        self, text, preserve_input_text=False, max_new_tokens=128, min_new_tokens=0
-    ) -> "GeneratedResult":
+        self, text, preserve_input_text=False, max_new_tokens=20, min_new_tokens=0
+    ) -> "GeneratedTextResult":
         """Run inference against the model running in TGIS.
 
         Args:
@@ -232,7 +233,7 @@ class FineTuning(ModuleBase):
                 The minimum numbers of tokens to generate.
                 Default: 0 - means no minimum
         Returns:
-            GeneratedResult
+            GeneratedTextResult
                 Generated text result
         """
         if isinstance(self.model, Trainer):
@@ -267,7 +268,7 @@ class FineTuning(ModuleBase):
                 ),
             )
 
-        return GeneratedResult(text=generated_text)
+        return GeneratedTextResult(generated_text=generated_text)
 
     ################################## Private Functions ###########################################
 
