@@ -63,9 +63,10 @@ class SimpleIterableStreamWrapper(IterableDataset):
         self.stream = stream
         self.shuffle = shuffle
         self.buffer_size = buffer_size
+        self.stream_length = len(stream)
         # Load the whole data set in memory
         if self.shuffle and buffer_size is None:
-            self.buffer_size = len(stream)
+            self.buffer_size = self.stream_length
         log.debug("Shuffling enabled? {}".format(self.shuffle))
         log.debug("Shuffling buffer size: {}".format(self.buffer_size))
 
@@ -152,10 +153,12 @@ class SimpleIterableStreamWrapper(IterableDataset):
                 yield elem
 
     def __len__(self) -> int:
-        """Gets the encapsulated stream length.
+        """Gets the encapsulated stream length. Note that we cache this attribute,
+        because taking the length of a datastream (re-entrant generator) requires
+        iterating until the end of it, which is expensive.
 
         Returns:
             int
                 number of objects in the stream.
         """
-        return len(self.stream)
+        return self.stream_length
