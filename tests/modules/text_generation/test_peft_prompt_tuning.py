@@ -6,6 +6,7 @@ if we start running the tests on CPUs in our CI; we'll likely want
 to separate these in the future.
 """
 # Standard
+from typing import Iterable
 from unittest import mock
 import os
 import tempfile
@@ -15,7 +16,10 @@ import pytest
 import torch
 
 # First Party
-from caikit.interfaces.nlp.data_model import GeneratedTextResult
+from caikit.interfaces.nlp.data_model import (
+    GeneratedTextResult,
+    GeneratedTextStreamResult,
+)
 import caikit
 
 # Local
@@ -54,13 +58,19 @@ def test_save_and_reload_without_base_model(causal_lm_dummy_model):
         causal_lm_dummy_model.save(model_dir, save_base_model=False)
         # For now, if we are missing the base model at load time, we throw ValueError
         with pytest.raises(ValueError):
-            reloaded_model = caikit_nlp.load(model_dir)
+            _ = caikit_nlp.load(model_dir)
 
 
 def test_run_model(causal_lm_dummy_model):
     """Ensure that we can run a model and get the right type out."""
     pred = causal_lm_dummy_model.run("This text doesn't matter")
     assert isinstance(pred, GeneratedTextResult)
+
+
+def test_run_stream_out_model(causal_lm_dummy_model):
+    """Ensure that we can run output streaming on a model and get the right type out."""
+    pred = causal_lm_dummy_model.run_stream_out("This text doesn't matter")
+    assert isinstance(pred, Iterable)
 
 
 def test_verbalizer_rendering(causal_lm_dummy_model):

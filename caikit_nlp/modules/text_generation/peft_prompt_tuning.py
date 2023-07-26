@@ -14,7 +14,7 @@
 """This module contains prompt tuning through PEFT"""
 # Standard
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
 import gc
 import json
 import os
@@ -34,7 +34,12 @@ from peft import (
 from torch.optim import AdamW
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-from transformers import AutoConfig, AutoModelForCausalLM, default_data_collator
+from transformers import (
+    AutoConfig,
+    AutoModelForCausalLM,
+    TextStreamer,
+    default_data_collator,
+)
 from transformers.models.auto.tokenization_auto import AutoTokenizer
 from transformers.optimization import get_linear_schedule_with_warmup
 import torch
@@ -43,8 +48,11 @@ import torch
 from caikit import get_config
 from caikit.core.data_model import DataStream
 from caikit.core.modules import ModuleBase, ModuleConfig, ModuleSaver, module
-from caikit.core.toolkit import error_handler
-from caikit.interfaces.nlp.data_model import GeneratedTextResult
+from caikit.core.toolkit import error_handler, wip_decorator
+from caikit.interfaces.nlp.data_model import (
+    GeneratedTextResult,
+    GeneratedTextStreamResult,
+)
 from caikit.interfaces.nlp.tasks import TextGenerationTask
 import alog
 
@@ -87,6 +95,13 @@ class TuningType(str, Enum):
     # P_TUNING = "P_TUNING"
     # PREFIX_TUNING = "PREFIX_TUNING"
     # LORA = "LORA"
+
+
+class Streamer(TextStreamer):
+    # The default TextStreamer currently prints to stdout
+    # so we override that here
+    def on_finalized_text(self, text: str, stream_end: bool = False):
+        return text
 
 
 # TODO: try to refactor this into a smaller module
@@ -153,6 +168,7 @@ class PeftPromptTuning(ModuleBase):
 
     ################################## API functions #############################################
 
+    @TextGenerationTask.taskmethod()
     def run(
         self, text: str, device: Optional[Union[str, int]] = _DETECT_DEVICE
     ) -> GeneratedTextResult:
@@ -186,6 +202,52 @@ class PeftPromptTuning(ModuleBase):
                 outputs.detach().cpu().numpy(), skip_special_tokens=True
             )
         return GeneratedTextResult(generated_text=gen_text[0])
+
+    @TextGenerationTask.taskmethod(output_streaming=True)
+    @wip_decorator.work_in_progress(
+        category=wip_decorator.WipCategory.WIP, action=wip_decorator.Action.WARNING
+    )
+    def run_stream_out(
+        self, text: str, device: Optional[Union[str, int]] = _DETECT_DEVICE
+    ) -> Iterable[GeneratedTextStreamResult]:
+        """Run the text generation model with output streaming
+
+        NOTE: This implementation is marked as WIP since the API for
+        HuggingFace streamer classes at time of implementation is still
+        under development and may change.
+        Ref. https://huggingface.co/docs/transformers/v4.30.0/generation_strategies#streaming
+
+        Args:
+            text: str
+                Input string to be used to the generation model.
+            device: Optional[Union[str, int]]
+                Device on which we should run inference; by default, we use teh detected device.
+
+        Returns:
+            Iterable[GeneratedTextStreamResult]
+        """
+        # Apply the verbalizer to our text string
+        verbalized_text = render_verbalizer(self.verbalizer, {"input": text})
+        # Apply the tokenizer to the sample text & move to correct device
+        tok_tensors = self.tokenizer(verbalized_text, return_tensors="pt")
+        device = PeftPromptTuning._get_device(device)
+        inputs = {k: v.to(device) for k, v in tok_tensors.items()}
+
+        streamer = Streamer(self.tokenizer)
+        with torch.no_grad():
+            # Run tokenized tensors through the rest of the PEFT model
+            stream_outputs = self.model.generate(
+                input_ids=inputs["input_ids"],
+                attention_mask=inputs["attention_mask"],
+                max_new_tokens=10,
+                eos_token_id=self.eos_token_id,
+                streamer=streamer,
+            )
+            for stream_part in stream_outputs:
+                gen_text = self.tokenizer.batch_decode(
+                    stream_part.detach().cpu().numpy(), skip_special_tokens=True
+                )
+                yield GeneratedTextStreamResult(generated_text=gen_text)
 
     @classmethod
     def train(
