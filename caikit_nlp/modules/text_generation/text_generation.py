@@ -99,7 +99,7 @@ class TextGeneration(ModuleBase):
 
     def __del__(self):
         # nothing to unload if we didn't finish loading
-        if self._model_loaded:
+        if self._model_loaded and self.load_backend:
             self.load_backend.unload_model(self._model_path)
 
     @classmethod
