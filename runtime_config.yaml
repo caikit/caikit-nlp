@@ -2,23 +2,33 @@
 jvm_options: []
 
 runtime:
+  library: caikit_nlp
+  lazy_load_local_models: true
   batching:
     standalone-model:
       size: 0 # Set to batch size for batching
 
-module_backends:
-  enabled: true
-  priority:
-    - TGIS
-  configs:
-    tgis:
-      local:
-        load_timeout: 120
-        grpc_port: null
-        http_port: null
-        health_poll_delay: 1.0
-      connection:
-        hostname: "localhost:8033"
-        ca_cert_file: null
-        client_cert_file: null
-        client_key_file: null
+model_management:
+  initializers:
+    default:
+      type: LOCAL
+      config:
+        backend_priority:
+          - type: TGIS
+            config:
+              local:
+                load_timeout: 120
+                grpc_port: null
+                http_port: null
+                health_poll_delay: 1.0
+              remote_models:
+                flan-t5-xl:
+                  hostname: localhost:8033
+                llama-70b:
+                  hostname: localhost:8034
+
+              connection:
+                hostname: "foo.{model_id}:1234"
+                ca_cert_file: null
+                client_cert_file: null
+                client_key_file: null
