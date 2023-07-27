@@ -25,16 +25,13 @@ from caikit.core.toolkit import error_handler
 from caikit.interfaces.nlp.data_model import (
     GeneratedTextResult,
     GeneratedTextStreamResult,
-    GeneratedToken,
-    TokenStreamDetails,
 )
 from caikit.interfaces.nlp.tasks import TextGenerationTask
 from caikit_tgis_backend import TGISBackend
-from caikit_tgis_backend.protobufs import generation_pb2
 import alog
 
 # Local
-from ...toolkit.tgis_utils import get_params
+from ...toolkit.tgis_utils import TGISGenerationClient
 from ...toolkit.verbalizer_utils import render_verbalizer
 from . import PeftPromptTuning
 
@@ -60,6 +57,7 @@ class PeftPromptTuningTGIS(ModuleBase):
         # Configure the internal client
         # NOTE: This is made optional for the cases where we do not need to execute `.run` function
         # for example, bootstrapping a model to caikit format and saving.
+        self._client = None
         if enable_backend:
             # get_client will also launch a local TGIS process and get the model
             # loaded when using the local TGIS backend
@@ -70,6 +68,14 @@ class PeftPromptTuningTGIS(ModuleBase):
         self.eos_token = eos_token
         self.verbalizer = verbalizer
         self.enable_backend = enable_backend
+
+        self.tgis_generation_client = TGISGenerationClient(
+            self.base_model_name,
+            self.eos_token,
+            self._client,
+            self.PRODUCER_ID,
+            self._prompt_cache_id,
+        )
 
     @classmethod
     def load(cls, model_path: str, load_backend: BackendBase) -> "PeftPromptTuningTGIS":
@@ -134,7 +140,9 @@ class PeftPromptTuningTGIS(ModuleBase):
             )
 
     @TextGenerationTask.taskmethod()
-    def run(self, text, preserve_input_text=False, max_new_tokens=20, min_new_tokens=0):
+    def run(
+        self, text, preserve_input_text=False, max_new_tokens=20, min_new_tokens=0
+    ) -> GeneratedTextResult:
         """Run inference against the model running in TGIS. Currently we leverage greedy decoding
         and apply the same verbalizer used for training the local model prior to sending the
         request to TGIS.
@@ -162,39 +170,8 @@ class PeftPromptTuningTGIS(ModuleBase):
             "Backend must be configured and loaded with this module before executing `run` call.",
         )
         verbalized_text = render_verbalizer(self.verbalizer, {"input": text})
-        log.debug("Building protobuf request to send to TGIS")
-
-        params = get_params(
-            preserve_input_text=preserve_input_text,
-            eos_token=self.eos_token,
-            max_new_tokens=max_new_tokens,
-            min_new_tokens=min_new_tokens,
-        )
-
-        gen_reqs = [generation_pb2.GenerationRequest(text=verbalized_text)]
-        request = generation_pb2.BatchedGenerationRequest(
-            requests=gen_reqs,
-            model_id=self.base_model_name,
-            prefix_id=self._prompt_cache_id,
-            params=params,
-        )
-
-        # Currently, we send a batch request of len(x)==1, so we expect one response back
-        with alog.ContextTimer(log.trace, "TGIS request duration: "):
-            batch_response = self._client.Generate(request)
-
-        error.value_check(
-            "<NLP12333421E>",
-            len(batch_response.responses) == 1,
-            f"Got {len(batch_response.responses)} responses for a single request",
-        )
-        response = batch_response.responses[0]
-
-        return GeneratedTextResult(
-            generated_text=response.text,
-            generated_tokens=response.generated_token_count,
-            finish_reason=response.stop_reason,
-            producer_id=self.PRODUCER_ID,
+        return self.tgis_generation_client.unary_generate(
+            verbalized_text, preserve_input_text, max_new_tokens, min_new_tokens
         )
 
     @TextGenerationTask.taskmethod(output_streaming=True)
@@ -219,47 +196,13 @@ class PeftPromptTuningTGIS(ModuleBase):
         Returns:
             Iterable[GeneratedTextStreamResult]
         """
-        # pylint: disable=duplicate-code
         error.value_check(
             "<NLP62995899E>",
             self.enable_backend,
-            "Backend must be configured and loaded with this module before executing `run` call.",
+            "Backend must be configured and loaded with this module \
+            before executing `run_stream_out` call.",
         )
         verbalized_text = render_verbalizer(self.verbalizer, {"input": text})
-        log.debug("Building protobuf request to send to TGIS")
-
-        params = get_params(
-            preserve_input_text=preserve_input_text,
-            eos_token=self.eos_token,
-            max_new_tokens=max_new_tokens,
-            min_new_tokens=min_new_tokens,
+        return self.tgis_generation_client.stream_generate(
+            verbalized_text, preserve_input_text, max_new_tokens, min_new_tokens
         )
-
-        gen_req = generation_pb2.GenerationRequest(text=verbalized_text)
-
-        request = generation_pb2.SingleGenerationRequest(
-            request=gen_req,
-            model_id=self.base_model_name,
-            prefix_id=self._prompt_cache_id,
-            params=params,
-        )
-
-        # stream GenerationResponse
-        stream_response = self._client.GenerateStream(request)
-
-        for stream_part in stream_response:
-            details = TokenStreamDetails(
-                finish_reason=stream_part.stop_reason,
-                generated_tokens=stream_part.generated_token_count,
-                seed=stream_part.seed,
-            )
-            token_list = []
-            for token in stream_part.tokens:
-                token_list.append(
-                    GeneratedToken(text=token.text, logprob=token.logprob)
-                )
-            yield GeneratedTextStreamResult(
-                generated_text=stream_part.text,
-                tokens=token_list,
-                details=details,
-            )
