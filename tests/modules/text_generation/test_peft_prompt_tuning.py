@@ -69,8 +69,10 @@ def test_run_model(causal_lm_dummy_model):
 
 def test_run_stream_out_model(causal_lm_dummy_model):
     """Ensure that we can run output streaming on a model and get the right type out."""
-    pred = causal_lm_dummy_model.run_stream_out("This text doesn't matter")
-    assert isinstance(pred, Iterable)
+    pred_stream = causal_lm_dummy_model.run_stream_out("This text doesn't matter")
+    assert isinstance(pred_stream, Iterable)
+    for pred in pred_stream:
+        assert isinstance(pred, GeneratedTextStreamResult)
 
 
 def test_verbalizer_rendering(causal_lm_dummy_model):

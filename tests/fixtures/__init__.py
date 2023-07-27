@@ -1,6 +1,7 @@
 """Helpful fixtures for configuring individual unit tests.
 """
 # Standard
+from typing import Iterable
 from unittest import mock
 import os
 import random
@@ -14,6 +15,7 @@ import torch
 import transformers
 
 # First Party
+from caikit.interfaces.nlp.data_model import GeneratedTextResult
 from caikit_tgis_backend import TGISBackend
 import caikit
 
@@ -185,6 +187,27 @@ class StubTGISClient:
         fake_stream.text = "moose"
         for _ in range(3):
             yield fake_stream
+
+    @staticmethod
+    def validate_unary_generate_response(result):
+        assert isinstance(result, GeneratedTextResult)
+        assert result.generated_text == "moose"
+        assert result.generated_tokens == 1
+        assert result.finish_reason == 5
+
+    @staticmethod
+    def validate_stream_generate_response(stream_result):
+        assert isinstance(stream_result, Iterable)
+        # Convert to list to more easily check outputs
+        result_list = list(stream_result)
+        assert len(result_list) == 3
+        first_result = result_list[0]
+        assert first_result.generated_text == "moose"
+        assert first_result.tokens[0].text == "moose"
+        assert first_result.tokens[0].logprob == 0.2
+        assert first_result.details.finish_reason == 5
+        assert first_result.details.generated_tokens == 1
+        assert first_result.details.seed == 10
 
 
 class StubTGISBackend(TGISBackend):

@@ -10,9 +10,6 @@ import tempfile
 # Third Party
 import pytest
 
-# First Party
-from caikit.interfaces.nlp.data_model import GeneratedTextResult
-
 # Local
 from caikit_nlp.modules.text_generation import PeftPromptTuningTGIS
 from tests.fixtures import (
@@ -42,10 +39,7 @@ def test_load_and_run(causal_lm_dummy_model):
 
         # Run an inference request, which is wrapped around our mocked Generate call
         result = mock_tgis_model.run(SAMPLE_TEXT, preserve_input_text=True)
-        assert isinstance(result, GeneratedTextResult)
-        assert result.generated_text == "moose"
-        assert result.generated_tokens == 1
-        assert result.finish_reason == 5
+        StubTGISClient.validate_unary_generate_response(result)
 
         stub_generation_request = mock_gen.call_args_list[0].args[0]
 
@@ -79,17 +73,7 @@ def test_load_and_run_stream_out(causal_lm_dummy_model):
         stream_result = mock_tgis_model.run_stream_out(
             SAMPLE_TEXT, preserve_input_text=True
         )
-        assert isinstance(stream_result, Iterable)
-        # Convert to list to more easily check outputs
-        result_list = list(stream_result)
-        assert len(result_list) == 3
-        first_result = result_list[0]
-        assert first_result.generated_text == "moose"
-        assert first_result.tokens[0].text == "moose"
-        assert first_result.tokens[0].logprob == 0.2
-        assert first_result.details.finish_reason == 5
-        assert first_result.details.generated_tokens == 1
-        assert first_result.details.seed == 10
+        StubTGISClient.validate_stream_generate_response(stream_result)
 
         stub_generation_request = mock_gen.call_args_list[0].args[0]
 

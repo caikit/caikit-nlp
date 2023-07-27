@@ -9,9 +9,6 @@ import tempfile
 # Third Party
 import pytest
 
-# First Party
-from caikit.interfaces.nlp.data_model import GeneratedTextResult
-
 # Local
 from caikit_nlp.modules.text_generation import TextGeneration
 from tests.fixtures import (
@@ -30,10 +27,7 @@ def test_bootstrap_and_run_causallm():
     model = TextGeneration.bootstrap(CAUSAL_LM_MODEL, load_backend=StubTGISBackend())
 
     result = model.run(SAMPLE_TEXT, preserve_input_text=True)
-    assert isinstance(result, GeneratedTextResult)
-    assert result.generated_text == "moose"
-    assert result.generated_tokens == 1
-    assert result.finish_reason == 5
+    StubTGISClient.validate_unary_generate_response(result)
 
 
 def test_bootstrap_and_run_seq2seq():
@@ -42,10 +36,7 @@ def test_bootstrap_and_run_seq2seq():
     model = TextGeneration.bootstrap(SEQ2SEQ_LM_MODEL, load_backend=StubTGISBackend())
 
     result = model.run(SAMPLE_TEXT, preserve_input_text=True)
-    assert isinstance(result, GeneratedTextResult)
-    assert result.generated_text == "moose"
-    assert result.generated_tokens == 1
-    assert result.finish_reason == 5
+    StubTGISClient.validate_unary_generate_response(result)
 
 
 def test_run_multi_response_errors():
@@ -81,10 +72,7 @@ def test_save_model_can_run():
         del model
         new_model = TextGeneration.load(model_dir, load_backend=StubTGISBackend())
         result = new_model.run(SAMPLE_TEXT, preserve_input_text=True)
-        assert isinstance(result, GeneratedTextResult)
-        assert result.generated_text == "moose"
-        assert result.generated_tokens == 1
-        assert result.finish_reason == 5
+        StubTGISClient.validate_unary_generate_response(result)
 
 
 ### Output streaming tests ##############################################################
@@ -95,17 +83,7 @@ def test_bootstrap_and_run_stream_out():
     model = TextGeneration.bootstrap(SEQ2SEQ_LM_MODEL, load_backend=StubTGISBackend())
 
     stream_result = model.run_stream_out(SAMPLE_TEXT)
-    assert isinstance(stream_result, Iterable)
-    # Convert to list to more easily check outputs
-    result_list = list(stream_result)
-    assert len(result_list) == 3
-    first_result = result_list[0]
-    assert first_result.generated_text == "moose"
-    assert first_result.tokens[0].text == "moose"
-    assert first_result.tokens[0].logprob == 0.2
-    assert first_result.details.finish_reason == 5
-    assert first_result.details.generated_tokens == 1
-    assert first_result.details.seed == 10
+    StubTGISClient.validate_stream_generate_response(stream_result)
 
 
 def test_run_stream_out_with_runtime_error():
@@ -119,6 +97,5 @@ def test_run_stream_out_with_runtime_error():
         )
         with pytest.raises(RuntimeError):
             response = model.run_stream_out(SAMPLE_TEXT, preserve_input_text=True)
-            for _ in response:
-                # Need to iterate over stream for error
-                pass
+            # Need to iterate over stream for error
+            next(response)
