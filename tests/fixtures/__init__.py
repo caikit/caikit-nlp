@@ -212,9 +212,17 @@ class StubTGISClient:
 
 
 class StubTGISBackend(TGISBackend):
-    def __init__(self, temp_dir: Optional[str] = None, *args, **kwargs):
+    def __init__(
+        self,
+        config: Optional[dict] = None,
+        temp_dir: Optional[str] = None,
+        mock_remote: bool = False,
+    ):
         self._temp_dir = temp_dir
-        super().__init__(*args, **kwargs)
+        if mock_remote:
+            config = config or {}
+            config.update({"connection": {"hostname": "foo.{model_id}:123"}})
+        super().__init__(config)
         self.load_prompt_artifacts = mock.MagicMock()
 
     def get_client(self, base_model_name):
@@ -228,7 +236,7 @@ class StubTGISBackend(TGISBackend):
 @pytest.fixture
 def stub_tgis_backend():
     with tempfile.TemporaryDirectory() as temp_dir:
-        yield StubTGISBackend(temp_dir)
+        yield StubTGISBackend(temp_dir=temp_dir)
 
 
 ### Args for commonly used datasets that we can use with our fixtures accepting params
