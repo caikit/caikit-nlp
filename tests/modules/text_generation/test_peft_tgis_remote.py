@@ -13,16 +13,16 @@ import pytest
 # Local
 from caikit_nlp.modules.text_generation import PeftPromptTuningTGIS
 from tests.fixtures import (
-    StubTGISBackend,
     StubTGISClient,
     causal_lm_dummy_model,
     causal_lm_train_kwargs,
+    stub_tgis_backend,
 )
 
 SAMPLE_TEXT = "Hello stub"
 
 
-def test_load_and_run(causal_lm_dummy_model):
+def test_load_and_run(causal_lm_dummy_model, stub_tgis_backend):
     """Ensure we can export an in memory model, load it, and (mock) run it with the right text & prefix ID."""
     # Patch our stub backend into caikit so that we don't actually try to start TGIS
     causal_lm_dummy_model.verbalizer = "hello distributed {{input}}"
@@ -34,7 +34,7 @@ def test_load_and_run(causal_lm_dummy_model):
         # Also, save the name of the dir + prompt ID, which is the path TGIS expects for the prefix ID
         with tempfile.TemporaryDirectory() as model_dir:
             causal_lm_dummy_model.save(model_dir)
-            mock_tgis_model = PeftPromptTuningTGIS.load(model_dir, StubTGISBackend())
+            mock_tgis_model = PeftPromptTuningTGIS.load(model_dir, stub_tgis_backend)
             model_prompt_dir = os.path.split(model_dir)[-1]
 
         # Run an inference request, which is wrapped around our mocked Generate call
@@ -53,7 +53,7 @@ def test_load_and_run(causal_lm_dummy_model):
         assert model_prompt_dir == stub_generation_request.prefix_id
 
 
-def test_load_and_run_stream_out(causal_lm_dummy_model):
+def test_load_and_run_stream_out(causal_lm_dummy_model, stub_tgis_backend):
     """Ensure we can export an in memory model, load it, and (mock) run output streaming
     with the right text & prefix ID."""
     # Patch our stub backend into caikit so that we don't actually try to start TGIS
@@ -66,7 +66,7 @@ def test_load_and_run_stream_out(causal_lm_dummy_model):
         # Also, save the name of the dir + prompt ID, which is the path TGIS expects for the prefix ID
         with tempfile.TemporaryDirectory() as model_dir:
             causal_lm_dummy_model.save(model_dir)
-            mock_tgis_model = PeftPromptTuningTGIS.load(model_dir, StubTGISBackend())
+            mock_tgis_model = PeftPromptTuningTGIS.load(model_dir, stub_tgis_backend)
             model_prompt_dir = os.path.split(model_dir)[-1]
 
         # Run an inference request, which is wrapped around our mocked GenerateStream call

@@ -1,7 +1,7 @@
 """Helpful fixtures for configuring individual unit tests.
 """
 # Standard
-from typing import Iterable
+from typing import Iterable, Optional
 from unittest import mock
 import os
 import random
@@ -17,6 +17,7 @@ import transformers
 # First Party
 from caikit.interfaces.nlp.data_model import GeneratedTextResult
 from caikit_tgis_backend import TGISBackend
+from caikit_tgis_backend.tgis_connection import TGISConnection
 import caikit
 
 # Local
@@ -211,8 +212,22 @@ class StubTGISClient:
 
 
 class StubTGISBackend(TGISBackend):
+    def __init__(self, temp_dir: Optional[str] = None, *args, **kwargs):
+        self._temp_dir = temp_dir
+        super().__init__(*args, **kwargs)
+
     def get_client(self, base_model_name):
+        self._model_connections[base_model_name] = TGISConnection(
+            hostname="foo.bar",
+            prompt_dir=self._temp_dir,
+        )
         return StubTGISClient(base_model_name)
+
+
+@pytest.fixture
+def stub_tgis_backend():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        yield StubTGISBackend(temp_dir)
 
 
 ### Args for commonly used datasets that we can use with our fixtures accepting params
