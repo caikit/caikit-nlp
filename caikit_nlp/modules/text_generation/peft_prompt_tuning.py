@@ -101,7 +101,7 @@ class Streamer(TextStreamer):
     # The default TextStreamer currently prints to stdout
     # so we override that here
     def on_finalized_text(self, text: str, stream_end: bool = False):
-        return text
+        pass
 
 
 # TODO: try to refactor this into a smaller module
@@ -170,7 +170,11 @@ class PeftPromptTuning(ModuleBase):
 
     @TextGenerationTask.taskmethod()
     def run(
-        self, text: str, device: Optional[Union[str, int]] = _DETECT_DEVICE
+        self,
+        text: str,
+        device: Optional[Union[str, int]] = _DETECT_DEVICE,
+        max_new_tokens=20,
+        min_new_tokens=0,
     ) -> GeneratedTextResult:
         """Run the full text generation model.
 
@@ -178,7 +182,13 @@ class PeftPromptTuning(ModuleBase):
             text: str
                 Input string to be used to the generation model.
             device: Optional[Union[str, int]]
-                Device on which we should run inference; by default, we use teh detected device.
+                Device on which we should run inference; by default, we use the detected device.
+            max_new_tokens: int
+                The maximum numbers of tokens to generate.
+                Default: 20
+            min_new_tokens: int
+                The minimum numbers of tokens to generate.
+                Default: 0 - means no minimum
 
         Returns:
             GeneratedTextResult
@@ -195,7 +205,8 @@ class PeftPromptTuning(ModuleBase):
             outputs = self.model.generate(
                 input_ids=inputs["input_ids"],
                 attention_mask=inputs["attention_mask"],
-                max_new_tokens=10,
+                max_new_tokens=max_new_tokens,
+                min_new_tokens=min_new_tokens,
                 eos_token_id=self.eos_token_id,
             )
             gen_text = self.tokenizer.batch_decode(
@@ -208,7 +219,7 @@ class PeftPromptTuning(ModuleBase):
         category=wip_decorator.WipCategory.WIP, action=wip_decorator.Action.WARNING
     )
     def run_stream_out(
-        self, text: str, device: Optional[Union[str, int]] = _DETECT_DEVICE
+        self, text: str, max_new_tokens=20, min_new_tokens=0
     ) -> Iterable[GeneratedTextStreamResult]:
         """Run the text generation model with output streaming
 
@@ -220,8 +231,12 @@ class PeftPromptTuning(ModuleBase):
         Args:
             text: str
                 Input string to be used to the generation model.
-            device: Optional[Union[str, int]]
-                Device on which we should run inference; by default, we use teh detected device.
+            max_new_tokens: int
+                The maximum numbers of tokens to generate.
+                Default: 20
+            min_new_tokens: int
+                The minimum numbers of tokens to generate.
+                Default: 0 - means no minimum
 
         Returns:
             Iterable[GeneratedTextStreamResult]
@@ -230,8 +245,7 @@ class PeftPromptTuning(ModuleBase):
         verbalized_text = render_verbalizer(self.verbalizer, {"input": text})
         # Apply the tokenizer to the sample text & move to correct device
         tok_tensors = self.tokenizer(verbalized_text, return_tensors="pt")
-        device = PeftPromptTuning._get_device(device)
-        inputs = {k: v.to(device) for k, v in tok_tensors.items()}
+        inputs = {k: v.to(self.model.device) for k, v in tok_tensors.items()}
 
         streamer = Streamer(self.tokenizer)
         with torch.no_grad():
@@ -239,7 +253,8 @@ class PeftPromptTuning(ModuleBase):
             stream_outputs = self.model.generate(
                 input_ids=inputs["input_ids"],
                 attention_mask=inputs["attention_mask"],
-                max_new_tokens=10,
+                max_new_tokens=max_new_tokens,
+                min_new_tokens=min_new_tokens,
                 eos_token_id=self.eos_token_id,
                 streamer=streamer,
             )
