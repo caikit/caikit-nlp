@@ -215,6 +215,7 @@ class StubTGISBackend(TGISBackend):
     def __init__(self, temp_dir: Optional[str] = None, *args, **kwargs):
         self._temp_dir = temp_dir
         super().__init__(*args, **kwargs)
+        self.load_prompt_artifacts = mock.MagicMock()
 
     def get_client(self, base_model_name):
         self._model_connections[base_model_name] = TGISConnection(

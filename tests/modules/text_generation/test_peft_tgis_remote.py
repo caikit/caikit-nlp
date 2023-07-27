@@ -68,6 +68,7 @@ def test_load_and_run_stream_out(causal_lm_dummy_model, stub_tgis_backend):
             causal_lm_dummy_model.save(model_dir)
             mock_tgis_model = PeftPromptTuningTGIS.load(model_dir, stub_tgis_backend)
             model_prompt_dir = os.path.split(model_dir)[-1]
+            assert stub_tgis_backend.load_prompt_artifacts.called_once()
 
         # Run an inference request, which is wrapped around our mocked GenerateStream call
         stream_result = mock_tgis_model.run_stream_out(
