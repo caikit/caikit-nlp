@@ -58,7 +58,7 @@ def test_save_and_reload_without_base_model(causal_lm_dummy_model):
         causal_lm_dummy_model.save(model_dir, save_base_model=False)
         # For now, if we are missing the base model at load time, we throw ValueError
         with pytest.raises(ValueError):
-            _ = caikit_nlp.load(model_dir)
+            caikit_nlp.load(model_dir)
 
 
 def test_run_model(causal_lm_dummy_model):
