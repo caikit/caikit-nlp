@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-mkdir -p models
-
 cd $(dirname ${BASH_SOURCE[0]})/..
+mkdir -p models
 
 server=${SERVER:-"http"}
 
