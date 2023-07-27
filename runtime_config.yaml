@@ -24,8 +24,10 @@ model_management:
               remote_models:
                 flan-t5-xl:
                   hostname: localhost:8033
+                  prompt_dir: tgis_prompts
                 llama-70b:
                   hostname: localhost:8034
+                  prompt_dir: tgis_prompts
 
               connection:
                 hostname: "foo.{model_id}:1234"
