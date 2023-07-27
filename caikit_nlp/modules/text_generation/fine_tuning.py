@@ -30,13 +30,13 @@ from caikit.core.data_model import DataStream
 from caikit.core.modules import ModuleBase, module
 from caikit.core.toolkit import error_handler, wip_decorator
 from caikit.interfaces.nlp.data_model import GeneratedTextResult
+from caikit.interfaces.nlp.tasks import TextGenerationTask
 import alog
 
 # Local
 from ...data_model import GenerationTrainRecord
 from ...toolkit.data_stream_wrapper import SimpleIterableStreamWrapper
 from ...toolkit.data_type_utils import get_torch_dtype
-from .text_generation_task import TextGenerationTask
 
 log = alog.use_channel("FIN_TUN_GEN")
 error = error_handler.get(log)
