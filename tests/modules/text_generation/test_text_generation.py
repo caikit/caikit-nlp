@@ -1,7 +1,6 @@
 """Tests for text-generation module
 """
 # Standard
-from typing import Iterable
 from unittest import mock
 import os
 import tempfile
@@ -66,13 +65,36 @@ def test_bootstrap_and_save_model():
 def test_save_model_can_run():
     """Check if the model we bootstrap and save is able to load and run successfully"""
     model = TextGeneration.bootstrap(SEQ2SEQ_LM_MODEL)
-
     with tempfile.TemporaryDirectory() as model_dir:
         model.save(model_dir)
         del model
-        new_model = TextGeneration.load(model_dir, load_backend=StubTGISBackend())
+        new_model = TextGeneration.load(
+            model_dir, load_backend=StubTGISBackend(mock_remote=True)
+        )
         result = new_model.run(SAMPLE_TEXT, preserve_input_text=True)
         StubTGISClient.validate_unary_generate_response(result)
+
+
+def test_remote_tgis_only_model():
+    """Make sure that a model can be created and used that will only work with a
+    remote TGIS connection (i.e. it has no artifacts)
+    """
+    model_name = "model-name"
+    tgis_backend = StubTGISBackend(mock_remote=True)
+    model = TextGeneration(model_name, tgis_backend=tgis_backend)
+    with tempfile.TemporaryDirectory() as model_dir:
+        model.save(model_dir)
+        TextGeneration.load(model_dir, load_backend=tgis_backend)
+
+
+def test_remote_tgis_only_model_error_with_local_backend():
+    """Make sure that an error is raised if a remote-only model tries to load
+    with a TGISBackend that is running in local mode
+    """
+    model_name = "model-name"
+    tgis_backend = StubTGISBackend()
+    with pytest.raises(ValueError):
+        TextGeneration(model_name, tgis_backend=tgis_backend)
 
 
 ### Output streaming tests ##############################################################

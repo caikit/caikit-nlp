@@ -53,7 +53,7 @@ def get_params(preserve_input_text, eos_token, max_new_tokens, min_new_tokens):
         token_ranks=True,
     )
     stopping = generation_pb2.StoppingCriteria(
-        stop_sequences=[eos_token],
+        stop_sequences=[eos_token] if eos_token is not None else None,
         max_new_tokens=max_new_tokens,
         min_new_tokens=min_new_tokens,
     )

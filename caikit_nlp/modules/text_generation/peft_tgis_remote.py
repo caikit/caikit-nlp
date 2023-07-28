@@ -15,7 +15,7 @@
 prompt vectors in TGIS generation requests.
 """
 # Standard
-from typing import Iterable
+from typing import Iterable, List, Optional
 import os
 
 # First Party
@@ -46,12 +46,13 @@ class PeftPromptTuningTGIS(ModuleBase):
 
     def __init__(
         self,
-        base_model_name,
-        prompt_cache_id,
-        eos_token,
-        verbalizer,
-        enable_backend=True,
-        tgis_backend=None,
+        base_model_name: str,
+        prompt_cache_id: str,
+        eos_token: str,
+        verbalizer: str,
+        enable_backend: bool = True,
+        tgis_backend: Optional[TGISBackend] = None,
+        prompt_artifacts: Optional[List[str]] = None,
     ) -> None:
         super().__init__()
         # Configure the internal client
@@ -62,6 +63,12 @@ class PeftPromptTuningTGIS(ModuleBase):
             # get_client will also launch a local TGIS process and get the model
             # loaded when using the local TGIS backend
             self._client = tgis_backend.get_client(base_model_name)
+
+            # Tell the backend to load all of the available prompt files
+            if prompt_artifacts:
+                tgis_backend.load_prompt_artifacts(
+                    base_model_name, prompt_cache_id, *prompt_artifacts
+                )
 
         self.base_model_name = base_model_name
         self._prompt_cache_id = prompt_cache_id
@@ -97,7 +104,7 @@ class PeftPromptTuningTGIS(ModuleBase):
         config = ModuleConfig.load(model_path)
         eos_token = config.eos_token
         verbalizer = config.verbalizer
-        dir_name = os.path.split(model_path)[-1]
+        dir_name = os.path.basename(model_path)
         # NOTE: base_model_name is used as "model_id" when calling to TGIS backend
         base_model_name = config.get("base_model_name", "")
         prompt_cache_id = dir_name
@@ -111,12 +118,24 @@ class PeftPromptTuningTGIS(ModuleBase):
         # we convert make it valid json compatible dict (aka doesn't have non string keys)
         log.debug("Prompt ID: %s", prompt_cache_id)
         log.debug("TGIS model ID: %s", base_model_name)
+
+        # Get all the valid prompt artifact files so they can be loaded after
+        # the connection is established
+        prompt_artifacts = [
+            os.path.join(model_path, config.get(config_key))
+            for config_key in [
+                PeftPromptTuning._ENCODER_KEY.name,
+                PeftPromptTuning._DECODER_KEY.name,
+            ]
+            if config.get(config_key)
+        ]
         return cls(
             base_model_name,
             prompt_cache_id,
             eos_token,
             verbalizer,
             tgis_backend=load_backend,
+            prompt_artifacts=prompt_artifacts,
         )
 
     def save(self, model_path: str):
