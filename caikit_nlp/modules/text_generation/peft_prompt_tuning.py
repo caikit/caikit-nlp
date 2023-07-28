@@ -752,7 +752,6 @@ class PeftPromptTuning(ModuleBase):
         # currently has duplicate values in the second half.
 
         for output_type in output_model_types:
-            print("output_type: ", output_type)
             prompt_dict[output_type.name] = prompt_vector[:num_virtual_tokens]
 
         return prompt_dict
