@@ -37,8 +37,8 @@ from tqdm import tqdm
 from transformers import (
     AutoConfig,
     AutoModelForCausalLM,
-    TextStreamer,
     DataCollatorForLanguageModeling,
+    TextStreamer,
     default_data_collator,
 )
 from transformers.models.auto.tokenization_auto import AutoTokenizer
