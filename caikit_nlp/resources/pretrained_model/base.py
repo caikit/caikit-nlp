@@ -14,7 +14,7 @@
 
 # Standard
 from abc import ABC, abstractmethod
-from typing import List, Optional, Type
+from typing import Callable, List, Optional, Tuple, Type
 import json
 import os
 
@@ -240,3 +240,33 @@ class PretrainedModelBase(ABC, ModuleBase):
     ):
         """Return number of applicable transformer submodules"""
         return 1
+
+    @classmethod
+    @abstractmethod
+    def build_task_tokenize_function(
+        cls,
+        tokenizer: "AutoTokenizer",
+        max_source_length: int,
+        max_target_length: int,
+        verbalizer: str,
+    ) -> Tuple[Callable, bool]:
+        """Builds tokenizer functions which can be mapped over train streams to process
+        data which can then be easily passed to a DataLoader for different model types.
+
+        Args:
+            tokenizer: AutoTokenizer
+                Model tokenizer to be used in preprocessing, i.e., when we iterate over our data.
+            max_source_length: int
+                Max length of sequences being considered.
+            max_target_length: int
+                Max length of target sequences being predicted.
+            verbalizer: str
+                Verbalizer template to be used for formatting data. This template may use brackets
+                to indicate where fields from the data model TrainGenerationRecord must be rendered.
+
+        Returns:
+            Tuple(Callable, bool)
+                Mappable tokenize function to be applied to a training stream and bool indicating
+                whether or not the stream needs to be unwrapped, i.e., each sample yields a stream
+                of 1+ samples.
+        """
