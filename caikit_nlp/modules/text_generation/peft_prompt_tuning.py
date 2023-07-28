@@ -37,6 +37,7 @@ from tqdm import tqdm
 from transformers import (
     AutoConfig,
     AutoModelForCausalLM,
+    DataCollatorForLanguageModeling,
     TextStreamer,
     default_data_collator,
 )
@@ -146,7 +147,7 @@ class PeftPromptTuning(ModuleBase):
         super().__init__()
         # Put the PEFT model into evaluation mode for all future calls
         model.eval()
-        self._collate_fn = self._get_collate_fn(tokenizer)
+        self._collate_fn = self._get_collate_fn(tokenizer, task_type)
         self.model = model
         self.tokenizer = tokenizer
         self.base_model_name = base_model_name
@@ -800,13 +801,13 @@ class PeftPromptTuning(ModuleBase):
         """
         if collate_fn is None:
             # collate_fn -> pads and maps our inputs to PyTorch vectors
-            collate_fn = cls._get_collate_fn(base_model.tokenizer)
+            collate_fn = cls._get_collate_fn(base_model.tokenizer, task_type)
 
         # Grab the data loaders for this task.
         # NOTE: Currently we do not expose the buffer size and we
         # default to loading the whole dataset into memory
         train_dataloader = cls._get_data_loaders_from_stream(
-            task_type,
+            base_model,
             train_stream,
             base_model.tokenizer,
             batch_size,
@@ -818,7 +819,7 @@ class PeftPromptTuning(ModuleBase):
         )
         if validation_stream is not None:
             val_dataloader = cls._get_data_loaders_from_stream(
-                task_type,
+                base_model,
                 validation_stream,
                 base_model.tokenizer,
                 batch_size,
@@ -939,7 +940,7 @@ class PeftPromptTuning(ModuleBase):
 
     # pylint: disable=unused-argument
     @staticmethod
-    def _get_collate_fn(tokenizer: AutoTokenizer) -> Callable:
+    def _get_collate_fn(tokenizer: AutoTokenizer, task_type: str) -> Callable:
         """Simple layer of indirection in case we want to patch in additional collate functions
         easily. Currently we always fall back to the simple default in Transformers.
 
@@ -947,16 +948,24 @@ class PeftPromptTuning(ModuleBase):
             tokenizer: AutoTokenizer
                 Model tokenizer. Currently this is not used, but we pass it anyway in case
                 additional collate_fns dependent on it are implemented here.
+            task_type: str
+                Task type to be used for data collation; used for data collator overrides.
 
         Returns:
             Callable
                 collate_fn to be used for processing batches from our datasets.
         """
+        if task_type == "CAUSAL_LM":
+            return DataCollatorForLanguageModeling(
+                tokenizer=tokenizer,
+                return_tensors="pt",
+                mlm=False,
+            )
         return default_data_collator
 
     @staticmethod
     def _get_data_loaders_from_stream(
-        task_type: str,
+        base_model: PretrainedModelBase,
         train_stream: DataStream[GenerationTrainRecord],
         tokenizer: AutoTokenizer,
         batch_size: int,
@@ -968,9 +977,8 @@ class PeftPromptTuning(ModuleBase):
     ) -> DataLoader:
         """Get the data loaders for train / evaluation.
         Args:
-            task_type: str
-                Str indicating which task is being accomplished; currently used for determining
-                tokenization / preprocessing behavior.
+            base_model: caikit_nlp.resources.pretrained_model.base.PretrainedModelBase
+                Base resource model used for underlying generation.
             train_stream: DataStream[GenerationTrainRecord]
                 Data to be used for training the prompt vectors of the generation model.
             tokenizer: AutoTokenizer
@@ -993,158 +1001,16 @@ class PeftPromptTuning(ModuleBase):
             torch.utils.data.DataLoader
                 DataLoader to be used for training / evaluating the stream data.
         """
-
-        def tokenize_function_seq2seq(
-            example: GenerationTrainRecord,
-        ) -> "BatchEncoding":
-            """Tokenization function to be used for seq2seq training; this function consumes a
-            GenerationTrainRecord object and applies the verbalizer to it followed by
-            the model tokenizer. Finally, we postprocess by ignoring pad tokens in the label IDs.
-
-            TODO: Add support for right padded models.
-
-            Args:
-                example: GenerationTrainRecord
-                    Training data model object to convert a form we can learn on.
-
-            Returns:
-                transformers.tokenization_utils_base.BatchEncoding
-                    encoded tokenization output corresponding to the input example.
-            """
-            IGNORE_ID = -100
-
-            # Render the verbalizer template with the attributes of this data model example
-            source = render_verbalizer(verbalizer, example)
-
-            targets = example.output  # [label_column]
-            # model_inputs = tokenizer(
-            #     inputs,
-            #     max_length=max_length,
-            #     padding="max_length",
-            #     truncation=True,
-            #     return_tensors="pt"
-            # )
-            # labels = tokenizer(
-            #     targets,
-            #     max_length=3,
-            #     padding="max_length",
-            #     truncation=True,
-            #     return_tensors="pt"
-            # )
-            model_inputs = tokenizer(
-                source,
-                max_length=max_source_length,
-                padding="max_length",
-                truncation=True,
-            )
-            labels = tokenizer(
-                targets,
-                max_length=max_target_length,
-                padding="max_length",
-                truncation=True,
-            )
-
-            labels = labels["input_ids"]
-
-            labels = list(
-                map(lambda x: IGNORE_ID if x == tokenizer.pad_token_id else x, labels)
-            )
-            model_inputs["labels"] = labels
-            model_inputs["task_ids"] = 0
-            return model_inputs
-
-        def tokenize_function_clm(example: GenerationTrainRecord) -> "BatchEncoding":
-            """Tokenization function to be used for CLM training; this function consumes a
-            GenerationTrainRecord object and applies the verbalizer to it followed by
-            the model tokenizer. It then applies the appropriate padding / masking to the
-            input & output to update the tokenizer output in a way suitable for training a causal
-            language model.
-
-            Args:
-                example: GenerationTrainRecord
-                    Training data model object to convert a form we can learn on.
-
-            Returns:
-                transformers.tokenization_utils_base.BatchEncoding
-                    encoded tokenization output corresponding to the input example.
-            """
-            IGNORE_ID = -100
-            # ID of the token to append after our target string; this should generally be pad / EOS
-            FINAL_TOK_ID = tokenizer.eos_token_id
-            # Render the verbalizer template with the attributes of this data model example
-            source = render_verbalizer(verbalizer, example)
-            # TODO: Add a check to verify if source and example.output both are str or not
-            # max_length=None => use the model max length (it's actually the default)
-            # For mrpc [default example], we have 2 sentences + labels to see if they are
-            # semantically equivalent
-            model_inputs = tokenizer(source, truncation=True)
-            labels = tokenizer(example.output, truncation=True)
-
-            # Combine the source + target strings into the source input IDs
-            # This makes the source and target the same length, and then masks the source out of the
-            # target IDs, and updates the length of the attention vector to be evenly spread on the
-            # whole combined sequence
-            sample_input_ids = model_inputs["input_ids"]
-            label_input_ids = labels["input_ids"] + [FINAL_TOK_ID]
-            model_inputs["input_ids"] = sample_input_ids + label_input_ids
-            labels["input_ids"] = [IGNORE_ID] * len(sample_input_ids) + label_input_ids
-            model_inputs["attention_mask"] = [1] * len(model_inputs["input_ids"])
-            # Now we have to update everything to be the max length of the tokenizer, then pad &
-            # ensure all of the padded stuff we have added has attention weights of 0.
-            sample_input_ids = model_inputs[
-                "input_ids"
-            ]  # NOTE - combined source + target + <FINAL_TOK_ID>
-            if tokenizer.padding_side.lower() == "left":
-                # Do left padding
-                # labels["input_ids"] = [IGNORE_ID] * len(
-                #     sample_input_ids
-                # ) + label_input_ids
-                label_input_ids = labels["input_ids"]
-                model_inputs["input_ids"] = [tokenizer.pad_token_id] * (
-                    max_source_length - len(sample_input_ids)
-                ) + sample_input_ids
-                model_inputs["attention_mask"] = [0] * (
-                    max_source_length - len(sample_input_ids)
-                ) + model_inputs["attention_mask"]
-                labels["input_ids"] = [IGNORE_ID] * (
-                    max_source_length - len(sample_input_ids)
-                ) + label_input_ids
-            else:
-                # Do right padding
-                # labels["input_ids"] = [IGNORE_ID] * len(
-                #     sample_input_ids
-                # ) + label_input_ids
-                label_input_ids = labels["input_ids"]
-                model_inputs["input_ids"] = sample_input_ids + [
-                    tokenizer.pad_token_id
-                ] * (max_source_length - len(sample_input_ids))
-                model_inputs["attention_mask"] = model_inputs["attention_mask"] + [
-                    0
-                ] * (max_source_length - len(sample_input_ids))
-                labels["input_ids"] = label_input_ids + [IGNORE_ID] * (
-                    max_source_length - len(sample_input_ids)
-                )
-
-            model_inputs["input_ids"] = torch.tensor(
-                model_inputs["input_ids"][:max_source_length]
-            )
-            model_inputs["attention_mask"] = torch.tensor(
-                model_inputs["attention_mask"][:max_source_length]
-            )
-            labels["input_ids"] = torch.tensor(labels["input_ids"][:max_source_length])
-            model_inputs["labels"] = labels["input_ids"]
-            model_inputs["task_ids"] = 0
-            return model_inputs
-
-        tokenize_function = (
-            tokenize_function_seq2seq
-            if task_type == HFAutoSeq2SeqLM.TASK_TYPE
-            else tokenize_function_clm
+        (
+            tokenize_function,
+            requires_unwrapping,
+        ) = base_model.build_task_tokenize_function(
+            tokenizer, max_source_length, max_target_length, verbalizer
         )
-        wrapped_stream = SimpleIterableStreamWrapper(
-            train_stream.map(tokenize_function), shuffle=shuffle
-        )
-
+        mapped_stream = train_stream.map(tokenize_function)
+        if requires_unwrapping:
+            mapped_stream = mapped_stream.flatten()
+        wrapped_stream = SimpleIterableStreamWrapper(mapped_stream, shuffle=shuffle)
         dataloader = DataLoader(
             wrapped_stream, collate_fn=collate_fn, batch_size=batch_size
         )
