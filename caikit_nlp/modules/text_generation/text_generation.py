@@ -21,6 +21,7 @@ import os
 from transformers import AutoConfig
 
 # First Party
+from caikit import get_config
 from caikit.core.module_backends import BackendBase, backend_types
 from caikit.core.modules import ModuleBase, ModuleConfig, ModuleSaver, module
 from caikit.core.toolkit import error_handler
@@ -129,7 +130,10 @@ class TextGeneration(ModuleBase):
                 Object of TextGeneration class (model)
         """
         # pylint: disable=duplicate-code
-        model_config = AutoConfig.from_pretrained(base_model_path)
+        model_config = AutoConfig.from_pretrained(
+            base_model_path,
+            local_files_only=not get_config().allow_downloads,
+        )
         resource_type = None
         for resource in cls.supported_resources:
             if model_config.model_type in resource.SUPPORTED_MODEL_TYPES:
