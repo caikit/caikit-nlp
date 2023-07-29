@@ -91,6 +91,7 @@ class HFAutoSeq2SeqLM(PretrainedModelBase):
 
         training_args = Seq2SeqTrainingArguments(**kwargs)
 
+        # pylint: disable=duplicate-code
         # TODO: Fetch DataCollator either from property of this
         # class or fetch it as an argument.
         data_collator = self._get_data_collator(**kwargs)
@@ -107,7 +108,6 @@ class HFAutoSeq2SeqLM(PretrainedModelBase):
         }
 
         return Seq2SeqTrainer(self._model, training_args, **trainer_arguments)
-
 
     def _get_data_collator(self, **kwargs):
         """Function to return appropriate data collator based on resource.
@@ -127,10 +127,9 @@ class HFAutoSeq2SeqLM(PretrainedModelBase):
         collator_kwargs = {key: kwargs[key] for key in applicable_args if key in kwargs}
 
         return DataCollatorForSeq2Seq(
-            tokenizer=self._tokenizer,
-            model=self._model,
-            **collator_kwargs
+            tokenizer=self._tokenizer, model=self._model, **collator_kwargs
         )
+
     @staticmethod
     def build_task_tokenize_function(
         tokenizer: "AutoTokenizer",

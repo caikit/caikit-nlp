@@ -20,7 +20,12 @@ import os
 
 # Third Party
 from torch.utils.data import IterableDataset
-from transformers import AutoTokenizer, DataCollatorWithPadding, Trainer, TrainingArguments
+from transformers import (
+    AutoTokenizer,
+    DataCollatorWithPadding,
+    Trainer,
+    TrainingArguments,
+)
 from transformers.models.auto.auto_factory import _BaseAutoModelClass
 import torch
 
@@ -263,7 +268,6 @@ class PretrainedModelBase(ABC, ModuleBase):
 
         return Trainer(self._model, training_args, **trainer_arguments)
 
-
     def _get_data_collator(self, **kwargs):
         """Function to return appropriate data collator based on resource.
 
@@ -283,9 +287,7 @@ class PretrainedModelBase(ABC, ModuleBase):
         collator_kwargs = {key: kwargs[key] for key in applicable_args if key in kwargs}
 
         return DataCollatorWithPadding(
-            tokenizer=self._tokenizer,
-            padding=True,
-            **collator_kwargs
+            tokenizer=self._tokenizer, padding=True, **collator_kwargs
         )
 
     # pylint: disable=unused-argument
