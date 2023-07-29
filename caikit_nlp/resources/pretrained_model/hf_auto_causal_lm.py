@@ -104,7 +104,8 @@ class HFAutoCausalLM(PretrainedModelBase):
             # Here, we need to yield and manipulate the attention mask to attend
             # to the input seq + the tokens we have seen so far...
             num_target_samples = len(target_ids.input_ids)
-            source_ids["task_ids"] = 0
+            # TODO: Why do we need task ids here??
+            # source_ids["task_ids"] = 0
 
             def generator_func():
                 for idx in range(num_target_samples):
