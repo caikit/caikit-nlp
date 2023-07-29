@@ -14,8 +14,8 @@ classifiers=[
     "License :: OSI Approved :: Apache Software License"
 ]
 dependencies = [
-    "caikit[runtime-grpc]>=0.10.1,<0.11.0",
-    "caikit-tgis-backend>=0.1.8,<0.2.0",
+    "caikit[runtime-grpc,runtime-http]>=0.13.0,<0.15.0",
+    "caikit-tgis-backend>=0.1.14,<0.2.0",
 
     # TODO: loosen dependencies
     "accelerate>=0.18.0",
@@ -28,7 +28,7 @@ dependencies = [
     "tokenizers>=0.13.3",
     "torch>=1.13.1",
     "tqdm>=4.65.0",
-    "transformers>=4.27.1",
+    "transformers>=4.31.0",
     "peft@git+https://github.com/mayank31398/peft.git@mpt-os-test"
 ]
 

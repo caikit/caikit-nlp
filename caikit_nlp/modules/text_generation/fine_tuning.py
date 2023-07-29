@@ -15,20 +15,29 @@
 
 # Third Party
 from torch.utils.data import IterableDataset
-from transformers import AutoConfig, AutoTokenizer, Trainer
+from transformers import (
+    AutoConfig,
+    AutoTokenizer,
+    DataCollatorForSeq2Seq,
+    Seq2SeqTrainer,
+    Seq2SeqTrainingArguments,
+    Trainer,
+)
+import torch
 
 # First Party
 from caikit.core.data_model import DataStream
 from caikit.core.modules import ModuleBase, module
 from caikit.core.toolkit import error_handler, wip_decorator
+from caikit.interfaces.nlp.data_model import GeneratedTextResult
+from caikit.interfaces.nlp.tasks import TextGenerationTask
 import alog
 
 # Local
-from ...data_model import GeneratedResult, GenerationTrainRecord
+from ...data_model import GeneratedTextResult, GenerationTrainRecord
 from ...resources.pretrained_model.base import PretrainedModelBase
 from ...toolkit.data_stream_wrapper import SimpleIterableStreamWrapper
 from ...toolkit.data_type_utils import get_torch_dtype
-from .text_generation_task import TextGenerationTask
 
 log = alog.use_channel("FIN_TUN_GEN")
 error = error_handler.get(log)
@@ -115,6 +124,23 @@ class FineTuning(ModuleBase):
             shuffle=True,
         )
 
+        ### Dtype based processing
+        # NOTE: Following is not exhaustive list of all parameters
+        # for all dtypes
+        if torch_dtype == torch.float16:
+            dtype_based_params = {
+                "fp16": True,
+            }
+        elif torch_dtype == torch.bfloat16:
+            dtype_based_params = {
+                "bf16": True,
+            }
+        else:
+            # default to float32
+            dtype_based_params = {}
+
+        ## TODO: Add automatic sharding selection based on number of parameters
+        # in base model
         ## TODO: Fetch trainer from resource
 
         # TODO: Make this whole thing configurable by end-users,
@@ -142,11 +168,24 @@ class FineTuning(ModuleBase):
             "eval_accumulation_steps": accumulate_steps,
             # eval_steps=1,
             **training_arguments,
+            **dtype_based_params,
         }
 
         trainer = base_model.get_trainer(
             train_dataset=training_dataset, **training_args
         )
+
+        if num_epochs < 1:
+            log.warning(
+                "<NLP64076114W>",
+                f"Number of epochs configured is {num_epochs} which is less than minimum 1. \
+                    No training will be performed",
+            )
+
+            return cls(
+                tokenizer=base_model.tokenizer,
+                model=trainer,
+            )
 
         # Start training via Trainer.train function
         trainer.train()
@@ -166,7 +205,7 @@ class FineTuning(ModuleBase):
     # pylint: disable=unused-argument
     def run(
         self, text, preserve_input_text=False, max_new_tokens=20, min_new_tokens=0
-    ) -> "GeneratedResult":
+    ) -> "GeneratedTextResult":
         """Run inference against the model running in TGIS.
 
         Args:
@@ -177,12 +216,12 @@ class FineTuning(ModuleBase):
                 e.g., as a prefix.
             max_new_tokens: int
                 The maximum numbers of tokens to generate.
-                Default: 20
+                Default: 128
             min_new_tokens: int
                 The minimum numbers of tokens to generate.
                 Default: 0 - means no minimum
         Returns:
-            GeneratedResult
+            GeneratedTextResult
                 Generated text result
         """
         if isinstance(self.model, Trainer):
@@ -195,9 +234,7 @@ class FineTuning(ModuleBase):
             # data and model. Since the model is with Trainer at this point
             # and thus the device placement be according to training strategy,
             # its better to let Trainer handle the evaluation / prediction
-            # NOTE: Below statement requires merge of HF PR
-            # https://github.com/huggingface/transformers/pull/24759
-            # and subsequent release of `transformers` and updating the lib version in `caikit-nlp`
+
             # TODO: Add support for passing extra arguments to prediction_step
             _, generated_tokens, _ = self.model.prediction_step(
                 self.model.model,
@@ -209,7 +246,7 @@ class FineTuning(ModuleBase):
 
             generated_text = self.tokenizer.batch_decode(
                 generated_tokens.detach().cpu().numpy(), skip_special_tokens=True
-            )
+            )[0]
 
         else:
             error(
@@ -219,7 +256,7 @@ class FineTuning(ModuleBase):
                 ),
             )
 
-        return GeneratedResult(text=generated_text)
+        return GeneratedTextResult(generated_text=generated_text)
 
     ################################## Private Functions ###########################################
 

@@ -23,7 +23,6 @@ import torch
 import transformers
 
 # First Party
-from caikit.core.module_backend_config import _CONFIGURED_BACKENDS, configure
 from caikit_tgis_backend import TGISBackend
 import alog
 import caikit
@@ -35,7 +34,7 @@ from caikit_nlp.data_model import GenerationTrainRecord
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
 ALOG_OPTS = {
-    "filters": "datasets:off,urllib3:off",
+    "filters": "datasets:off,urllib3:off,apscheduler:off,tzloc:off",
     "default_level": "error",
     "formatter": "pretty",
 }
@@ -80,11 +79,20 @@ def get_distributed_model(model_path):
         kill_tgis_container_if_exists()
 
     # TODO: Enforce validation that TGIS is mounting the same model type
-    _CONFIGURED_BACKENDS.clear()
-    caikit.configure(
-        config_dict={"module_backends": {"priority": [TGISBackend.backend_type]}}
+
+    caikit.config.configure(
+        config_dict={
+            "model_management": {
+                "initializers": {
+                    "default": {
+                        "config": {
+                            "backend_priority": {[{"type": TGISBackend.backend_type}]}
+                        }
+                    }
+                }
+            }
+        }
     )  # should not be necessary but just in case
-    configure()  # backend configure
     dist_model = caikit.load(model_path)
     # Sanity check; if we have an environment variable override for the model TGIS is using,
     # make sure that its suffix (base model name) aligns with what we have in our config.
@@ -226,6 +234,46 @@ def load_financial_phrasebank_dataset() -> Tuple[caikit.core.data_model.DataStre
     return (train_stream, validation_stream, test_stream)
 
 
+def load_billsum_dataset() -> Tuple[caikit.core.data_model.DataStream]:
+    """Load the billsum dataset."""
+
+    def to_generation_fmt(x):
+        return GenerationTrainRecord(input=x["text"], output=str(x["summary"]))
+
+    dataset = datasets.load_dataset("billsum", split="ca_test")
+    train_test_dataset = dataset.train_test_split(test_size=0.2)
+    # # Split the 10% test + valid into half test, half valid
+    # test_valid = train_test_valid_dataset['test'].train_test_split(test=0.5)
+
+    build_stream = lambda split: caikit.core.data_model.DataStream.from_iterable(
+        [to_generation_fmt(datum) for datum in train_test_dataset[split]]
+    )
+    train_stream = build_stream("train")
+    validation_stream = build_stream("test")
+    test_stream = build_stream("test")
+    return (train_stream, validation_stream, test_stream)
+
+
+def load_samsum_dataset() -> Tuple[caikit.core.data_model.DataStream]:
+    """Load the samsum dataset."""
+
+    def to_generation_fmt(x):
+        return GenerationTrainRecord(input=x["dialogue"], output=str(x["summary"]))
+
+    dataset = datasets.load_dataset("samsum")
+    train_test_dataset = dataset.train_test_split(test_size=0.1)
+    # # Split the 10% test + valid into half test, half valid
+    # test_valid = train_test_valid_dataset['test'].train_test_split(test=0.5)
+
+    build_stream = lambda split: caikit.core.data_model.DataStream.from_iterable(
+        [to_generation_fmt(datum) for datum in train_test_dataset[split]]
+    )
+    train_stream = build_stream("train")
+    validation_stream = build_stream("validation")
+    test_stream = build_stream("test")
+    return (train_stream, validation_stream, test_stream)
+
+
 def get_wrapped_evaluate_metric(metric_name: str, convert_to_numeric: bool) -> Callable:
     """Wrapper for running metrics out of evaluate which operate on numeric arrays
     named predictions & references, respectively.
@@ -343,6 +391,16 @@ SUPPORTED_DATASETS = {
         dataset_loader=load_financial_phrasebank_dataset,
         init_text="Classify sentiment for each of the news articles: ",
     ),
+    "billsum": DatasetInfo(
+        verbalizer="{{input}}",
+        dataset_loader=load_billsum_dataset,
+        init_text="",
+    ),
+    "samsum": DatasetInfo(
+        verbalizer="{{input}}",
+        dataset_loader=load_samsum_dataset,
+        init_text="",
+    ),
 }
 
 # Supported metrics in huggingface's evaluate library.
@@ -350,6 +408,7 @@ MetricInfo = namedtuple("MetricInfo", ["metric_name", "convert_to_numeric"])
 METRIC_INFOS = [
     MetricInfo(metric_name="accuracy", convert_to_numeric=True),
     MetricInfo(metric_name="matthews_correlation", convert_to_numeric=True),
+    MetricInfo(metric_name="rouge", convert_to_numeric=False),
 ]
 SUPPORTED_METRICS = {
     metric_info.metric_name: get_wrapped_evaluate_metric(
