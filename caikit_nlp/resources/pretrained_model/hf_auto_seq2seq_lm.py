@@ -89,7 +89,10 @@ class HFAutoSeq2SeqLM(PretrainedModelBase):
             4. preprocess_logits_for_metrics
         """
 
-        training_args = Seq2SeqTrainingArguments(**kwargs)
+        training_args = Seq2SeqTrainingArguments(
+                predict_with_generate=True,
+                **kwargs
+            )
 
         # pylint: disable=duplicate-code
         # TODO: Fetch DataCollator either from property of this
@@ -102,8 +105,6 @@ class HFAutoSeq2SeqLM(PretrainedModelBase):
             "tokenizer": self._tokenizer,
             "optimizers": optimizers,
             "eval_dataset": eval_dataset,
-            # Following only applicable for seq2seq
-            "predict_with_generate": True,
             # "generation_max_length": max_target_length,
         }
 
