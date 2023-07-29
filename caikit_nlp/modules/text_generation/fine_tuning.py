@@ -15,11 +15,7 @@
 
 # Third Party
 from torch.utils.data import IterableDataset
-from transformers import (
-    AutoConfig,
-    AutoTokenizer,
-    Trainer,
-)
+from transformers import AutoConfig, AutoTokenizer, Trainer
 import torch
 
 # First Party
@@ -114,6 +110,7 @@ class FineTuning(ModuleBase):
         error.type_check("<NLP03221895E>", PretrainedModelBase, base_model=base_model)
         ## Generate data loader from stream
         training_dataset: IterableDataset = cls._preprocess_function(
+            base_model=base_model,
             train_stream=train_stream,
             tokenizer=base_model.tokenizer,
             max_source_length=max_source_length,
@@ -259,6 +256,7 @@ class FineTuning(ModuleBase):
 
     @staticmethod
     def _preprocess_function(
+        base_model: PretrainedModelBase,
         train_stream: DataStream[GenerationTrainRecord],
         tokenizer: AutoTokenizer,
         max_source_length: int,
@@ -267,28 +265,14 @@ class FineTuning(ModuleBase):
     ):
         """Pre-process each example to get it prepared for training."""
 
-        # FIXME: Below is currently configured for Seq2Seq only
-
-        def _tokenization_func(
-            example: GenerationTrainRecord,
-        ):
-            model_inputs = tokenizer(
-                example.input,
-                max_length=max_source_length,
-                truncation=True,
-            )
-
-            labels = tokenizer(
-                example.output,
-                max_length=max_target_length,
-                padding="max_length",
-                truncation=True,
-            )
-
-            model_inputs["labels"] = labels["input_ids"]
-
-            return model_inputs
-
-        return SimpleIterableStreamWrapper(
-            train_stream.map(_tokenization_func), shuffle=shuffle
+        (
+            tokenize_function,
+            requires_unwrapping,
+        ) = base_model.build_task_tokenize_function(
+            tokenizer, max_source_length, max_target_length, verbalizer=""
         )
+        mapped_stream = train_stream.map(tokenize_function)
+        if requires_unwrapping:
+            mapped_stream = mapped_stream.flatten()
+
+        return SimpleIterableStreamWrapper(mapped_stream, shuffle=shuffle)
