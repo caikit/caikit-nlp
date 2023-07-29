@@ -89,10 +89,7 @@ class HFAutoSeq2SeqLM(PretrainedModelBase):
             4. preprocess_logits_for_metrics
         """
 
-        training_args = Seq2SeqTrainingArguments(
-                predict_with_generate=True,
-                **kwargs
-            )
+        training_args = Seq2SeqTrainingArguments(predict_with_generate=True, **kwargs)
 
         # pylint: disable=duplicate-code
         # TODO: Fetch DataCollator either from property of this
@@ -197,7 +194,8 @@ class HFAutoSeq2SeqLM(PretrainedModelBase):
                 map(lambda x: IGNORE_ID if x == tokenizer.pad_token_id else x, labels)
             )
             model_inputs["labels"] = labels
-            model_inputs["task_ids"] = 0
+            # TODO: Why do we need task ids here??
+            # model_inputs["task_ids"] = 0
             return model_inputs
 
         return (tokenize_function_seq2seq, False)
