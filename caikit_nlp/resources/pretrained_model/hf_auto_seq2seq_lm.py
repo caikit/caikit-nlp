@@ -74,6 +74,62 @@ class HFAutoSeq2SeqLM(PretrainedModelBase):
         )
         return num_transformer_submodules
 
+    def get_trainer(
+        self,
+        train_dataset: IterableDataset,
+        eval_dataset: Union[IterableDataset, None] = None,
+        optimizers=(None, None),
+        **kwargs
+    ):
+        """
+        NOTE: following parameters are not supported currently:
+            1. model_init
+            2. compute_metrics
+            3. callbacks
+            4. preprocess_logits_for_metrics
+        """
+
+        training_args = Seq2SeqTrainingArguments(**kwargs)
+
+        # pylint: disable=duplicate-code
+        # TODO: Fetch DataCollator either from property of this
+        # class or fetch it as an argument.
+        data_collator = self._get_data_collator(**kwargs)
+
+        trainer_arguments = {
+            "train_dataset": train_dataset,
+            "data_collator": data_collator,
+            "tokenizer": self._tokenizer,
+            "optimizers": optimizers,
+            "eval_dataset": eval_dataset,
+            # Following only applicable for seq2seq
+            "predict_with_generate": True,
+            # "generation_max_length": max_target_length,
+        }
+
+        return Seq2SeqTrainer(self._model, training_args, **trainer_arguments)
+
+    def _get_data_collator(self, **kwargs):
+        """Function to return appropriate data collator based on resource.
+
+        This implementation uses DataCollatorForSeq2Seq
+
+        Args:
+            **kwargs:
+                All the keyword arguments passed to this function
+                will get filtered out to appropriate ones that are
+                applicable to implemented data collator.
+        Returns:
+            transformers.DataCollator
+        """
+
+        applicable_args = ["max_length", "pad_to_multiple_of"]
+        collator_kwargs = {key: kwargs[key] for key in applicable_args if key in kwargs}
+
+        return DataCollatorForSeq2Seq(
+            tokenizer=self._tokenizer, model=self._model, **collator_kwargs
+        )
+
     @staticmethod
     def build_task_tokenize_function(
         tokenizer: "AutoTokenizer",
