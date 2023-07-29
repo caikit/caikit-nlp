@@ -8,49 +8,48 @@ import tempfile
 # Third Party
 import pytest
 
-# First Party
-from caikit_tgis_backend import TGISBackend
-
 # Local
 from caikit_nlp.modules.text_generation import TextGeneration
-from tests.fixtures import CAUSAL_LM_MODEL, SEQ2SEQ_LM_MODEL
+from tests.fixtures import (
+    CAUSAL_LM_MODEL,
+    SEQ2SEQ_LM_MODEL,
+    StubTGISBackend,
+    StubTGISClient,
+)
 
-### Stub Modules
-
-# Helper stubs / mocks; we use these to patch caikit so that we don't actually
-# test the TGIS backend directly, and instead stub the client and inspect the
-# args that we pass to it.
-class StubClient:
-    def __init__(self, base_model_name):
-        pass
-
-    # Generation calls on this class are a mock that explodes when invoked
-    Generate = mock.Mock(side_effect=RuntimeError("TGIS client is a mock!"))
-
-
-class StubBackend(TGISBackend):
-    def get_client(self, base_model_name):
-        return StubClient(base_model_name)
+SAMPLE_TEXT = "Hello stub"
 
 
 def test_bootstrap_and_run_causallm():
     """Check if we can bootstrap and run causallm models"""
 
-    model = TextGeneration.bootstrap(CAUSAL_LM_MODEL, load_backend=StubBackend())
+    model = TextGeneration.bootstrap(CAUSAL_LM_MODEL, load_backend=StubTGISBackend())
 
-    sample_text = "Hello stub"
-    with pytest.raises(RuntimeError):
-        model.run(sample_text, preserve_input_text=True)
+    result = model.run(SAMPLE_TEXT, preserve_input_text=True)
+    StubTGISClient.validate_unary_generate_response(result)
 
 
 def test_bootstrap_and_run_seq2seq():
     """Check if we can bootstrap and run seq2seq models"""
 
-    model = TextGeneration.bootstrap(SEQ2SEQ_LM_MODEL, load_backend=StubBackend())
+    model = TextGeneration.bootstrap(SEQ2SEQ_LM_MODEL, load_backend=StubTGISBackend())
 
-    sample_text = "Hello stub"
-    with pytest.raises(RuntimeError):
-        model.run(sample_text, preserve_input_text=True)
+    result = model.run(SAMPLE_TEXT, preserve_input_text=True)
+    StubTGISClient.validate_unary_generate_response(result)
+
+
+def test_run_multi_response_errors():
+    """Check if multiple responses errors"""
+    with mock.patch.object(StubTGISClient, "Generate") as mock_gen_stream:
+        fake_response = mock.Mock()
+        fake_response.responses = [mock.Mock(), mock.Mock()]
+        mock_gen_stream.return_value = fake_response
+
+        model = TextGeneration.bootstrap(
+            SEQ2SEQ_LM_MODEL, load_backend=StubTGISBackend()
+        )
+        with pytest.raises(ValueError):
+            model.run(SAMPLE_TEXT, preserve_input_text=True)
 
 
 def test_bootstrap_and_save_model():
@@ -66,11 +65,59 @@ def test_bootstrap_and_save_model():
 def test_save_model_can_run():
     """Check if the model we bootstrap and save is able to load and run successfully"""
     model = TextGeneration.bootstrap(SEQ2SEQ_LM_MODEL)
-
     with tempfile.TemporaryDirectory() as model_dir:
         model.save(model_dir)
         del model
-        new_model = TextGeneration.load(model_dir, load_backend=StubBackend())
-        sample_text = "Hello stub"
+        new_model = TextGeneration.load(
+            model_dir, load_backend=StubTGISBackend(mock_remote=True)
+        )
+        result = new_model.run(SAMPLE_TEXT, preserve_input_text=True)
+        StubTGISClient.validate_unary_generate_response(result)
+
+
+def test_remote_tgis_only_model():
+    """Make sure that a model can be created and used that will only work with a
+    remote TGIS connection (i.e. it has no artifacts)
+    """
+    model_name = "model-name"
+    tgis_backend = StubTGISBackend(mock_remote=True)
+    model = TextGeneration(model_name, tgis_backend=tgis_backend)
+    with tempfile.TemporaryDirectory() as model_dir:
+        model.save(model_dir)
+        TextGeneration.load(model_dir, load_backend=tgis_backend)
+
+
+def test_remote_tgis_only_model_error_with_local_backend():
+    """Make sure that an error is raised if a remote-only model tries to load
+    with a TGISBackend that is running in local mode
+    """
+    model_name = "model-name"
+    tgis_backend = StubTGISBackend()
+    with pytest.raises(ValueError):
+        TextGeneration(model_name, tgis_backend=tgis_backend)
+
+
+### Output streaming tests ##############################################################
+
+
+def test_bootstrap_and_run_stream_out():
+    """Check if we can bootstrap and run_stream_out"""
+    model = TextGeneration.bootstrap(SEQ2SEQ_LM_MODEL, load_backend=StubTGISBackend())
+
+    stream_result = model.run_stream_out(SAMPLE_TEXT)
+    StubTGISClient.validate_stream_generate_response(stream_result)
+
+
+def test_run_stream_out_with_runtime_error():
+    """Check if runtime error from client raises"""
+
+    with mock.patch.object(StubTGISClient, "GenerateStream") as mock_gen_stream:
+        mock_gen_stream.side_effect = RuntimeError("An error!")
+
+        model = TextGeneration.bootstrap(
+            SEQ2SEQ_LM_MODEL, load_backend=StubTGISBackend()
+        )
         with pytest.raises(RuntimeError):
-            new_model.run(sample_text, preserve_input_text=True)
+            response = model.run_stream_out(SAMPLE_TEXT, preserve_input_text=True)
+            # Need to iterate over stream for error
+            next(response)

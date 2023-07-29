@@ -14,27 +14,32 @@
 
 
 # Standard
+from typing import Iterable, Optional
 import os
 
 # Third Party
 from transformers import AutoConfig
 
 # First Party
+from caikit import get_config
 from caikit.core.module_backends import BackendBase, backend_types
 from caikit.core.modules import ModuleBase, ModuleConfig, ModuleSaver, module
 from caikit.core.toolkit import error_handler
+from caikit.interfaces.nlp.data_model import (
+    GeneratedTextResult,
+    GeneratedTextStreamResult,
+)
+from caikit.interfaces.nlp.tasks import TextGenerationTask
 from caikit_tgis_backend import TGISBackend
-from caikit_tgis_backend.protobufs import generation_pb2
 import alog
 
 # Local
-from ...data_model import GeneratedResult
 from ...resources.pretrained_model import (
     HFAutoCausalLM,
     HFAutoSeq2SeqLM,
     PretrainedModelBase,
 )
-from .text_generation_task import TextGenerationTask
+from ...toolkit.tgis_utils import TGISGenerationClient
 
 log = alog.use_channel("TXT_GEN")
 error = error_handler.get(log)
@@ -58,12 +63,12 @@ class TextGeneration(ModuleBase):
     def __init__(
         self,
         base_model_name: str,
-        base_model: PretrainedModelBase = None,
-        bos_token: str = None,
-        sep_token: str = None,
-        eos_token: str = None,
-        pad_token: str = None,
-        tgis_backend: TGISBackend = None,
+        base_model: Optional[PretrainedModelBase] = None,
+        bos_token: Optional[str] = None,
+        sep_token: Optional[str] = None,
+        eos_token: Optional[str] = None,
+        pad_token: Optional[str] = None,
+        tgis_backend: Optional[TGISBackend] = None,
     ):
         super().__init__()
 
@@ -80,20 +85,32 @@ class TextGeneration(ModuleBase):
         # Configure the internal client
         # NOTE: This is made optional for the cases where we do not need to execute `.run` function
         # for example, bootstrapping a model to caikit format and saving.
+        self._client = None
         if tgis_backend:
             self._client = tgis_backend.get_client(base_model_name)
             # mark that the model is loaded so that we can unload it later
             self._model_loaded = True
+            # Make sure that we either have a base model or TGIS is running as a
+            # remote-proxy
+            error.value_check(
+                "<NLP51672289E>",
+                self.base_model or not tgis_backend.local_tgis,
+                "Cannot run model {} with TGIS locally since it has no base artifacts",
+                base_model_name,
+            )
 
         self._bos_token = bos_token
         self._sep_token = sep_token
         self._eos_token = eos_token
         self._pad_token = pad_token
+        self.tgis_generation_client = TGISGenerationClient(
+            self.base_model_name, self._eos_token, self._client, self.PRODUCER_ID
+        )
 
     def __del__(self):
         # nothing to unload if we didn't finish loading
-        if self._model_loaded:
-            self.get_backend().unload_model(self._model_path)
+        if self._model_loaded and self.load_backend:
+            self.load_backend.unload_model(self._model_path)
 
     @classmethod
     def bootstrap(cls, base_model_path: str, load_backend: BackendBase = None):
@@ -113,8 +130,10 @@ class TextGeneration(ModuleBase):
                 Object of TextGeneration class (model)
         """
         # pylint: disable=duplicate-code
-        model_config = AutoConfig.from_pretrained(base_model_path)
-
+        model_config = AutoConfig.from_pretrained(
+            base_model_path,
+            local_files_only=not get_config().allow_downloads,
+        )
         resource_type = None
         for resource in cls.supported_resources:
             if model_config.model_type in resource.SUPPORTED_MODEL_TYPES:
@@ -153,15 +172,11 @@ class TextGeneration(ModuleBase):
             model_path: str
                 Folder to save text-generation caikit model
         """
-        saver = ModuleSaver(
-            self,
-            model_path=model_path,
-        )
+        saver = ModuleSaver(self, model_path=model_path)
         with saver:
-            artifacts_dir = "artifacts"
             saver.update_config(
                 {
-                    "artifact_path": artifacts_dir,
+                    "base_model_name": self.base_model_name,
                     "bos_token": self._bos_token,
                     "sep_token": self._sep_token,
                     "eos_token": self._eos_token,
@@ -169,6 +184,9 @@ class TextGeneration(ModuleBase):
                 }
             )
             if self.base_model:
+                artifacts_dir = "artifacts"
+                log.debug("Saving model artifacts to %s", artifacts_dir)
+                saver.update_config({"artifact_path": artifacts_dir})
                 # This will save both tokenizer and base model
                 self.base_model.save(
                     model_path,
@@ -192,11 +210,17 @@ class TextGeneration(ModuleBase):
         error.type_check("<NLP03521359E>", TGISBackend, load_backend=load_backend)
 
         config = ModuleConfig.load(model_path)
-        base_model_path = config.get("artifact_path", "")
-        base_model_path = os.path.join(model_path, base_model_path)
-        error.dir_check("<NLP01983374E>", base_model_path)
+        artifacts_path = config.artifact_path
+        if artifacts_path:
+            base_model_name = os.path.join(model_path, artifacts_path)
+            error.dir_check("<NLP01983374E>", base_model_name)
+            log.debug("Loading with on-disk artifacts: %s", base_model_name)
+        else:
+            base_model_name = config.base_model_name
+            error.type_check("<NLP90686335E>", str, base_model_name=base_model_name)
+            log.debug("Loading with model name: %s", base_model_name)
         return cls(
-            base_model_path,
+            base_model_name,
             bos_token=config.bos_token,
             sep_token=config.sep_token,
             eos_token=config.eos_token,
@@ -204,7 +228,10 @@ class TextGeneration(ModuleBase):
             tgis_backend=load_backend,
         )
 
-    def run(self, text, preserve_input_text=False, max_new_tokens=20, min_new_tokens=0):
+    @TextGenerationTask.taskmethod()
+    def run(
+        self, text, preserve_input_text=False, max_new_tokens=20, min_new_tokens=0
+    ) -> GeneratedTextResult:
         """Run inference against the model running in TGIS.
 
         Args:
@@ -220,51 +247,35 @@ class TextGeneration(ModuleBase):
                 The minimum numbers of tokens to generate.
                 Default: 0 - means no minimum
         Returns:
-            GeneratedResult
+            GeneratedTextResult
                 Generated text result produced by TGIS.
         """
-        log.debug("Building protobuf request to send to TGIS")
-        # pylint: disable=duplicate-code
         if self._model_loaded:
-            res_options = generation_pb2.ResponseOptions(
-                input_text=preserve_input_text,
-                generated_tokens=True,
-                input_tokens=False,
-                token_logprobs=True,
-                token_ranks=True,
-            )
-            stopping = generation_pb2.StoppingCriteria(
-                stop_sequences=[self._eos_token],
-                max_new_tokens=max_new_tokens,
-                min_new_tokens=min_new_tokens,
-            )
-            params = generation_pb2.Parameters(
-                response=res_options,
-                stopping=stopping,
+            return self.tgis_generation_client.unary_generate(
+                text, preserve_input_text, max_new_tokens, min_new_tokens
             )
 
-            gen_reqs = [generation_pb2.GenerationRequest(text=text)]
-            request = generation_pb2.BatchedGenerationRequest(
-                requests=gen_reqs,
-                model_id=self.base_model_name,
-                params=params,
-            )
+    @TextGenerationTask.taskmethod(output_streaming=True)
+    def run_stream_out(
+        self, text: str, preserve_input_text=False, max_new_tokens=20, min_new_tokens=0
+    ) -> Iterable[GeneratedTextStreamResult]:
+        """Run output stream inferencing for text generation module.
 
-            # Currently, we send a batch request of len(x)==1, so we expect one response back
-            with alog.ContextTimer(log.trace, "TGIS request duration: "):
-                batch_response = self._client.Generate(request)
+        Args:
+            text: str
+                Source string to be encoded for generation.
+            preserve_input_text: bool
+                Whether or not the source string should be contained in the generated output,
+                e.g., as a prefix.
+            max_new_tokens: int
+                Maximum tokens for the model to generate
+            min_new_tokens: int
+                Minimum tokens for the model to generate
 
-            # pylint: disable=duplicate-code
-            error.value_check(
-                "<NLP38899018E>",
-                len(batch_response.responses) == 1,
-                f"Got {len(batch_response.responses)} responses for a single request",
-            )
-            response = batch_response.responses[0]
-
-            return GeneratedResult(
-                generated_token_count=response.generated_token_count,
-                text=response.text,
-                stop_reason=response.stop_reason,
-                producer_id=self.PRODUCER_ID,
+        Returns:
+            Iterable[GeneratedTextStreamResult]
+        """
+        if self._model_loaded:
+            return self.tgis_generation_client.stream_generate(
+                text, preserve_input_text, max_new_tokens, min_new_tokens
             )

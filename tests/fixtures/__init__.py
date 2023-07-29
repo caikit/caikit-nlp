@@ -1,6 +1,7 @@
 """Helpful fixtures for configuring individual unit tests.
 """
 # Standard
+from typing import Iterable, Optional
 from unittest import mock
 import os
 import random
@@ -14,6 +15,9 @@ import torch
 import transformers
 
 # First Party
+from caikit.interfaces.nlp.data_model import GeneratedTextResult
+from caikit_tgis_backend import TGISBackend
+from caikit_tgis_backend.tgis_connection import TGISConnection
 import caikit
 
 # Local
@@ -144,6 +148,95 @@ def requires_determinism(request):
     np.random.seed(seed)
     torch.manual_seed(seed)
     transformers.set_seed(seed)
+
+
+### Common TGIS stub classes
+
+# Helper stubs / mocks; we use these to patch caikit so that we don't actually
+# test the TGIS backend directly, and instead stub the client and inspect the
+# args that we pass to it.
+class StubTGISClient:
+    def __init__(self, base_model_name):
+        pass
+
+    def Generate(self, request):
+        return StubTGISClient.unary_generate(request)
+
+    def GenerateStream(self, request):
+        return StubTGISClient.stream_generate(request)
+
+    @staticmethod
+    def unary_generate(request):
+        fake_response = mock.Mock()
+        fake_result = mock.Mock()
+        fake_result.stop_reason = 5
+        fake_result.generated_token_count = 1
+        fake_result.text = "moose"
+        fake_response.responses = [fake_result]
+        return fake_response
+
+    @staticmethod
+    def stream_generate(request):
+        fake_stream = mock.Mock()
+        fake_stream.stop_reason = 5
+        fake_stream.generated_token_count = 1
+        fake_stream.seed = 10
+        token = mock.Mock()
+        token.text = "moose"
+        token.logprob = 0.2
+        fake_stream.tokens = [token]
+        fake_stream.text = "moose"
+        for _ in range(3):
+            yield fake_stream
+
+    @staticmethod
+    def validate_unary_generate_response(result):
+        assert isinstance(result, GeneratedTextResult)
+        assert result.generated_text == "moose"
+        assert result.generated_tokens == 1
+        assert result.finish_reason == 5
+
+    @staticmethod
+    def validate_stream_generate_response(stream_result):
+        assert isinstance(stream_result, Iterable)
+        # Convert to list to more easily check outputs
+        result_list = list(stream_result)
+        assert len(result_list) == 3
+        first_result = result_list[0]
+        assert first_result.generated_text == "moose"
+        assert first_result.tokens[0].text == "moose"
+        assert first_result.tokens[0].logprob == 0.2
+        assert first_result.details.finish_reason == 5
+        assert first_result.details.generated_tokens == 1
+        assert first_result.details.seed == 10
+
+
+class StubTGISBackend(TGISBackend):
+    def __init__(
+        self,
+        config: Optional[dict] = None,
+        temp_dir: Optional[str] = None,
+        mock_remote: bool = False,
+    ):
+        self._temp_dir = temp_dir
+        if mock_remote:
+            config = config or {}
+            config.update({"connection": {"hostname": "foo.{model_id}:123"}})
+        super().__init__(config)
+        self.load_prompt_artifacts = mock.MagicMock()
+
+    def get_client(self, base_model_name):
+        self._model_connections[base_model_name] = TGISConnection(
+            hostname="foo.bar",
+            prompt_dir=self._temp_dir,
+        )
+        return StubTGISClient(base_model_name)
+
+
+@pytest.fixture
+def stub_tgis_backend():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        yield StubTGISBackend(temp_dir=temp_dir)
 
 
 ### Args for commonly used datasets that we can use with our fixtures accepting params
