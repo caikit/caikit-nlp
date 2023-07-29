@@ -64,6 +64,7 @@ def test_train_model_causallm(disable_wip):
     pred = model.run("@bar what a cute cat!")
     assert isinstance(pred, GeneratedTextResult)
 
+
 ############################## Error Cases ################################
 
 

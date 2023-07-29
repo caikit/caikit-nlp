@@ -18,9 +18,6 @@ from torch.utils.data import IterableDataset
 from transformers import (
     AutoConfig,
     AutoTokenizer,
-    DataCollatorForSeq2Seq,
-    Seq2SeqTrainer,
-    Seq2SeqTrainingArguments,
     Trainer,
 )
 import torch
@@ -34,7 +31,7 @@ from caikit.interfaces.nlp.tasks import TextGenerationTask
 import alog
 
 # Local
-from ...data_model import GeneratedTextResult, GenerationTrainRecord
+from ...data_model import GenerationTrainRecord
 from ...resources.pretrained_model.base import PretrainedModelBase
 from ...toolkit.data_stream_wrapper import SimpleIterableStreamWrapper
 from ...toolkit.data_type_utils import get_torch_dtype
@@ -82,7 +79,7 @@ class FineTuning(ModuleBase):
         lr: float = 2e-5,
         # Directory where model predictions and checkpoints will be written
         checkpoint_dir: str = "/tmp",
-        **training_arguments
+        **training_arguments,
     ):
         """
         # FIXME: Below is currently configured for Seq2Seq only
