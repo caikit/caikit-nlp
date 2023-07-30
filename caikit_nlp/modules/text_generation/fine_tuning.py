@@ -15,7 +15,7 @@
 
 # Third Party
 from torch.utils.data import IterableDataset
-from transformers import AutoConfig, AutoTokenizer, Trainer
+from transformers import AutoConfig, AutoTokenizer, Seq2SeqTrainer, Trainer
 import torch
 
 # First Party
@@ -228,13 +228,27 @@ class FineTuning(ModuleBase):
             # and thus the device placement be according to training strategy,
             # its better to let Trainer handle the evaluation / prediction
 
-            # TODO: Add support for passing extra arguments to prediction_step
+            generate_args = {
+                "prediction_loss_only": False,
+            }
+            if isinstance(self.model, Seq2SeqTrainer):
+                generate_args["max_new_tokens"] = max_new_tokens
+                generate_args["min_new_tokens"] = min_new_tokens
+            else:
+                # NOTE: Currently the default trainer doesn't support easy way to run individual
+                # samples without converting them into Datasets etc. There is a
+                # predict_with_generate flag, but it doesn't do anything.
+                # Applicable for transformers==4.31.0
+                error(
+                    "<NLP39984681E>",
+                    NotImplementedError(
+                        f"Generation on {type(self.model)} not support \
+                      currently! Please try saving and running this model in TGIS."
+                    ),
+                )
+
             _, generated_tokens, _ = self.model.prediction_step(
-                self.model.model,
-                tok_tensors,
-                prediction_loss_only=False,
-                max_new_tokens=max_new_tokens,
-                min_new_tokens=min_new_tokens,
+                self.model.model, tok_tensors, **generate_args
             )
 
             generated_text = self.tokenizer.batch_decode(
