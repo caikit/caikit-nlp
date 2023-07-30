@@ -306,6 +306,7 @@ class PretrainedModelBase(ABC, ModuleBase):
         max_source_length: int,
         max_target_length: int,
         verbalizer: str,
+        task_ids: Union[None, int] = None,
     ) -> Tuple[Callable, bool]:
         """Builds tokenizer functions which can be mapped over train streams to process
         data which can then be easily passed to a DataLoader for different model types.
@@ -320,6 +321,10 @@ class PretrainedModelBase(ABC, ModuleBase):
             verbalizer: str
                 Verbalizer template to be used for formatting data. This template may use brackets
                 to indicate where fields from the data model TrainGenerationRecord must be rendered.
+            task_ids: Union[None, int]
+                Task id corresponding particular task for multi-task prompt tuning.
+                NOTE: Only required for MPT (Multi-task prompt tuning)
+                Default: None
 
         Returns:
             Tuple(Callable, bool)

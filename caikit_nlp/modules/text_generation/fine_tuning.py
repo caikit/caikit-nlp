@@ -153,7 +153,6 @@ class FineTuning(ModuleBase):
             "learning_rate": lr,
             "weight_decay": 0.01,
             "save_total_limit": 3,
-            "fp16": True,
             "push_to_hub": False,
             "no_cuda": False,  # Default
             "remove_unused_columns": False,
