@@ -134,6 +134,7 @@ class HFAutoSeq2SeqLM(PretrainedModelBase):
         max_source_length: int,
         max_target_length: int,
         verbalizer: str,
+        task_ids: Union[None, int] = None,
     ) -> Tuple[Callable, bool]:
         """Builds tokenizer functions which can be mapped over train streams to process
         data which can then be easily passed to a DataLoader for seq2seq models.
@@ -148,6 +149,10 @@ class HFAutoSeq2SeqLM(PretrainedModelBase):
             verbalizer: str
                 Verbalizer template to be used for formatting data. This template may use brackets
                 to indicate where fields from the data model TrainGenerationRecord must be rendered.
+            task_ids: Union[None, int]
+                Task id corresponding particular task for multi-task prompt tuning.
+                NOTE: Only required for MPT (Multi-task prompt tuning)
+                Default: None
 
         Returns:
             Tuple(Callable, bool)
@@ -194,8 +199,9 @@ class HFAutoSeq2SeqLM(PretrainedModelBase):
                 map(lambda x: IGNORE_ID if x == tokenizer.pad_token_id else x, labels)
             )
             model_inputs["labels"] = labels
-            # TODO: Why do we need task ids here??
-            # model_inputs["task_ids"] = 0
+            if task_ids is not None:
+                model_inputs["task_ids"] = task_ids
+
             return model_inputs
 
         return (tokenize_function_seq2seq, False)

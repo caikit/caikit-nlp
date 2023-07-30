@@ -16,7 +16,7 @@ Huggingface auto causal LM resource type
 """
 # Standard
 from copy import deepcopy
-from typing import Callable, Tuple
+from typing import Callable, Tuple, Union
 
 # Third Party
 from transformers import AutoModelForCausalLM
@@ -52,6 +52,7 @@ class HFAutoCausalLM(PretrainedModelBase):
         max_source_length: int,
         max_target_length: int,
         verbalizer: str,
+        task_ids: Union[None, int] = None,
     ) -> Tuple[Callable, bool]:
         """Builds tokenizer functions which can be mapped over train streams to process
         data which can then be easily passed to a DataLoader for CausalLM models.
@@ -66,6 +67,10 @@ class HFAutoCausalLM(PretrainedModelBase):
             verbalizer: str
                 Verbalizer template to be used for formatting data. This template may use brackets
                 to indicate where fields from the data model TrainGenerationRecord must be rendered.
+            task_ids: Union[None, int]
+                Task id corresponding particular task for multi-task prompt tuning.
+                NOTE: Only required for MPT (Multi-task prompt tuning)
+                Default: None
 
         Returns:
             Tuple(Callable, bool)
@@ -104,8 +109,9 @@ class HFAutoCausalLM(PretrainedModelBase):
             # Here, we need to yield and manipulate the attention mask to attend
             # to the input seq + the tokens we have seen so far...
             num_target_samples = len(target_ids.input_ids)
-            # TODO: Why do we need task ids here??
-            # source_ids["task_ids"] = 0
+
+            if task_ids is not None:
+                source_ids["task_ids"] = task_ids
 
             def generator_func():
                 for idx in range(num_target_samples):
