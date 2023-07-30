@@ -41,9 +41,10 @@ def set_cpu_device(request):
     """
     visible_devices = os.environ.get("CUDA_VISIBLE_DEVICES", "")
     os.environ["CUDA_VISIBLE_DEVICES"] = ""
-    with mock.patch.object(torch.cuda, 'is_available', return_value=False):
+    with mock.patch.object(torch.cuda, "is_available", return_value=False):
         yield
     os.environ["CUDA_VISIBLE_DEVICES"] = visible_devices
+
 
 @pytest.fixture
 def disable_wip(request):
