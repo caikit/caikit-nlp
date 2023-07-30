@@ -128,7 +128,7 @@ def test_causal_lm_tok_output_correctness(models_cache_dir):
         max_source_length=100,
         max_target_length=100,
         verbalizer="{{input}}",
-        task_ids=0
+        task_ids=0,
     )
     input_tok = causal_lm.tokenizer.encode(sample.input)
     output_tok = causal_lm.tokenizer.encode(sample.output)

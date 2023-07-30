@@ -28,9 +28,9 @@ from caikit_nlp.modules.text_generation.peft_prompt_tuning import TuningType
 from tests.fixtures import (
     causal_lm_dummy_model,
     causal_lm_train_kwargs,
-    set_cpu_device,
     seq2seq_lm_dummy_model,
     seq2seq_lm_train_kwargs,
+    set_cpu_device,
 )
 import caikit_nlp
 

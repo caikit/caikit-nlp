@@ -618,7 +618,7 @@ class PeftPromptTuning(ModuleBase):
         model_path: str,
         torch_dtype: str = None,
         device: str = _DETECT_DEVICE,  # TODO: Union[int, str]
-        ) -> "PeftPromptTuning":
+    ) -> "PeftPromptTuning":
         """Load a PEFT prompt tuning model. This method will currently fail if the original
         model was not saved with the arg value save_base_model=True.
 
@@ -1082,7 +1082,7 @@ class PeftPromptTuning(ModuleBase):
         # Configure accelerator for gradient accumulation
         accelerator_args = {
             "gradient_accumulation_steps": accumulate_steps,
-            "device_placement": True
+            "device_placement": True,
         }
 
         accelerator = Accelerator(**accelerator_args)
