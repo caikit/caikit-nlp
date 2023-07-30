@@ -11,7 +11,12 @@ import caikit
 from caikit_nlp.data_model import GenerationTrainRecord
 from caikit_nlp.modules.text_generation import FineTuning
 from caikit_nlp.resources.pretrained_model import HFAutoCausalLM, HFAutoSeq2SeqLM
-from tests.fixtures import CAUSAL_LM_MODEL, SEQ2SEQ_LM_MODEL, disable_wip, set_cpu_device
+from tests.fixtures import (
+    CAUSAL_LM_MODEL,
+    SEQ2SEQ_LM_MODEL,
+    disable_wip,
+    set_cpu_device,
+)
 
 
 def test_train_model_seq2seq(disable_wip, set_cpu_device):
