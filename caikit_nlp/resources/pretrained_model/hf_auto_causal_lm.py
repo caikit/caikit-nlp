@@ -19,7 +19,7 @@ from copy import deepcopy
 from typing import Callable, Tuple, Union
 
 # Third Party
-from transformers import AutoModelForCausalLM
+from transformers import AutoModelForCausalLM, DataCollatorForLanguageModeling
 from transformers.models.auto import modeling_auto
 
 # First Party
@@ -129,3 +129,32 @@ class HFAutoCausalLM(PretrainedModelBase):
             return DataStream(generator_func)
 
         return (tokenize_function_language_model, True)
+
+    def _get_data_collator(self, **kwargs):
+        """Function to return appropriate data collator based on resource.
+
+        DataCollatorForLanguageModeling is used here which will dynamically
+        padded to maximum length of a batch if they are not all of the same
+        length.
+
+        NOTE: If mlm (masked language modeling) is not passed in kwargs,
+        this function will automatically set it to `False`.
+
+        Args:
+            **kwargs:
+                All the keyword arguments passed to this function
+                will get filtered out to appropriate ones that are
+                applicable to implemented data collator.
+        Returns:
+            transformers.DataCollator
+        """
+
+        applicable_args = ["mlm", "pad_to_multiple_of"]
+        collator_kwargs = {key: kwargs[key] for key in applicable_args if key in kwargs}
+
+        if "mlm" not in collator_kwargs:
+            collator_kwargs["mlm"] = False
+
+        return DataCollatorForLanguageModeling(
+            tokenizer=self._tokenizer, return_tensors="pt", **collator_kwargs
+        )

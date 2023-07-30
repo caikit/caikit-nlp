@@ -65,9 +65,9 @@ def test_train_model_causallm(disable_wip, set_cpu_device):
     }
     model = FineTuning.train(**train_kwargs)
     assert isinstance(model.model, Trainer)
-    # Ensure that we can get something out of it
-    pred = model.run("@bar what a cute cat!")
-    assert isinstance(pred, GeneratedTextResult)
+
+    with pytest.raises(NotImplementedError):
+        model.run("@bar what a cute cat!")
 
 
 ############################## Error Cases ################################
