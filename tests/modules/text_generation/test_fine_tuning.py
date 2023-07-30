@@ -11,10 +11,10 @@ import caikit
 from caikit_nlp.data_model import GenerationTrainRecord
 from caikit_nlp.modules.text_generation import FineTuning
 from caikit_nlp.resources.pretrained_model import HFAutoCausalLM, HFAutoSeq2SeqLM
-from tests.fixtures import CAUSAL_LM_MODEL, SEQ2SEQ_LM_MODEL, disable_wip
+from tests.fixtures import CAUSAL_LM_MODEL, SEQ2SEQ_LM_MODEL, disable_wip, set_cpu_device
 
 
-def test_train_model_seq2seq(disable_wip):
+def test_train_model_seq2seq(disable_wip, set_cpu_device):
     """Ensure that we can finetune a seq2seq model on some toy data for 1+
     steps & run inference."""
     train_kwargs = {
@@ -41,7 +41,7 @@ def test_train_model_seq2seq(disable_wip):
     assert isinstance(pred, GeneratedTextResult)
 
 
-def test_train_model_causallm(disable_wip):
+def test_train_model_causallm(disable_wip, set_cpu_device):
     """Ensure that we can finetune a causal-lm model on some toy data for 1+
     steps & run inference."""
     train_kwargs = {

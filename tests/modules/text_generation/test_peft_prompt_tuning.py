@@ -28,6 +28,7 @@ from caikit_nlp.modules.text_generation.peft_prompt_tuning import TuningType
 from tests.fixtures import (
     causal_lm_dummy_model,
     causal_lm_train_kwargs,
+    set_cpu_device,
     seq2seq_lm_dummy_model,
     seq2seq_lm_train_kwargs,
 )
@@ -36,8 +37,9 @@ import caikit_nlp
 # Indexes into the peft config dictionary to get the actual prompt tuning config
 DEFAULT_ADAPTER = "default"
 
+
 ### Tests validating block interfaces and behavior
-def test_save_and_reload_with_base_model(causal_lm_dummy_model):
+def test_save_and_reload_with_base_model(causal_lm_dummy_model, set_cpu_device):
     """Ensure that we can save a model + its base to a tempdir and reload it."""
     with tempfile.TemporaryDirectory() as model_dir:
         causal_lm_dummy_model.save(model_dir, save_base_model=True)
@@ -109,7 +111,7 @@ def test_verbalizer_cannot_be_static(causal_lm_train_kwargs):
         )
 
 
-def test_train_model(causal_lm_train_kwargs):
+def test_train_model(causal_lm_train_kwargs, set_cpu_device):
     """Ensure that we can train a model on some toy data for 1+ steps & run inference."""
     patch_kwargs = {
         "num_epochs": 1,
@@ -138,7 +140,7 @@ def test_train_model(causal_lm_train_kwargs):
     assert isinstance(pred, GeneratedTextResult)
 
 
-def test_train_model_classification_record(causal_lm_train_kwargs):
+def test_train_model_classification_record(causal_lm_train_kwargs, set_cpu_device):
     """Ensure that we can train a model on some toy data for 1+ steps & run inference."""
     patch_kwargs = {
         "num_epochs": 1,
