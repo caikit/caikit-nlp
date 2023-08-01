@@ -8,7 +8,7 @@ Welcome to the README.md page of `caikit-nlp`! This repository contains the nece
 
 ### Getting Started
 
-To help you quickly get started with using Caikit, we have prepared a [Jupyter notebook](examples/Caikit_Getting_Started.ipynb) that can be run in Google Colab. Caikit is a powerful library that leverages prompt tuning and fine-tuning to enhance the capabilities of our main open-source project.
+To help you quickly get started with using Caikit, we have prepared a [Jupyter notebook](examples/Caikit_Getting_Started.ipynb) that can be run in Google Colab. Caikit-nlp is a powerful library that leverages prompt tuning and fine-tuning to add NLP domain capabilities to caikit.
 
 
 ### Contributing
