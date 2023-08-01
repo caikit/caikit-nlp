@@ -322,11 +322,14 @@ class FineTuning(ModuleBase):
     ):
         """Pre-process each example to get it prepared for training."""
 
+        # TODO: We are using a default verbalizer which is strictly tied to
+        # source training record currently. We need to figure out a better
+        # way to make verbalizer optional for build_task_tokenize_function
         (
             tokenize_function,
             requires_unwrapping,
         ) = base_model.build_task_tokenize_function(
-            tokenizer, max_source_length, max_target_length, verbalizer=""
+            tokenizer, max_source_length, max_target_length, verbalizer="{{input}}"
         )
         mapped_stream = train_stream.map(tokenize_function)
         if requires_unwrapping:
