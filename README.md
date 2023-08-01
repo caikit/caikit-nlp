@@ -1,6 +1,6 @@
 # Caikit NLP
 
-Welcome to the README.md page of `caikit-nlp`! This repository contains the necessary code and resources to enable prompt tuning and fine-tuning capabilities for [caikit](https://github.com/caikit/caikit).
+Welcome to the README.md page of `caikit-nlp`! This repository provides NLP domain capabilities running on [caikit](https://github.com/caikit/caikit) framework.
 
 ## Introduction
 
