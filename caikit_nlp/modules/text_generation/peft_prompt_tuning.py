@@ -173,7 +173,7 @@ class PeftPromptTuning(ModuleBase):
     def run(
         self,
         text: str,
-        device: Optional[Union[str, int]] = _DETECT_DEVICE,
+        device = None,
         max_new_tokens=20,
         min_new_tokens=0,
     ) -> GeneratedTextResult:
@@ -182,8 +182,8 @@ class PeftPromptTuning(ModuleBase):
         Args:
             text: str
                 Input string to be used to the generation model.
-            device: Optional[Union[str, int]]
-                Device on which we should run inference; by default, we use the detected device.
+            device
+                deprecated. By default, we use the detected device.
             max_new_tokens: int
                 The maximum numbers of tokens to generate.
                 Default: 20
@@ -195,6 +195,10 @@ class PeftPromptTuning(ModuleBase):
             GeneratedTextResult
                 Generated text result produced by PEFT / Transformers.
         """
+        if device is not None:
+            log.warning("Specifying device is deprecated and ignored, please update your calling argument, in future " +
+                        "versions this will cause an error.")
+        device = _DETECT_DEVICE
         # Apply the verbalizer to our text string
         verbalized_text = render_verbalizer(self.verbalizer, {"input": text})
         # Apply the tokenizer to the sample text & move to correct device
