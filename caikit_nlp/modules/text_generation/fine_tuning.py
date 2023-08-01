@@ -55,6 +55,7 @@ error = error_handler.get(log)
 class FineTuning(ModuleBase):
     """Module to provide fine-tuning support for text generation task"""
 
+    RANDOM_SEED = 73
     supported_resources = [HFAutoCausalLM, HFAutoSeq2SeqLM]
 
     def __init__(
@@ -86,6 +87,7 @@ class FineTuning(ModuleBase):
         batch_size: int = 8,
         num_epochs: int = 5,
         accumulate_steps: int = 32,
+        random_seed: int = RANDOM_SEED,
         lr: float = 2e-5,
         # Directory where model predictions and checkpoints will be written
         checkpoint_dir: str = "/tmp",
@@ -201,6 +203,7 @@ class FineTuning(ModuleBase):
             "per_device_train_batch_size": batch_size,
             "per_device_eval_batch_size": batch_size,
             "num_train_epochs": num_epochs,
+            "seed": random_seed,
             # NOTE: We have disabled evaluation for now
             "do_eval": False,
             # "evaluation_strategy ": "epoch",
@@ -214,6 +217,7 @@ class FineTuning(ModuleBase):
             "gradient_accumulation_steps": accumulate_steps,
             "eval_accumulation_steps": accumulate_steps,
             # eval_steps=1,
+            # load_best_model_at_end
             **training_arguments,
             **dtype_based_params,
         }
