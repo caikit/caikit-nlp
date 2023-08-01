@@ -17,7 +17,7 @@ from typing import Optional
 
 # Third Party
 from torch.utils.data import IterableDataset
-from transformers import AutoConfig, AutoTokenizer, Seq2SeqTrainer, Trainer
+from transformers import AutoConfig, AutoTokenizer
 import torch
 
 # First Party
@@ -30,7 +30,11 @@ import alog
 
 # Local
 from ...data_model import GenerationTrainRecord
-from ...resources.pretrained_model import PretrainedModelBase, HFAutoCausalLM, HFAutoSeq2SeqLM
+from ...resources.pretrained_model import (
+    HFAutoCausalLM,
+    HFAutoSeq2SeqLM,
+    PretrainedModelBase,
+)
 from ...toolkit.data_stream_wrapper import SimpleIterableStreamWrapper
 from ...toolkit.data_type_utils import get_torch_dtype
 
@@ -54,14 +58,14 @@ class FineTuning(ModuleBase):
     supported_resources = [HFAutoCausalLM, HFAutoSeq2SeqLM]
 
     def __init__(
-            self,
-            tokenizer,
-            model,
-            bos_token: Optional[str] = None,
-            sep_token: Optional[str] = None,
-            eos_token: Optional[str] = None,
-            pad_token: Optional[str] = None,
-        ):
+        self,
+        tokenizer,
+        model,
+        bos_token: Optional[str] = None,
+        sep_token: Optional[str] = None,
+        eos_token: Optional[str] = None,
+        pad_token: Optional[str] = None,
+    ):
         super().__init__()
 
         self.tokenizer = tokenizer
@@ -151,7 +155,6 @@ class FineTuning(ModuleBase):
                     ),
                 )
             log.debug("Bootstrapping base resource [%s]", base_model)
-            breakpoint()
             base_model = resource_type.bootstrap(base_model, torch_dtype=torch_dtype)
 
         else:
@@ -241,7 +244,9 @@ class FineTuning(ModuleBase):
         # and thus cause incompatibilities in `run` function
         trainer.save_model(checkpoint_dir)
 
-        model = resource_type.bootstrap(checkpoint_dir, checkpoint_dir, torch_dtype=torch_dtype)
+        model = resource_type.bootstrap(
+            checkpoint_dir, checkpoint_dir, torch_dtype=torch_dtype
+        )
 
         return cls(
             tokenizer=model.tokenizer,
