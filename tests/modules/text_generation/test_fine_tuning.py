@@ -40,7 +40,7 @@ def test_train_model_seq2seq(disable_wip, set_cpu_device):
         "torch_dtype": torch.float32,
     }
     model = FineTuning.train(**train_kwargs)
-    assert isinstance(model.model, Trainer)
+    assert isinstance(model.model, HFAutoSeq2SeqLM)
     # Ensure that we can get something out of it
     pred = model.run("@bar what a cute cat!")
     assert isinstance(pred, GeneratedTextResult)
@@ -64,10 +64,11 @@ def test_train_model_causallm(disable_wip, set_cpu_device):
         "torch_dtype": torch.float32,
     }
     model = FineTuning.train(**train_kwargs)
-    assert isinstance(model.model, Trainer)
+    assert isinstance(model.model, HFAutoCausalLM)
 
-    with pytest.raises(NotImplementedError):
-        model.run("@bar what a cute cat!")
+    # Ensure that we can get something out of it
+    pred = model.run("@bar what a cute cat!")
+    assert isinstance(pred, GeneratedTextResult)
 
 
 ############################## Error Cases ################################

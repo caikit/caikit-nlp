@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Standard
+from typing import Optional
 
 # Third Party
 from torch.utils.data import IterableDataset
@@ -28,7 +30,7 @@ import alog
 
 # Local
 from ...data_model import GenerationTrainRecord
-from ...resources.pretrained_model.base import PretrainedModelBase
+from ...resources.pretrained_model import PretrainedModelBase, HFAutoCausalLM, HFAutoSeq2SeqLM
 from ...toolkit.data_stream_wrapper import SimpleIterableStreamWrapper
 from ...toolkit.data_type_utils import get_torch_dtype
 
@@ -49,17 +51,25 @@ error = error_handler.get(log)
 class FineTuning(ModuleBase):
     """Module to provide fine-tuning support for text generation task"""
 
-    def __init__(self, tokenizer, model):
+    supported_resources = [HFAutoCausalLM, HFAutoSeq2SeqLM]
+
+    def __init__(
+            self,
+            tokenizer,
+            model,
+            bos_token: Optional[str] = None,
+            sep_token: Optional[str] = None,
+            eos_token: Optional[str] = None,
+            pad_token: Optional[str] = None,
+        ):
         super().__init__()
 
         self.tokenizer = tokenizer
-        # NOTE: self.model here can also be HF trainer. This is because
-        # if we have just trained the model then the models weights might be
-        # available in different devices (and configuration), depending on
-        # how it was trained. For now (July 10, 2023), we are not trying to
-        # extract the model out from trainer itself, since that would require
-        # us to essentially save it or reconstruct it to do normal inferring.
         self.model = model
+        self._bos_token = bos_token
+        self._sep_token = sep_token
+        self._eos_token = eos_token
+        self._pad_token = pad_token
 
     @classmethod
     def train(
@@ -122,11 +132,12 @@ class FineTuning(ModuleBase):
         # text_generation module. In future, we would want to consolidate this into
         # a base class or a toolkit function
         # pylint: disable=duplicate-code
+        resource_type = None
+
         ## Load base model
         if isinstance(base_model, str):
             model_config = AutoConfig.from_pretrained(base_model)
 
-            resource_type = None
             for resource in cls.supported_resources:
                 if model_config.model_type in resource.SUPPORTED_MODEL_TYPES:
                     resource_type = resource
@@ -140,7 +151,12 @@ class FineTuning(ModuleBase):
                     ),
                 )
             log.debug("Bootstrapping base resource [%s]", base_model)
+            breakpoint()
             base_model = resource_type.bootstrap(base_model, torch_dtype=torch_dtype)
+
+        else:
+            # base_model is actually a resource object
+            resource_type = type(base_model)
 
         error.type_check("<NLP03221895E>", PretrainedModelBase, base_model=base_model)
         ## Generate data loader from stream
@@ -217,17 +233,23 @@ class FineTuning(ModuleBase):
 
         # Start training via Trainer.train function
         trainer.train()
-        # NOTE: By default the model would be available in different ways
-        # depending on where and how it was trained. So we need to fetch the model
-        # from the trainer depending on the training method, like fsdp, ddp etc.
-        # For simplicity, currently we will use trainer as the model since it anyways
-        # enable the `predict` function on it and has all the layers of the model
-        # distributed already, so it will be most optimized to use trainer to
-        # perform prediction at this stage.
+
+        # save the model temporarily and reload it
+        # this is done, since otherwise the model might be distributed in different
+        # devices, in which case its better to use trainer's `prediction_step`
+        # functions, but then, they don't always give API similar to `generate`
+        # and thus cause incompatibilities in `run` function
+        trainer.save_model(checkpoint_dir)
+
+        model = resource_type.bootstrap(checkpoint_dir, checkpoint_dir, torch_dtype=torch_dtype)
 
         return cls(
-            tokenizer=base_model.tokenizer,
-            model=trainer,
+            tokenizer=model.tokenizer,
+            model=model,
+            bos_token=model.tokenizer.bos_token or None,
+            sep_token=model.tokenizer.sep_token or None,
+            eos_token=model.tokenizer.eos_token or None,
+            pad_token=model.tokenizer.pad_token or None,
         )
 
     # pylint: disable=unused-argument
@@ -252,53 +274,35 @@ class FineTuning(ModuleBase):
             GeneratedTextResult
                 Generated text result
         """
-        if isinstance(self.model, Trainer):
-            # Apply the tokenizer to the sample text & move to correct device
-            tok_tensors = self.tokenizer(text, return_tensors="pt")
-            # NOTE: below function is prediction on trainer, for which we need to supply
-            # the actual underlying model as well
-            # NOTE: We are using prediction_step instead of calling `self.model.generate`
-            # because this way HF Trainer automatically handles device placement of the
-            # data and model. Since the model is with Trainer at this point
-            # and thus the device placement be according to training strategy,
-            # its better to let Trainer handle the evaluation / prediction
 
-            generate_args = {
-                "prediction_loss_only": False,
-            }
-            if isinstance(self.model, Seq2SeqTrainer):
-                generate_args["max_new_tokens"] = max_new_tokens
-                generate_args["min_new_tokens"] = min_new_tokens
-            else:
-                # NOTE: Currently the default trainer doesn't support easy way to run individual
-                # samples without converting them into Datasets etc. There is a
-                # predict_with_generate flag, but it doesn't do anything.
-                # Applicable for transformers==4.31.0
-                error(
-                    "<NLP39984681E>",
-                    NotImplementedError(
-                        f"Generation on {type(self.model)} not support \
-                      currently! Please try saving and running this model in TGIS."
-                    ),
-                )
+        inputs = self.model.tokenizer(text, return_tensors="pt")
+        generate_ids = self.model.model.generate(
+            input_ids=inputs["input_ids"],
+            max_new_tokens=max_new_tokens,
+            min_new_tokens=min_new_tokens,
+            use_cache=True,
+        )
 
-            _, generated_tokens, _ = self.model.prediction_step(
-                self.model.model, tok_tensors, **generate_args
+        token_count = generate_ids.size(1) - 1
+        preds = [
+            self.model.tokenizer.decode(
+                g, skip_special_tokens=True, clean_up_tokenization_spaces=True
             )
-
-            generated_text = self.tokenizer.batch_decode(
-                generated_tokens.detach().cpu().numpy(), skip_special_tokens=True
-            )[0]
-
+            for g in generate_ids
+        ]
+        if generate_ids[0][-1].item() == self._eos_token:
+            finish_reason = "EOS_TOKEN"
+        elif generate_ids.size(1) - 1 == max_new_tokens:
+            finish_reason = "MAX_TOKENS"
         else:
-            error(
-                "<NLP38929392E>",
-                NotImplementedError(
-                    "model prediction on pre-finetuned model currently not supported"
-                ),
-            )
+            finish_reason = "OTHER"
 
-        return GeneratedTextResult(generated_text=generated_text)
+        return GeneratedTextResult(
+            generated_tokens=token_count,
+            generated_text=preds[0],
+            finish_reason=finish_reason,
+            producer_id=self.PRODUCER_ID,
+        )
 
     ################################## Private Functions ###########################################
 
