@@ -82,6 +82,10 @@ class HFAutoSeq2SeqLM(PretrainedModelBase):
         **kwargs
     ):
         """
+        Args:
+            *kwargs: arguments supported by HF Seq2SeqTrainingArguments:
+            https://huggingface.co/docs/transformers/v4.30.0/en/main_classes/trainer#transformers.Seq2SeqTrainingArguments
+
         NOTE: following parameters are not supported currently:
             1. model_init
             2. compute_metrics

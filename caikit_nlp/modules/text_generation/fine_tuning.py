@@ -78,7 +78,42 @@ class FineTuning(ModuleBase):
         **training_arguments,
     ):
         """
-        # FIXME: Below is currently configured for Seq2Seq only
+        Fine-tune a CausalLM or Seq2seq text generation model.
+
+        Args:
+            base_model:  Union[str, caikit_nlp.resources.pretrained_model.base.PretrainedModelBase]
+                Base resource model used for underlying generation.
+            train_stream: DataStream[GenerationTrainRecord] or DataStream[ClassificationTrainRecord]
+                Data to be used for training the prompt vectors of the generation model.
+            torch_dtype: str
+                TODO: Optional[Union[torch.dtype, str]]
+                Data type to use for training/inference of the underlying text generation model.
+                If no value is provided, we pull from torch_dtype in config. If an in memory
+                resource is provided which does not match the specified data type, the model
+                underpinning the resource will be converted in place to the correct torch dtype.
+            max_source_length: int
+                Max length of input sequences being considered. Default: 256.
+            max_target_length: int
+                Max length of target sequences being predicted. Default: 128.
+            batch_size: int
+                Batch sized to be used for training / evaluation data. Default: 8.
+            num_epochs: int
+                Number of epochs to tune the model. Default: 20.
+            accumulate_steps: int
+                Number of steps to use for gradient accumulation. Default: 1.
+            lr: float
+                Learning rate to be used while tuning model. Default: 2e-5.
+            checkpoint_dir: str
+                Directory where model predictions and checkpoints will be written
+            **training_arguments:
+                Arguments supported by HF Training Arguments.
+                TrainingArguments:
+                    https://huggingface.co/docs/transformers/v4.30.0/en/main_classes/trainer#transformers.TrainingArguments
+                Seq2SeqTrainingArguments:
+                    https://huggingface.co/docs/transformers/v4.30.0/en/main_classes/trainer#transformers.Seq2SeqTrainingArguments
+        Returns:
+            FineTuning
+                Instance of this class with fine-tuned models.
         """
 
         torch_dtype = get_torch_dtype(torch_dtype)

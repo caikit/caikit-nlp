@@ -173,6 +173,7 @@ class PeftPromptTuning(ModuleBase):
     def run(
         self,
         text: str,
+        device: Optional[Union[str, int]] = _DETECT_DEVICE,
         max_new_tokens=20,
         min_new_tokens=0,
     ) -> GeneratedTextResult:
@@ -181,6 +182,8 @@ class PeftPromptTuning(ModuleBase):
         Args:
             text: str
                 Input string to be used to the generation model.
+            device: Optional[Union[str, int]]
+                Device on which we should run inference; by default, we use the detected device.
             max_new_tokens: int
                 The maximum numbers of tokens to generate.
                 Default: 20
@@ -197,7 +200,8 @@ class PeftPromptTuning(ModuleBase):
         # Apply the tokenizer to the sample text & move to correct device
         tok_tensors = self.tokenizer(verbalized_text, return_tensors="pt")
 
-        inputs = {k: v.to(self.model.device) for k, v in tok_tensors.items()}
+        device = PeftPromptTuning._get_device(device)
+        inputs = {k: v.to(device) for k, v in tok_tensors.items()}
         with torch.no_grad():
             # Run tokenized tensors through the rest of the PEFT model
             outputs = self.model.generate(
@@ -1079,13 +1083,10 @@ class PeftPromptTuning(ModuleBase):
             num_warmup_steps=0,
             num_training_steps=(len(train_dataloader) * num_epochs),
         )
-        # Configure accelerator for gradient accumulation
-        accelerator_args = {
-            "gradient_accumulation_steps": accumulate_steps,
-            "device_placement": True,
-        }
 
-        accelerator = Accelerator(**accelerator_args)
+        accelerator = Accelerator(
+            gradient_accumulation_steps=accumulate_steps, device_placement=True
+        )
 
         for epoch in range(num_epochs):
             model.train()
