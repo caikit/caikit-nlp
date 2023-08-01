@@ -415,14 +415,26 @@ class PeftPromptTuning(ModuleBase):
         if not tuning_config.output_model_types:
             output_model_types = base_model.PROMPT_OUTPUT_TYPES
         else:
+            # If the first element is not PromptOutputModelType, assume the entire list
+            # isn't and convert
+            if not isinstance(
+                tuning_config.output_model_types[0], PromptOutputModelType
+            ):
+                output_model_types = []
+                for output_type in tuning_config.output_model_types:
+                    output_model_types.append(PromptOutputModelType(output_type))
+            else:
+                output_model_types = tuning_config.output_model_types
             error.value_check(
                 "<NLP36947542E>",
-                tuning_config.output_model_types in base_model.PROMPT_OUTPUT_TYPES,
+                all(
+                    output_type in base_model.PROMPT_OUTPUT_TYPES
+                    for output_type in output_model_types
+                ),
                 "{} not supported for base model type {}".format(
-                    tuning_config.output_model_types, base_model.model_type
+                    output_model_types, base_model.MODEL_TYPE
                 ),
             )
-            output_model_types = tuning_config.output_model_types
 
         error.value_check(
             "<NLP30542004E>", len(output_model_types) <= base_model.MAX_NUM_TRANSFORMERS
