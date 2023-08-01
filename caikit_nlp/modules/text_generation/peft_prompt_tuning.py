@@ -173,7 +173,7 @@ class PeftPromptTuning(ModuleBase):
     def run(
         self,
         text: str,
-        device: Optional[Union[str, int]] = _DETECT_DEVICE,
+        device: Optional[Union[str, int]] = None,
         max_new_tokens=20,
         min_new_tokens=0,
     ) -> GeneratedTextResult:
@@ -183,7 +183,7 @@ class PeftPromptTuning(ModuleBase):
             text: str
                 Input string to be used to the generation model.
             device: Optional[Union[str, int]]
-                Device on which we should run inference; by default, we use the detected device.
+                Deprecated. By default, we use the detected device.
             max_new_tokens: int
                 The maximum numbers of tokens to generate.
                 Default: 20
@@ -195,6 +195,11 @@ class PeftPromptTuning(ModuleBase):
             GeneratedTextResult
                 Generated text result produced by PEFT / Transformers.
         """
+        if device is not None:
+            log.warning(
+                "Specifying device is deprecated and ignored, please update your calling argument"
+            )
+        device = self._DETECT_DEVICE
         # Apply the verbalizer to our text string
         verbalized_text = render_verbalizer(self.verbalizer, {"input": text})
         # Apply the tokenizer to the sample text & move to correct device
@@ -415,14 +420,26 @@ class PeftPromptTuning(ModuleBase):
         if not tuning_config.output_model_types:
             output_model_types = base_model.PROMPT_OUTPUT_TYPES
         else:
+            # If the first element is not PromptOutputModelType, assume the entire list
+            # isn't and convert
+            if not isinstance(
+                tuning_config.output_model_types[0], PromptOutputModelType
+            ):
+                output_model_types = []
+                for output_type in tuning_config.output_model_types:
+                    output_model_types.append(PromptOutputModelType(output_type))
+            else:
+                output_model_types = tuning_config.output_model_types
             error.value_check(
                 "<NLP36947542E>",
-                tuning_config.output_model_types in base_model.PROMPT_OUTPUT_TYPES,
+                all(
+                    output_type in base_model.PROMPT_OUTPUT_TYPES
+                    for output_type in output_model_types
+                ),
                 "{} not supported for base model type {}".format(
-                    tuning_config.output_model_types, base_model.model_type
+                    output_model_types, base_model.MODEL_TYPE
                 ),
             )
-            output_model_types = tuning_config.output_model_types
 
         error.value_check(
             "<NLP30542004E>", len(output_model_types) <= base_model.MAX_NUM_TRANSFORMERS
