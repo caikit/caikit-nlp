@@ -90,14 +90,6 @@ class TextGeneration(ModuleBase):
             self._client = tgis_backend.get_client(base_model_name)
             # mark that the model is loaded so that we can unload it later
             self._model_loaded = True
-            # Make sure that we either have a base model or TGIS is running as a
-            # remote-proxy
-            error.value_check(
-                "<NLP51672289E>",
-                self.base_model or not tgis_backend.local_tgis,
-                "Cannot run model {} with TGIS locally since it has no base artifacts",
-                base_model_name,
-            )
 
         self._bos_token = bos_token
         self._sep_token = sep_token
