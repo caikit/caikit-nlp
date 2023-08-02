@@ -158,6 +158,7 @@ class PeftPromptTuning(ModuleBase):
         self.tuning_type = tuning_type
         self.output_model_types = output_model_types
 
+    # pylint: disable=duplicate-code
     def __del__(self):
         del self.model
         del self.tokenizer
