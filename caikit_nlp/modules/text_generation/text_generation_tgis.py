@@ -18,7 +18,6 @@ from typing import Iterable, Optional
 import os
 
 # First Party
-from caikit import get_config
 from caikit.core.module_backends import BackendBase, backend_types
 from caikit.core.modules import module, ModuleBase, ModuleConfig, ModuleSaver
 from caikit.core.toolkit import error_handler
