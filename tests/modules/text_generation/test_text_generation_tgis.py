@@ -17,19 +17,6 @@ from tests.fixtures import (
     StubTGISClient,
 )
 
-### Stub Modules
-
-# Helper stubs / mocks; we use these to patch caikit so that we don't actually
-# test the TGIS backend directly, and instead stub the client and inspect the
-# args that we pass to it.
-class StubClient:
-    def __init__(self, base_model_name):
-        pass
-
-    # Generation calls on this class are a mock that explodes when invoked
-    Generate = mock.Mock(side_effect=RuntimeError("TGIS client is a mock!"))
-
-
 SAMPLE_TEXT = "Hello stub"
 
 
