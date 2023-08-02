@@ -33,24 +33,6 @@ class PromptOutputModelType(Enum):
 
 
 @caikit.core.dataobject(package="caikit_data_model.caikit_nlp")
-class StopReason(Enum):
-    NOT_FINISHED = 0
-    MAX_TOKENS = 1
-    EOS_TOKEN = 2
-    CANCELLED = 3
-    TIME_LIMIT = 4
-    STOP_SEQUENCE = 5
-
-
-@caikit.core.dataobject(package="caikit_data_model.caikit_nlp")
-class GeneratedResult(DataObjectBase):
-    generated_token_count: int
-    text: str
-    stop_reason: StopReason
-    producer_id: caikit.core.data_model.ProducerId
-
-
-@caikit.core.dataobject(package="caikit_data_model.caikit_nlp")
 class GenerationTrainRecord(DataObjectBase):
     input: str
     output: str

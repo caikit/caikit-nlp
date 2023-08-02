@@ -15,7 +15,7 @@
 Huggingface auto causal LM resource type
 """
 # Standard
-from typing import List
+from typing import Callable, List, Tuple
 
 # Third Party
 from transformers import AutoModelForSeq2SeqLM
@@ -27,11 +27,14 @@ from caikit.core.toolkit import error_handler
 import alog
 
 # Local
-from ...data_model import PromptOutputModelType
+from ...data_model import GenerationTrainRecord, PromptOutputModelType
+from ...toolkit.verbalizer_utils import render_verbalizer
 from .base import PretrainedModelBase
 
 log = alog.use_channel("HFRBAS")
 error = error_handler.get(log)
+
+IGNORE_ID = -100
 
 
 @module(
@@ -64,3 +67,74 @@ class HFAutoSeq2SeqLM(PretrainedModelBase):
             "<NLP71505742E>", 0 < num_transformer_submodules <= cls.MAX_NUM_TRANSFORMERS
         )
         return num_transformer_submodules
+
+    @staticmethod
+    def build_task_tokenize_function(
+        tokenizer: "AutoTokenizer",
+        max_source_length: int,
+        max_target_length: int,
+        verbalizer: str,
+    ) -> Tuple[Callable, bool]:
+        """Builds tokenizer functions which can be mapped over train streams to process
+        data which can then be easily passed to a DataLoader for seq2seq models.
+
+        Args:
+            tokenizer: AutoTokenizer
+                Model tokenizer to be used in preprocessing, i.e., when we iterate over our data.
+            max_source_length: int
+                Max length of sequences being considered.
+            max_target_length: int
+                Max length of target sequences being predicted.
+            verbalizer: str
+                Verbalizer template to be used for formatting data. This template may use brackets
+                to indicate where fields from the data model TrainGenerationRecord must be rendered.
+
+        Returns:
+            Tuple(Callable, bool)
+                Mappable tokenize function to be applied to a training stream and bool indicating
+                whether or not the stream needs to be unwrapped, i.e., each sample yields a stream
+                of 1+ samples.
+        """
+
+        def tokenize_function_seq2seq(
+            example: GenerationTrainRecord,
+        ) -> "BatchEncoding":
+            """Tokenization function to be used for seq2seq training; this function consumes a
+            GenerationTrainRecord object and applies the verbalizer to it followed by
+            the model tokenizer. Finally, we postprocess by ignoring pad tokens in the label IDs.
+
+            Args:
+                example: GenerationTrainRecord
+                    Training data model object to convert a form we can learn on.
+
+            Returns:
+                transformers.tokenization_utils_base.BatchEncoding
+                    encoded tokenization output corresponding to the input example.
+            """
+            # Render the verbalizer template with the attributes of this data model example
+            source = render_verbalizer(verbalizer, example)
+
+            targets = example.output
+            model_inputs = tokenizer(
+                source,
+                max_length=max_source_length,
+                padding="max_length",
+                truncation=True,
+            )
+            labels = tokenizer(
+                targets,
+                max_length=max_target_length,
+                padding="max_length",
+                truncation=True,
+            )
+
+            labels = labels["input_ids"]
+
+            labels = list(
+                map(lambda x: IGNORE_ID if x == tokenizer.pad_token_id else x, labels)
+            )
+            model_inputs["labels"] = labels
+            model_inputs["task_ids"] = 0
+            return model_inputs
+
+        return (tokenize_function_seq2seq, False)

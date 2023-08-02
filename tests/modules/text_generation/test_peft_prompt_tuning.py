@@ -6,6 +6,7 @@ if we start running the tests on CPUs in our CI; we'll likely want
 to separate these in the future.
 """
 # Standard
+from typing import Iterable
 from unittest import mock
 import os
 import tempfile
@@ -15,6 +16,10 @@ import pytest
 import torch
 
 # First Party
+from caikit.interfaces.nlp.data_model import (
+    GeneratedTextResult,
+    GeneratedTextStreamResult,
+)
 import caikit
 
 # Local
@@ -53,13 +58,21 @@ def test_save_and_reload_without_base_model(causal_lm_dummy_model):
         causal_lm_dummy_model.save(model_dir, save_base_model=False)
         # For now, if we are missing the base model at load time, we throw ValueError
         with pytest.raises(ValueError):
-            reloaded_model = caikit_nlp.load(model_dir)
+            caikit_nlp.load(model_dir)
 
 
 def test_run_model(causal_lm_dummy_model):
     """Ensure that we can run a model and get the right type out."""
     pred = causal_lm_dummy_model.run("This text doesn't matter")
-    assert isinstance(pred, caikit_nlp.data_model.GeneratedResult)
+    assert isinstance(pred, GeneratedTextResult)
+
+
+def test_run_stream_out_model(causal_lm_dummy_model):
+    """Ensure that we can run output streaming on a model and get the right type out."""
+    pred_stream = causal_lm_dummy_model.run_stream_out("This text doesn't matter")
+    assert isinstance(pred_stream, Iterable)
+    for pred in pred_stream:
+        assert isinstance(pred, GeneratedTextStreamResult)
 
 
 def test_verbalizer_rendering(causal_lm_dummy_model):
@@ -122,7 +135,7 @@ def test_train_model(causal_lm_train_kwargs):
     assert model.model.dtype is torch.float32
     # Ensure that we can get something out of it
     pred = model.run("@bar what a cute cat!")
-    assert isinstance(pred, caikit_nlp.data_model.GeneratedResult)
+    assert isinstance(pred, GeneratedTextResult)
 
 
 def test_train_model_classification_record(causal_lm_train_kwargs):
@@ -151,7 +164,49 @@ def test_train_model_classification_record(causal_lm_train_kwargs):
     assert model.model.dtype is torch.float32
     # Ensure that we can get something out of it
     pred = model.run("@bar what a cute cat!")
-    assert isinstance(pred, caikit_nlp.data_model.GeneratedResult)
+    assert isinstance(pred, GeneratedTextResult)
+
+
+def test_prompt_output_types(causal_lm_train_kwargs):
+    # Try training a model with outpout_model_types set to a list of strings
+    patch_kwargs = {
+        "num_epochs": 1,
+        "verbalizer": "Tweet text : {{input}} Label : ",
+        "train_stream": caikit.core.data_model.DataStream.from_iterable(
+            [
+                caikit_nlp.data_model.GenerationTrainRecord(
+                    input="@foo what a cute dog!", output="no complaint"
+                ),
+                caikit_nlp.data_model.GenerationTrainRecord(
+                    input="@bar this is the worst idea ever.", output="complaint"
+                ),
+            ]
+        ),
+        "torch_dtype": torch.bfloat16,
+        "device": "cpu",
+        "tuning_config": caikit_nlp.data_model.TuningConfig(
+            num_virtual_tokens=8,
+            prompt_tuning_init_text="hello world",
+            output_model_types=["DECODER"],
+        ),
+    }
+    causal_lm_train_kwargs.update(patch_kwargs)
+    model = caikit_nlp.modules.text_generation.PeftPromptTuning.train(
+        **causal_lm_train_kwargs
+    )
+    assert model
+
+    patch_kwargs = {
+        "tuning_config": caikit_nlp.data_model.TuningConfig(
+            num_virtual_tokens=8,
+            prompt_tuning_init_text="hello world",
+            output_model_types=[caikit_nlp.data_model.PromptOutputModelType.DECODER],
+        )
+    }
+    model = caikit_nlp.modules.text_generation.PeftPromptTuning.train(
+        **causal_lm_train_kwargs
+    )
+    assert model
 
 
 ### Implementation details

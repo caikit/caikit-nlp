@@ -78,7 +78,7 @@ def subsample_stream(
     # the whole stream as a buffer, and build a new stream from the result.
     # NOTE - this is not a great idea, but for now we do this, so that the sampling
     # is exactly the same as the original MPT code, since sampling the whole dataset
-    # with a max buffer would load evertything into memory anyway.
+    # with a max buffer would load everything into memory anyway.
     shuffled_dataset = random.sample(list(train_stream), num_shots)
     return DataStream.from_iterable(shuffled_dataset)
 
@@ -274,7 +274,7 @@ def register_prompt_tuning_args(subparser: argparse.ArgumentParser):
 
 def validate_common_args(args: argparse.Namespace):
     """Validates common arguments to ensure values make sense; here, we only validate things that
-    are not (or should not) be handled within the block.
+    are not (or should not) be handled within the module.
 
     Args:
         args: argparse.Namespace
