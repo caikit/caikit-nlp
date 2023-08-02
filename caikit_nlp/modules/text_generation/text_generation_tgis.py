@@ -18,9 +18,8 @@ from typing import Iterable, Optional
 import os
 
 # First Party
-from caikit.core import modules
 from caikit.core.module_backends import BackendBase, backend_types
-from caikit.core.modules import ModuleBase, ModuleConfig, ModuleSaver
+from caikit.core.modules import ModuleBase, ModuleConfig, ModuleSaver, module
 from caikit.core.toolkit import error_handler
 from caikit.interfaces.nlp.data_model import (
     GeneratedTextResult,
@@ -42,7 +41,7 @@ log = alog.use_channel("TXT_GEN")
 error = error_handler.get(log)
 
 
-@modules.module(backend_type=TGISBackend.backend_type, base_module=TextGeneration)
+@module(backend_type=TGISBackend.backend_type, base_module=TextGeneration)
 class TextGenerationTGIS(ModuleBase):
     """Module to provide text generation capabilities"""
 

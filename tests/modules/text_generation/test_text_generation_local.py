@@ -4,8 +4,10 @@
 import os
 import tempfile
 
+# First Party
+from caikit.interfaces.nlp.data_model import GeneratedTextResult
+
 # Local
-from caikit_nlp.data_model import GeneratedResult
 from caikit_nlp.modules.text_generation import TextGeneration
 from tests.fixtures import CAUSAL_LM_MODEL, SEQ2SEQ_LM_MODEL
 
@@ -19,7 +21,7 @@ def test_bootstrap_and_run_causallm():
 
     sample_text = "Hello stub"
     generated_text = model.run(sample_text)
-    assert isinstance(generated_text, GeneratedResult)
+    assert isinstance(generated_text, GeneratedTextResult)
 
 
 def test_bootstrap_and_run_seq2seq():
@@ -29,7 +31,7 @@ def test_bootstrap_and_run_seq2seq():
 
     sample_text = "Hello stub"
     generated_text = model.run(sample_text)
-    assert isinstance(generated_text, GeneratedResult)
+    assert isinstance(generated_text, GeneratedTextResult)
 
 
 def test_bootstrap_and_save_model():
@@ -52,4 +54,4 @@ def test_save_model_can_run():
         new_model = TextGeneration.load(model_dir)
         sample_text = "Hello stub"
         generated_text = new_model.run(sample_text)
-        assert isinstance(generated_text, GeneratedResult)
+        assert isinstance(generated_text, GeneratedTextResult)
