@@ -63,9 +63,6 @@ class TextGeneration(ModuleBase):
         self.base_model = base_model
         self.base_model_name = base_model_name
 
-        # Set _model_loaded as False by default. This will only get set to True if
-        # we enable the tgis_backend and we are able to fetch the client successfully.
-        self._model_loaded = False
         self._eos_token = eos_token
 
     # pylint: disable=duplicate-code
