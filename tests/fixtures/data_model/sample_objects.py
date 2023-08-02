@@ -1,8 +1,10 @@
 # First Party
-from caikit.core.data_model import GeneratedResult, enums
+from caikit.interfaces.nlp.data_model import FinishReason, GeneratedTextResult
 
-generated_response = GeneratedResult(
-    generated_token_count=2, text="foo bar", stop_reason=enums.StopReason.STOP_SEQUENCE
+generated_response = GeneratedTextResult(
+    generated_text="foo bar",
+    generated_tokens=2,
+    finish_reason=FinishReason.STOP_SEQUENCE,
 )
 
 # Add an example of one of each new data model types that you've defined within your extension
