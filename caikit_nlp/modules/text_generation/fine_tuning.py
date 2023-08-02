@@ -100,7 +100,7 @@ class FineTuning(ModuleBase):
             base_model:  Union[str, caikit_nlp.resources.pretrained_model.base.PretrainedModelBase]
                 Base resource model used for underlying generation.
             train_stream: DataStream[GenerationTrainRecord] or DataStream[ClassificationTrainRecord]
-                Data to be used for training the prompt vectors of the generation model.
+                Data to be used for fine-tuning the generation model.
             torch_dtype: str
                 TODO: Optional[Union[torch.dtype, str]]
                 Data type to use for training/inference of the underlying text generation model.

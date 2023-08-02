@@ -248,7 +248,7 @@ class PretrainedModelBase(ABC, ModuleBase):
     ):
         """
         Args:
-            *kwargs: arguments supported by HF TrainingArguments:
+            **kwargs: arguments supported by HF TrainingArguments:
             https://huggingface.co/docs/transformers/v4.30.0/en/main_classes/trainer#transformers.TrainingArguments
 
         NOTE: following parameters are not supported currently:
