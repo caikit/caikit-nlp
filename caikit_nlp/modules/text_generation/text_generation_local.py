@@ -127,7 +127,9 @@ class TextGeneration(ModuleBase):
         """
 
         config = ModuleConfig.load(model_path)
-        base_model_path = config.get("artifact_path", "")
+        base_model_path = config.get("artifact_path")
+        error.type_check("<NLP35174683E>", str, base_model_path=base_model_path)
+
         base_model_path = os.path.join(model_path, base_model_path)
         error.dir_check("<NLP01983374E>", base_model_path)
         return cls.bootstrap(base_model_path)
