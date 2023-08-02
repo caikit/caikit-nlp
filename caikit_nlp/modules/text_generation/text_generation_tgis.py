@@ -19,7 +19,7 @@ import os
 
 # First Party
 from caikit.core.module_backends import BackendBase, backend_types
-from caikit.core.modules import module, ModuleBase, ModuleConfig, ModuleSaver
+from caikit.core.modules import ModuleBase, ModuleConfig, ModuleSaver, module
 from caikit.core.toolkit import error_handler
 from caikit.interfaces.nlp.data_model import (
     GeneratedTextResult,
@@ -35,13 +35,13 @@ from ...resources.pretrained_model import (
     HFAutoSeq2SeqLM,
     PretrainedModelBase,
 )
-from .text_generation_local import TextGeneration
 from ...toolkit.tgis_utils import TGISGenerationClient
+from .text_generation_local import TextGeneration
 
 log = alog.use_channel("TXT_GEN")
 error = error_handler.get(log)
 
-
+# pylint: disable=too-many-instance-attributes
 @module(backend_type=TGISBackend.backend_type, base_module=TextGeneration)
 class TextGenerationTGIS(ModuleBase):
     """Module to provide text generation capabilities"""
