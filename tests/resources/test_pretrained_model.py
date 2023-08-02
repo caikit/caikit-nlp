@@ -128,6 +128,7 @@ def test_causal_lm_tok_output_correctness(models_cache_dir):
         max_source_length=100,
         max_target_length=100,
         verbalizer="{{input}}",
+        task_ids=0,
     )
     input_tok = causal_lm.tokenizer.encode(sample.input)
     output_tok = causal_lm.tokenizer.encode(sample.output)
@@ -170,6 +171,7 @@ def test_seq2seq_tokenize_func_contains_unwrapped_stream(models_cache_dir):
         max_source_length=100,
         max_target_length=100,
         verbalizer="{{input}}",
+        task_ids=0,
     )
     tok_res = tok_func(GenerationTrainRecord(input="hello", output="world"))
     map_stream = SAMPLE_TRAINING_DATA.map(tok_func)
@@ -195,6 +197,7 @@ def test_seq2seq_tok_output_correctness(models_cache_dir):
         max_source_length=20,
         max_target_length=20,
         verbalizer="{{input}}",
+        task_ids=0,
     )
     input_tok = seq2seq.tokenizer.encode(sample.input)
     output_tok = seq2seq.tokenizer.encode(sample.output)

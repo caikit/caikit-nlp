@@ -199,6 +199,7 @@ class PeftPromptTuning(ModuleBase):
         verbalized_text = render_verbalizer(self.verbalizer, {"input": text})
         # Apply the tokenizer to the sample text & move to correct device
         tok_tensors = self.tokenizer(verbalized_text, return_tensors="pt")
+
         device = PeftPromptTuning._get_device(device)
         inputs = {k: v.to(device) for k, v in tok_tensors.items()}
         with torch.no_grad():
@@ -616,7 +617,12 @@ class PeftPromptTuning(ModuleBase):
             module_saver.update_config(config_options)
 
     @classmethod
-    def load(cls, model_path: str, torch_dtype: str = None) -> "PeftPromptTuning":
+    def load(
+        cls,
+        model_path: str,
+        torch_dtype: str = None,
+        device: str = _DETECT_DEVICE,  # TODO: Union[int, str]
+    ) -> "PeftPromptTuning":
         """Load a PEFT prompt tuning model. This method will currently fail if the original
         model was not saved with the arg value save_base_model=True.
 
@@ -638,7 +644,7 @@ class PeftPromptTuning(ModuleBase):
             torch_dtype = str_to_torch_dtype(config.trained_torch_dtype)
         if config.has_base_model:
             # TODO: Implement logic for resource loading
-            device = cls._get_device(cls._DETECT_DEVICE)
+            device = cls._get_device(device)
             model_config = os.path.join(model_path, config.full_model_path)
             peft_config = PeftConfig.from_pretrained(model_config)
             if peft_config.task_type == "CAUSAL_LM":
@@ -1017,7 +1023,7 @@ class PeftPromptTuning(ModuleBase):
             tokenize_function,
             requires_unwrapping,
         ) = base_model.build_task_tokenize_function(
-            tokenizer, max_source_length, max_target_length, verbalizer
+            tokenizer, max_source_length, max_target_length, verbalizer, task_ids=0
         )
         mapped_stream = train_stream.map(tokenize_function)
         if requires_unwrapping:
@@ -1077,8 +1083,11 @@ class PeftPromptTuning(ModuleBase):
             num_warmup_steps=0,
             num_training_steps=(len(train_dataloader) * num_epochs),
         )
-        # Configure accelerator for gradient accumulation
-        accelerator = Accelerator(gradient_accumulation_steps=accumulate_steps)
+
+        accelerator = Accelerator(
+            gradient_accumulation_steps=accumulate_steps, device_placement=True
+        )
+
         for epoch in range(num_epochs):
             model.train()
             total_loss = 0
