@@ -35,12 +35,13 @@ from ...resources.pretrained_model import (
     HFAutoSeq2SeqLM,
     PretrainedModelBase,
 )
+from ...toolkit.tgis_utils import TGISGenerationClient
 from .text_generation_local import TextGeneration
 
 log = alog.use_channel("TXT_GEN")
 error = error_handler.get(log)
 
-
+# pylint: disable=too-many-instance-attributes
 @module(backend_type=TGISBackend.backend_type, base_module=TextGeneration)
 class TextGenerationTGIS(ModuleBase):
     """Module to provide text generation capabilities"""

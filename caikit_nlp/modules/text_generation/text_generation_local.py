@@ -26,7 +26,6 @@ from caikit.core.modules import ModuleBase, ModuleConfig, ModuleSaver, module
 from caikit.core.toolkit import error_handler
 from caikit.interfaces.nlp.data_model import GeneratedTextResult
 from caikit.interfaces.nlp.tasks import TextGenerationTask
-
 import alog
 
 # Local
@@ -69,6 +68,7 @@ class TextGeneration(ModuleBase):
         self._model_loaded = False
         self._eos_token = eos_token
 
+    # pylint: disable=duplicate-code
     def __del__(self):
         del self.base_model
         gc.collect()
