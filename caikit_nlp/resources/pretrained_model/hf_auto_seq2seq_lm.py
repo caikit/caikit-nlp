@@ -15,10 +15,16 @@
 Huggingface auto causal LM resource type
 """
 # Standard
-from typing import Callable, List, Tuple
+from typing import Callable, List, Tuple, Union
 
 # Third Party
-from transformers import AutoModelForSeq2SeqLM
+from torch.utils.data import IterableDataset
+from transformers import (
+    AutoModelForSeq2SeqLM,
+    DataCollatorForSeq2Seq,
+    Seq2SeqTrainer,
+    Seq2SeqTrainingArguments,
+)
 from transformers.models.auto import modeling_auto
 
 # First Party
@@ -68,12 +74,72 @@ class HFAutoSeq2SeqLM(PretrainedModelBase):
         )
         return num_transformer_submodules
 
+    def get_trainer(
+        self,
+        train_dataset: IterableDataset,
+        eval_dataset: Union[IterableDataset, None] = None,
+        optimizers=(None, None),
+        **kwargs
+    ):
+        """
+        Args:
+            *kwargs: arguments supported by HF Seq2SeqTrainingArguments:
+            https://huggingface.co/docs/transformers/v4.30.0/en/main_classes/trainer#transformers.Seq2SeqTrainingArguments
+
+        NOTE: following parameters are not supported currently:
+            1. model_init
+            2. compute_metrics
+            3. callbacks
+            4. preprocess_logits_for_metrics
+        """
+
+        # NOTE: predict_with_generate is incompatible with fsdp
+        training_args = Seq2SeqTrainingArguments(**kwargs)
+
+        # pylint: disable=duplicate-code
+        # TODO: Fetch DataCollator either from property of this
+        # class or fetch it as an argument.
+        data_collator = self._get_data_collator(**kwargs)
+
+        trainer_arguments = {
+            "train_dataset": train_dataset,
+            "data_collator": data_collator,
+            "tokenizer": self._tokenizer,
+            "optimizers": optimizers,
+            "eval_dataset": eval_dataset,
+            # "generation_max_length": max_target_length,
+        }
+
+        return Seq2SeqTrainer(self._model, training_args, **trainer_arguments)
+
+    def _get_data_collator(self, **kwargs):
+        """Function to return appropriate data collator based on resource.
+
+        This implementation uses DataCollatorForSeq2Seq
+
+        Args:
+            **kwargs:
+                All the keyword arguments passed to this function
+                will get filtered out to appropriate ones that are
+                applicable to implemented data collator.
+        Returns:
+            transformers.DataCollator
+        """
+
+        applicable_args = ["max_length", "pad_to_multiple_of"]
+        collator_kwargs = {key: kwargs[key] for key in applicable_args if key in kwargs}
+
+        return DataCollatorForSeq2Seq(
+            tokenizer=self._tokenizer, model=self._model, **collator_kwargs
+        )
+
     @staticmethod
     def build_task_tokenize_function(
         tokenizer: "AutoTokenizer",
         max_source_length: int,
         max_target_length: int,
         verbalizer: str,
+        task_ids: Union[None, int] = None,
     ) -> Tuple[Callable, bool]:
         """Builds tokenizer functions which can be mapped over train streams to process
         data which can then be easily passed to a DataLoader for seq2seq models.
@@ -88,6 +154,10 @@ class HFAutoSeq2SeqLM(PretrainedModelBase):
             verbalizer: str
                 Verbalizer template to be used for formatting data. This template may use brackets
                 to indicate where fields from the data model TrainGenerationRecord must be rendered.
+            task_ids: Union[None, int]
+                Task id corresponding particular task for multi-task prompt tuning.
+                NOTE: Only required for MPT (Multi-task prompt tuning)
+                Default: None
 
         Returns:
             Tuple(Callable, bool)
@@ -134,7 +204,9 @@ class HFAutoSeq2SeqLM(PretrainedModelBase):
                 map(lambda x: IGNORE_ID if x == tokenizer.pad_token_id else x, labels)
             )
             model_inputs["labels"] = labels
-            model_inputs["task_ids"] = 0
+            if task_ids is not None:
+                model_inputs["task_ids"] = task_ids
+
             return model_inputs
 
         return (tokenize_function_seq2seq, False)

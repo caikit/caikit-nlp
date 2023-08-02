@@ -16,10 +16,10 @@ Huggingface auto causal LM resource type
 """
 # Standard
 from copy import deepcopy
-from typing import Callable, Tuple
+from typing import Callable, Tuple, Union
 
 # Third Party
-from transformers import AutoModelForCausalLM
+from transformers import AutoModelForCausalLM, DataCollatorForLanguageModeling
 from transformers.models.auto import modeling_auto
 
 # First Party
@@ -52,6 +52,7 @@ class HFAutoCausalLM(PretrainedModelBase):
         max_source_length: int,
         max_target_length: int,
         verbalizer: str,
+        task_ids: Union[None, int] = None,
     ) -> Tuple[Callable, bool]:
         """Builds tokenizer functions which can be mapped over train streams to process
         data which can then be easily passed to a DataLoader for CausalLM models.
@@ -66,6 +67,10 @@ class HFAutoCausalLM(PretrainedModelBase):
             verbalizer: str
                 Verbalizer template to be used for formatting data. This template may use brackets
                 to indicate where fields from the data model TrainGenerationRecord must be rendered.
+            task_ids: Union[None, int]
+                Task id corresponding particular task for multi-task prompt tuning.
+                NOTE: Only required for MPT (Multi-task prompt tuning)
+                Default: None
 
         Returns:
             Tuple(Callable, bool)
@@ -104,7 +109,9 @@ class HFAutoCausalLM(PretrainedModelBase):
             # Here, we need to yield and manipulate the attention mask to attend
             # to the input seq + the tokens we have seen so far...
             num_target_samples = len(target_ids.input_ids)
-            source_ids["task_ids"] = 0
+
+            if task_ids is not None:
+                source_ids["task_ids"] = task_ids
 
             def generator_func():
                 for idx in range(num_target_samples):
@@ -122,3 +129,32 @@ class HFAutoCausalLM(PretrainedModelBase):
             return DataStream(generator_func)
 
         return (tokenize_function_language_model, True)
+
+    def _get_data_collator(self, **kwargs):
+        """Function to return appropriate data collator based on resource.
+
+        DataCollatorForLanguageModeling is used here which will dynamically
+        padded to maximum length of a batch if they are not all of the same
+        length.
+
+        NOTE: If mlm (masked language modeling) is not passed in kwargs,
+        this function will automatically set it to `False`.
+
+        Args:
+            **kwargs:
+                All the keyword arguments passed to this function
+                will get filtered out to appropriate ones that are
+                applicable to implemented data collator.
+        Returns:
+            transformers.DataCollator
+        """
+
+        applicable_args = ["mlm", "pad_to_multiple_of"]
+        collator_kwargs = {key: kwargs[key] for key in applicable_args if key in kwargs}
+
+        if "mlm" not in collator_kwargs:
+            collator_kwargs["mlm"] = False
+
+        return DataCollatorForLanguageModeling(
+            tokenizer=self._tokenizer, return_tensors="pt", **collator_kwargs
+        )
