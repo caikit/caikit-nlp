@@ -36,7 +36,9 @@ SAMPLE_TEXT = "Hello stub"
 def test_bootstrap_and_run_causallm():
     """Check if we can bootstrap and run causallm models"""
 
-    model = TextGenerationTGIS.bootstrap(CAUSAL_LM_MODEL, load_backend=StubTGISBackend())
+    model = TextGenerationTGIS.bootstrap(
+        CAUSAL_LM_MODEL, load_backend=StubTGISBackend()
+    )
 
     result = model.run(SAMPLE_TEXT, preserve_input_text=True)
     StubTGISClient.validate_unary_generate_response(result)
@@ -45,7 +47,9 @@ def test_bootstrap_and_run_causallm():
 def test_bootstrap_and_run_seq2seq():
     """Check if we can bootstrap and run seq2seq models"""
 
-    model = TextGenerationTGIS.bootstrap(SEQ2SEQ_LM_MODEL, load_backend=StubTGISBackend())
+    model = TextGenerationTGIS.bootstrap(
+        SEQ2SEQ_LM_MODEL, load_backend=StubTGISBackend()
+    )
 
     result = model.run(SAMPLE_TEXT, preserve_input_text=True)
     StubTGISClient.validate_unary_generate_response(result)
@@ -105,7 +109,9 @@ def test_remote_tgis_only_model():
 
 def test_bootstrap_and_run_stream_out():
     """Check if we can bootstrap and run_stream_out"""
-    model = TextGenerationTGIS.bootstrap(SEQ2SEQ_LM_MODEL, load_backend=StubTGISBackend())
+    model = TextGenerationTGIS.bootstrap(
+        SEQ2SEQ_LM_MODEL, load_backend=StubTGISBackend()
+    )
 
     stream_result = model.run_stream_out(SAMPLE_TEXT)
     StubTGISClient.validate_stream_generate_response(stream_result)
