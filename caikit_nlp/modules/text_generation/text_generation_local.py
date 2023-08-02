@@ -24,16 +24,17 @@ import torch
 # First Party
 from caikit.core.modules import ModuleBase, ModuleConfig, ModuleSaver, module
 from caikit.core.toolkit import error_handler
+from caikit.interfaces.nlp.data_model import GeneratedTextResult
+from caikit.interfaces.nlp.tasks import TextGenerationTask
+
 import alog
 
 # Local
-from ...data_model import GeneratedResult
 from ...resources.pretrained_model import (
     HFAutoCausalLM,
     HFAutoSeq2SeqLM,
     PretrainedModelBase,
 )
-from .text_generation_task import TextGenerationTask
 
 log = alog.use_channel("TXT_GEN")
 error = error_handler.get(log)
@@ -171,7 +172,7 @@ class TextGeneration(ModuleBase):
         max_new_tokens=20,
         min_new_tokens=0,
         **kwargs
-    ):
+    ) -> "GeneratedTextResult":
         """Run inference against the model running in TGIS.
 
         Args:
@@ -209,7 +210,7 @@ class TextGeneration(ModuleBase):
                 Any other parameters to pass to generate as specified in GenerationConfig.
                 https://huggingface.co/docs/transformers/v4.30.0/en/main_classes/text_generation#transformers.GenerationConfig
         Returns:
-            GeneratedResult
+            GeneratedTextResult
                 Generated text result produced by the model.
         """
 
@@ -233,14 +234,14 @@ class TextGeneration(ModuleBase):
             for g in generate_ids
         ]
         if generate_ids[0][-1].item() == self._eos_token:
-            stop_reason = "EOS_TOKEN"
+            finish_reason = "EOS_TOKEN"
         elif generate_ids.size(1) - 1 == max_new_tokens:
-            stop_reason = "MAX_TOKENS"
+            finish_reason = "MAX_TOKENS"
         else:
-            stop_reason = "OTHER"
-        return GeneratedResult(
-            generated_token_count=token_count,
-            text=preds[0],
-            stop_reason=stop_reason,
+            finish_reason = "OTHER"
+        return GeneratedTextResult(
+            generated_tokens=token_count,
+            generated_text=preds[0],
+            finish_reason=finish_reason,
             producer_id=self.PRODUCER_ID,
         )
