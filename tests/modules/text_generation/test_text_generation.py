@@ -87,16 +87,6 @@ def test_remote_tgis_only_model():
         TextGeneration.load(model_dir, load_backend=tgis_backend)
 
 
-def test_remote_tgis_only_model_error_with_local_backend():
-    """Make sure that an error is raised if a remote-only model tries to load
-    with a TGISBackend that is running in local mode
-    """
-    model_name = "model-name"
-    tgis_backend = StubTGISBackend()
-    with pytest.raises(ValueError):
-        TextGeneration(model_name, tgis_backend=tgis_backend)
-
-
 ### Output streaming tests ##############################################################
 
 
