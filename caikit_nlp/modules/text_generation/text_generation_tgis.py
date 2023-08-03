@@ -15,6 +15,7 @@
 
 # Standard
 from typing import Iterable, Optional, Union
+import os
 
 # First Party
 from caikit.core.module_backends import BackendBase, backend_types
@@ -145,10 +146,15 @@ class TextGenerationTGIS(ModuleBase):
         error.type_check("<NLP03521359E>", TGISBackend, load_backend=load_backend)
 
         config = ModuleConfig.load(model_path)
-
-        model_name = config.model_name
-        error.type_check("<NLP90686335E>", str, model_name=model_name)
-        log.debug("Loading with model name: %s", model_name)
+        artifacts_path = config.artifact_path
+        if artifacts_path:
+            model_name = os.path.join(model_path, artifacts_path)
+            error.dir_check("<NLP01983374E>", model_name)
+            log.debug("Loading with on-disk artifacts: %s", model_name)
+        else:
+            model_name = config.model_name
+            error.type_check("<NLP90686335E>", str, model_name=model_name)
+            log.debug("Loading with model name: %s", model_name)
         return cls(
             model_name,
             bos_token=config.bos_token,
