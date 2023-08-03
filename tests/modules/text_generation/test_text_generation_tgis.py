@@ -59,7 +59,9 @@ def test_run_multi_response_errors():
 def test_bootstrap_and_save_model():
     """Check if we can bootstrap and save the model successfully"""
 
-    model = TextGenerationTGIS.bootstrap(SEQ2SEQ_LM_MODEL)
+    model = TextGenerationTGIS.bootstrap(
+        SEQ2SEQ_LM_MODEL, load_backend=StubTGISBackend()
+    )
 
     with tempfile.TemporaryDirectory() as model_dir:
         model.save(model_dir)
