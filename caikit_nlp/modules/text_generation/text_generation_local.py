@@ -14,9 +14,9 @@
 
 
 # Standard
+from typing import Optional
 import gc
 import os
-from typing import Optional
 
 # Third Party
 from torch.utils.data import IterableDataset
@@ -126,7 +126,6 @@ class TextGeneration(ModuleBase):
             base_model,
             eos_token=eos_token,
         )
-
 
     @classmethod
     def train(
@@ -313,7 +312,6 @@ class TextGeneration(ModuleBase):
             pad_token=model.tokenizer.pad_token or None,
         )
 
-
     @classmethod
     def load(cls, model_path: str) -> "TextGeneration":
         """Function to load text-generation model
@@ -370,7 +368,7 @@ class TextGeneration(ModuleBase):
         num_beams=1,
         max_new_tokens=20,
         min_new_tokens=0,
-        **kwargs
+        **kwargs,
     ) -> "GeneratedTextResult":
         """Run inference against the model running in TGIS.
 
@@ -445,8 +443,7 @@ class TextGeneration(ModuleBase):
             producer_id=self.PRODUCER_ID,
         )
 
-
-        ################################## Private Functions ###########################################
+    ################################## Private Functions ######################################
 
     @staticmethod
     def _preprocess_function(

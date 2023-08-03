@@ -4,12 +4,12 @@
 import os
 import tempfile
 
+# Third Party
+import torch
+
 # First Party
 from caikit.interfaces.nlp.data_model import GeneratedTextResult
 import caikit
-
-# Third Party
-import torch
 
 # Local
 from caikit_nlp.data_model import GenerationTrainRecord
@@ -67,7 +67,9 @@ def test_save_model_can_run():
         generated_text = new_model.run(sample_text)
         assert isinstance(generated_text, GeneratedTextResult)
 
+
 ############################## Training ################################
+
 
 def test_train_model_seq2seq(disable_wip, set_cpu_device):
     """Ensure that we can finetune a seq2seq model on some toy data for 1+
@@ -91,12 +93,10 @@ def test_train_model_seq2seq(disable_wip, set_cpu_device):
     }
     model = TextGeneration.train(**train_kwargs)
     assert isinstance(model.model, HFAutoSeq2SeqLM)
-    with tempfile.TemporaryDirectory() as model_dir:
-        model.save(model_dir)
-        new_model = TextGeneration.load(model_dir)
-        sample_text = "Hello stub"
-        generated_text = new_model.run(sample_text)
-        assert isinstance(generated_text, GeneratedTextResult)
+
+    # Ensure that we can get something out of it
+    pred = model.run("@bar what a cute cat!")
+    assert isinstance(pred, GeneratedTextResult)
 
 
 def test_train_model_save_and_load(disable_wip, set_cpu_device):
@@ -117,9 +117,13 @@ def test_train_model_save_and_load(disable_wip, set_cpu_device):
     }
     model = TextGeneration.train(**train_kwargs)
     assert isinstance(model.model, HFAutoSeq2SeqLM)
-    # Ensure that we can get something out of it
-    pred = model.run("@bar what a cute cat!")
-    assert isinstance(pred, GeneratedTextResult)
+    with tempfile.TemporaryDirectory() as model_dir:
+        model.save(model_dir)
+        new_model = TextGeneration.load(model_dir)
+        sample_text = "Hello stub"
+        generated_text = new_model.run(sample_text)
+        assert isinstance(generated_text, GeneratedTextResult)
+
 
 def test_train_model_causallm(disable_wip, set_cpu_device):
     """Ensure that we can finetune a causal-lm model on some toy data for 1+
