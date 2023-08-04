@@ -31,19 +31,27 @@ log = alog.use_channel("TGIS_UTILS")
 error = error_handler.get(log)
 
 
-def get_params(preserve_input_text, eos_token, max_new_tokens, min_new_tokens):
+def get_params(
+    preserve_input_text,
+    eos_token,
+    max_new_tokens,
+    min_new_tokens,
+    truncate_input_tokens,
+):
     """Get generation parameters
 
     Args:
-       preserve_input_text: str
+        preserve_input_text: str
            Whether or not the source string should be contained in the generated output,
            e.g., as a prefix.
-       eos_token: str
+        eos_token: str
            A special token representing the end of a sentence.
-       max_new_tokens: int
+        max_new_tokens: int
            The maximum numbers of tokens to generate.
-       min_new_tokens: int
+        min_new_tokens: int
            The minimum numbers of tokens to generate.
+        truncate_input_tokens: int
+            Truncate inputs to provided number of tokens.
     """
     res_options = generation_pb2.ResponseOptions(
         input_text=preserve_input_text,
@@ -60,6 +68,7 @@ def get_params(preserve_input_text, eos_token, max_new_tokens, min_new_tokens):
     params = generation_pb2.Parameters(
         response=res_options,
         stopping=stopping,
+        truncate_input_tokens=truncate_input_tokens,
     )
     return params
 
@@ -77,7 +86,12 @@ class TGISGenerationClient:
         self.prefix_id = prefix_id
 
     def unary_generate(
-        self, text, preserve_input_text, max_new_tokens, min_new_tokens
+        self,
+        text,
+        preserve_input_text,
+        max_new_tokens,
+        min_new_tokens,
+        truncate_input_tokens,
     ) -> GeneratedTextResult:
         """Generate unary output from model in TGIS
 
@@ -93,7 +107,11 @@ class TGISGenerationClient:
             min_new_tokens: int
                 The minimum numbers of tokens to generate.
                 Default: 0 - means no minimum
-
+            truncate_input_tokens: int
+                Truncate inputs to provided number of tokens. This can be
+                use to avoid failing due to input being longer than
+                configured limits.
+                0 - means don't truncate, thus throw error.
         Returns:
             GeneratedTextResult
                 Generated text result produced by TGIS.
@@ -114,6 +132,7 @@ class TGISGenerationClient:
             eos_token=self.eos_token,
             max_new_tokens=max_new_tokens,
             min_new_tokens=min_new_tokens,
+            truncate_input_tokens=truncate_input_tokens,
         )
 
         gen_reqs = [generation_pb2.GenerationRequest(text=text)]
@@ -150,7 +169,12 @@ class TGISGenerationClient:
         )
 
     def stream_generate(
-        self, text, preserve_input_text, max_new_tokens, min_new_tokens
+        self,
+        text,
+        preserve_input_text,
+        max_new_tokens,
+        min_new_tokens,
+        truncate_input_tokens,
     ) -> Iterable[GeneratedTextStreamResult]:
         """Generate stream output from model in TGIS
 
@@ -164,6 +188,11 @@ class TGISGenerationClient:
                 Maximum tokens for the model to generate
             min_new_tokens: int
                 Minimum tokens for the model to generate
+            truncate_input_tokens: int
+                Truncate inputs to provided number of tokens. This can be
+                use to avoid failing due to input being longer than
+                configured limits.
+                0 - means don't truncate, thus throw error.
 
         Returns:
             Iterable[GeneratedTextStreamResult]
@@ -183,6 +212,7 @@ class TGISGenerationClient:
             eos_token=self.eos_token,
             max_new_tokens=max_new_tokens,
             min_new_tokens=min_new_tokens,
+            truncate_input_tokens=truncate_input_tokens,
         )
 
         gen_req = generation_pb2.GenerationRequest(text=text)

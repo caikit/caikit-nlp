@@ -160,7 +160,12 @@ class PeftPromptTuningTGIS(ModuleBase):
 
     @TextGenerationTask.taskmethod()
     def run(
-        self, text, preserve_input_text=False, max_new_tokens=20, min_new_tokens=0
+        self,
+        text,
+        preserve_input_text=False,
+        max_new_tokens=20,
+        min_new_tokens=0,
+        truncate_input_tokens=0,
     ) -> GeneratedTextResult:
         """Run inference against the model running in TGIS. Currently we leverage greedy decoding
         and apply the same verbalizer used for training the local model prior to sending the
@@ -178,7 +183,11 @@ class PeftPromptTuningTGIS(ModuleBase):
             min_new_tokens: int
                 The minimum numbers of tokens to generate.
                 Default: 0 - means no minimum
-
+            truncate_input_tokens: int
+                Truncate inputs to provided number of tokens. This can be
+                use to avoid failing due to input being longer than
+                configured limits.
+                Default: 0 - means don't truncate, thus throw error.
         Returns:
             GeneratedTextResult
                 Generated text result produced by TGIS.
@@ -190,12 +199,21 @@ class PeftPromptTuningTGIS(ModuleBase):
         )
         verbalized_text = render_verbalizer(self.verbalizer, {"input": text})
         return self.tgis_generation_client.unary_generate(
-            verbalized_text, preserve_input_text, max_new_tokens, min_new_tokens
+            verbalized_text,
+            preserve_input_text,
+            max_new_tokens,
+            min_new_tokens,
+            truncate_input_tokens,
         )
 
     @TextGenerationTask.taskmethod(output_streaming=True)
     def run_stream_out(
-        self, text: str, preserve_input_text=False, max_new_tokens=20, min_new_tokens=0
+        self,
+        text: str,
+        preserve_input_text=False,
+        max_new_tokens=20,
+        min_new_tokens=0,
+        truncate_input_tokens=0,
     ) -> Iterable[GeneratedTextStreamResult]:
         """Run output stream inferencing against the model running in TGIS
 
@@ -211,7 +229,11 @@ class PeftPromptTuningTGIS(ModuleBase):
             min_new_tokens: int
                 The minimum numbers of tokens to generate.
                 Default: 0 - means no minimum
-
+            truncate_input_tokens: int
+                Truncate inputs to provided number of tokens. This can be
+                use to avoid failing due to input being longer than
+                configured limits.
+                Default: 0 - means don't truncate, thus throw error.
         Returns:
             Iterable[GeneratedTextStreamResult]
         """
@@ -223,5 +245,9 @@ class PeftPromptTuningTGIS(ModuleBase):
         )
         verbalized_text = render_verbalizer(self.verbalizer, {"input": text})
         return self.tgis_generation_client.stream_generate(
-            verbalized_text, preserve_input_text, max_new_tokens, min_new_tokens
+            verbalized_text,
+            preserve_input_text,
+            max_new_tokens,
+            min_new_tokens,
+            truncate_input_tokens,
         )
