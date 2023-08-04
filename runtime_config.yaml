@@ -9,6 +9,13 @@ runtime:
       size: 0 # Set to batch size for batching
 
 model_management:
+  finders:
+    default:
+      type: LOCAL
+    remote_tgis:
+      type: TGIS-AUTO
+      config:
+        test_connection: true
   initializers:
     default:
       type: LOCAL
