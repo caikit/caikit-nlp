@@ -88,7 +88,7 @@ class TextGeneration(ModuleBase):
             pass
 
     @classmethod
-    def bootstrap(cls, base_model_path: str):
+    def bootstrap(cls, base_model_path: str, torch_dtype: str = "float32"):
         """Function to bootstrap a pre-trained transformers model and
         get a caikit text-generation 'model'.
 
@@ -96,6 +96,9 @@ class TextGeneration(ModuleBase):
             base_model_path: str
                 Path to transformers model
                 NOTE: Model path needs to contain tokenizer as well
+            torch_dtype: str
+                Torch data type to be used when loading the model.
+                Default: float32
         Returns:
             caikit_nlp.blocks.text_generation.TextGeneration
                 Object of TextGeneration class (model)
@@ -118,7 +121,9 @@ class TextGeneration(ModuleBase):
             )
         log.debug("Bootstrapping base resource [%s]", base_model_path)
         base_model = resource_type.bootstrap(
-            base_model_path, tokenizer_name=base_model_path
+            base_model_path,
+            tokenizer_name=base_model_path,
+            torch_dtype=torch_dtype,
         )
         eos_token = base_model._tokenizer.eos_token or None
         return cls(
@@ -334,7 +339,7 @@ class TextGeneration(ModuleBase):
 
         if torch_dtype is not None:
             torch_dtype = str_to_torch_dtype(torch_dtype)
-        else:
+        elif config.trained_torch_dtype:
             torch_dtype = str_to_torch_dtype(config.trained_torch_dtype)
 
         base_model_path = config.get("artifact_path")
@@ -361,6 +366,7 @@ class TextGeneration(ModuleBase):
                 {
                     "artifact_path": artifacts_dir,
                     "eos_token": self._eos_token,
+                    "torch_dtype": str(self.model._torch_dtype),
                 }
             )
             if self.model:

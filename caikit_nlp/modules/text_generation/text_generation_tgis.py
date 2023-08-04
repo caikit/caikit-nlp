@@ -191,7 +191,12 @@ class TextGenerationTGIS(ModuleBase):
 
     @TextGenerationTask.taskmethod()
     def run(
-        self, text, preserve_input_text=False, max_new_tokens=20, min_new_tokens=0
+        self,
+        text,
+        preserve_input_text=False,
+        max_new_tokens=20,
+        min_new_tokens=0,
+        truncate_input_tokens=0,
     ) -> GeneratedTextResult:
         """Run inference against the model running in TGIS.
 
@@ -207,18 +212,32 @@ class TextGenerationTGIS(ModuleBase):
             min_new_tokens: int
                 The minimum numbers of tokens to generate.
                 Default: 0 - means no minimum
+            truncate_input_tokens: int
+                Truncate inputs to provided number of tokens. This can be
+                use to avoid failing due to input being longer than
+                configured limits.
+                Default: 0 - means don't truncate, thus throw error.
         Returns:
             GeneratedTextResult
                 Generated text result produced by TGIS.
         """
         if self._model_loaded:
             return self.tgis_generation_client.unary_generate(
-                text, preserve_input_text, max_new_tokens, min_new_tokens
+                text,
+                preserve_input_text,
+                max_new_tokens,
+                min_new_tokens,
+                truncate_input_tokens,
             )
 
     @TextGenerationTask.taskmethod(output_streaming=True)
     def run_stream_out(
-        self, text: str, preserve_input_text=False, max_new_tokens=20, min_new_tokens=0
+        self,
+        text: str,
+        preserve_input_text=False,
+        max_new_tokens=20,
+        min_new_tokens=0,
+        truncate_input_tokens=0,
     ) -> Iterable[GeneratedTextStreamResult]:
         """Run output stream inferencing for text generation module.
 
@@ -232,11 +251,19 @@ class TextGenerationTGIS(ModuleBase):
                 Maximum tokens for the model to generate
             min_new_tokens: int
                 Minimum tokens for the model to generate
-
+            truncate_input_tokens: int
+                Truncate inputs to provided number of tokens. This can be
+                use to avoid failing due to input being longer than
+                configured limits.
+                Default: 0 - means don't truncate, thus throw error.
         Returns:
             Iterable[GeneratedTextStreamResult]
         """
         if self._model_loaded:
             return self.tgis_generation_client.stream_generate(
-                text, preserve_input_text, max_new_tokens, min_new_tokens
+                text,
+                preserve_input_text,
+                max_new_tokens,
+                min_new_tokens,
+                truncate_input_tokens,
             )
