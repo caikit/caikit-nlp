@@ -33,5 +33,4 @@ The important difference between fine tuning and capabilities like prompt tuning
 
 #### Notes
 
-- The data model for text generative capabilities is baked into this repository itself at `caikit_nlp/data_model/generation.py`.
 - Currently causal language models and sequence-to-sequence models are supported.
