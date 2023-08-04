@@ -39,7 +39,7 @@ from ...resources.pretrained_model import (
     PretrainedModelBase,
 )
 from ...toolkit.data_stream_wrapper import SimpleIterableStreamWrapper
-from ...toolkit.data_type_utils import get_torch_dtype
+from ...toolkit.data_type_utils import get_torch_dtype, str_to_torch_dtype
 
 log = alog.use_channel("TXT_GEN")
 error = error_handler.get(log)
@@ -179,7 +179,7 @@ class TextGeneration(ModuleBase):
                 Seq2SeqTrainingArguments:
                     https://huggingface.co/docs/transformers/v4.30.0/en/main_classes/trainer#transformers.Seq2SeqTrainingArguments
         Returns:
-            FineTuning
+            TextGeneration
                 Instance of this class with fine-tuned models.
         """
 
@@ -313,24 +313,36 @@ class TextGeneration(ModuleBase):
         )
 
     @classmethod
-    def load(cls, model_path: str) -> "TextGeneration":
+    def load(
+        cls,
+        model_path: str,
+        torch_dtype: str = None,
+    ) -> "TextGeneration":
         """Function to load text-generation model
 
         Args:
             model_path: str
                 Path to the model to be loaded.
+            torch_dtype: str
+                Torch data type to be used when loading the model.
         Returns:
             TextGeneration
                 Instance of this class built from the on disk model.
         """
 
         config = ModuleConfig.load(model_path)
+
+        if torch_dtype is not None:
+            torch_dtype = str_to_torch_dtype(torch_dtype)
+        else:
+            torch_dtype = str_to_torch_dtype(config.trained_torch_dtype)
+
         base_model_path = config.get("artifact_path")
         error.type_check("<NLP35174683E>", str, base_model_path=base_model_path)
 
         base_model_path = os.path.join(model_path, base_model_path)
         error.dir_check("<NLP01983374E>", base_model_path)
-        return cls.bootstrap(base_model_path)
+        return cls.bootstrap(base_model_path, torch_dtype)
 
     def save(self, model_path):
         """Save caikit model
