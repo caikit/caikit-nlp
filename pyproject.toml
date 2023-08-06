@@ -18,7 +18,9 @@ dependencies = [
     "caikit-tgis-backend>=0.1.14,<0.2.0",
 
     # TODO: loosen dependencies
-    "accelerate>=0.18.0",
+    # NOTE: accelerate needs to be above 0.20.3 to make it
+    # work with fsdp save method with latest transformers
+    "accelerate>=0.20.3",
     "datasets>=2.4.0",
     "huggingface-hub",
     "numpy>=1.22.4",
