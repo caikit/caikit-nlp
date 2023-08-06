@@ -19,8 +19,11 @@ dependencies = [
 
     # TODO: loosen dependencies
     # NOTE: accelerate needs to be above 0.20.3 to make it
-    # work with fsdp save method with latest transformers
-    "accelerate>=0.20.3",
+    # work with fsdp save method with latest transformers.
+    # GK-Aug-6-2023: There is an `ignored_parameters` being passed from accelerate
+    # to pytorch which throws error. This is fixed in latest main and not yet
+    # released
+    "accelerate@git+https://github.com/huggingface/accelerate.git@main",
     "datasets>=2.4.0",
     "huggingface-hub",
     "numpy>=1.22.4",
@@ -28,7 +31,7 @@ dependencies = [
     "scikit-learn>=1.1",
     "scipy>=1.8.1",
     "tokenizers>=0.13.3",
-    "torch>=1.13.1",
+    "torch>=2.0.1",
     "tqdm>=4.65.0",
     "transformers>=4.31.0",
     "peft@git+https://github.com/mayank31398/peft.git@mpt-os-test"
