@@ -194,6 +194,10 @@ class TextGeneration(ModuleBase):
 
         torch_dtype = get_torch_dtype(torch_dtype)
 
+        # Make training deterministic
+        if torch.cuda.is_available():
+            torch.backends.cudnn.deterministic = True
+
         ## NOTE: Below code has been used in couple of places at this point, like in
         # text_generation module. In future, we would want to consolidate this into
         # a base class or a toolkit function
@@ -266,18 +270,36 @@ class TextGeneration(ModuleBase):
             "seed": random_seed,
             # NOTE: We have disabled evaluation for now
             "do_eval": False,
+            "do_train": True,
             # "evaluation_strategy ": "epoch",
             "learning_rate": lr,
             "weight_decay": 0.01,
             "save_total_limit": 3,
             "push_to_hub": False,
             "no_cuda": False,  # Default
-            "remove_unused_columns": False,
+            "remove_unused_columns": True,
             "dataloader_pin_memory": False,
             "gradient_accumulation_steps": accumulate_steps,
             "eval_accumulation_steps": accumulate_steps,
+            "gradient_checkpointing": True,
+            "full_determinism": True,
+
+            # Some interesting parameters:
+            "auto_find_batch_size": True,
+
             # eval_steps=1,
             # load_best_model_at_end
+            "fsdp": "full_shard offload auto_wrap",
+            # "fsdp_config": {
+            #     "fsdp_min_num_params": 2000
+            # },
+            "fsdp_config": {
+                "fsdp_transformer_layer_cls_to_wrap": [
+                    # "SelfAttnLayer",
+                    # "CrossAttnLayer",
+                    "T5Block",
+                ]
+            },
             **kwargs,
             **dtype_based_params,
         }
