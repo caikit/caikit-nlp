@@ -17,7 +17,12 @@ dependencies = [
     "caikit[runtime-grpc,runtime-http]>=0.18.1,<0.20.0",
     "caikit-tgis-backend>=0.1.17,<0.2.0",
     # TODO: loosen dependencies
-    "accelerate>=0.21.0",
+    # NOTE: accelerate needs to be above 0.20.3 to make it
+    # work with fsdp save method with latest transformers.
+    # GK-Aug-6-2023: There is an `ignored_parameters` being passed from accelerate
+    # to pytorch which throws error. This is fixed in latest main and not yet
+    # released
+    "accelerate@git+https://github.com/huggingface/accelerate.git@main",
     "datasets>=2.4.0",
     "huggingface-hub",
     "numpy>=1.22.4",
@@ -25,7 +30,7 @@ dependencies = [
     "scikit-learn>=1.1",
     "scipy>=1.8.1",
     "tokenizers>=0.13.3",
-    "torch>=1.13.1",
+    "torch>=2.0.1",
     "tqdm>=4.65.0",
     "transformers>=4.31.0",
     # GK-AUG-25-2023 NOTE: mpt branch on Mayank's fork was merged to peft main on Aug 24 and it got deleted
