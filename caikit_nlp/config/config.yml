@@ -21,5 +21,8 @@ torch_dtype: float32
 # Path of folder that will contain all the source prompts
 source_prompt_base: ""
 
+master_addr: localhost
+master_port: 29550
+
 runtime:
   library: caikit_nlp
