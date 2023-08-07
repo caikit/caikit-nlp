@@ -24,6 +24,7 @@ from transformers import AutoConfig, AutoTokenizer
 import torch
 
 # First Party
+from caikit import get_config
 from caikit.core.data_model import DataStream
 from caikit.core.modules import ModuleBase, ModuleConfig, ModuleSaver, module
 from caikit.core.toolkit import error_handler
@@ -44,6 +45,7 @@ from ...toolkit.text_generation.model_run_utils import (
     GENERATE_FUNCTION_ARGS,
     generate_text_func,
 )
+from ...toolkit.torch_run import get_torch_elastic_launch_config
 
 log = alog.use_channel("TXT_GEN")
 error = error_handler.get(log)
@@ -227,6 +229,7 @@ class TextGeneration(ModuleBase):
             # base_model is actually a resource object
             resource_type = type(base_model)
 
+
         error.type_check("<NLP03221895E>", PretrainedModelBase, base_model=base_model)
         ## Generate data loader from stream
         training_dataset: IterableDataset = cls._preprocess_function(
@@ -304,10 +307,6 @@ class TextGeneration(ModuleBase):
             **dtype_based_params,
         }
 
-        trainer = base_model.get_trainer(
-            train_dataset=training_dataset, **training_args
-        )
-
         if num_epochs < 1:
             log.warning(
                 "<NLP64076114W>",
@@ -315,21 +314,27 @@ class TextGeneration(ModuleBase):
                     No training will be performed",
             )
 
-            return cls(
+            return TextGeneration(
                 model_name=base_model._model_name,
                 model=base_model,
             )
 
-        # Start training via Trainer.train function
-        trainer.train()
 
-        # save the model temporarily and reload it
-        # this is done, since otherwise the model might be distributed in different
-        # devices, in which case its better to use trainer's `prediction_step`
-        # functions, but then, they don't always give API similar to `generate`
-        # and thus cause incompatibilities in `run` function
-        trainer.save_model(checkpoint_dir)
+        launch_config = get_torch_elastic_launch_config(
+            get_config().master_addr,
+            get_config().master_port,
+        )
 
+        torch.distributed.launcher.api.elastic_launch(
+            launch_config,
+            cls._launch_training
+        )(base_model, training_dataset, training_args, checkpoint_dir)
+
+
+        # In case this program is started via torchrun, below might not work as is
+        # because this case of multiple devices, this whole program gets run
+        # in parallel, so the model might still be in "write" mode on 1 process
+        # while we try to read it in below process.
         model = resource_type.bootstrap(
             checkpoint_dir, checkpoint_dir, torch_dtype=torch_dtype
         )
@@ -479,3 +484,23 @@ class TextGeneration(ModuleBase):
             mapped_stream = mapped_stream.flatten()
 
         return SimpleIterableStreamWrapper(mapped_stream, shuffle=shuffle)
+
+
+    @staticmethod
+    def _launch_training(base_model, training_dataset, training_args, checkpoint_dir) -> None:
+        """Utility function to wrap trainer and execute training"""
+
+        trainer = base_model.get_trainer(
+            train_dataset=training_dataset, **training_args
+        )
+
+        # Start training via Trainer.train function
+        trainer.train()
+
+        # save the model temporarily and reload it
+        # this is done, since otherwise the model might be distributed in different
+        # devices, in which case its better to use trainer's `prediction_step`
+        # functions, but then, they don't always give API similar to `generate`
+        # and thus cause incompatibilities in `run` function
+        trainer.save_state()
+        trainer.save_model(checkpoint_dir)
