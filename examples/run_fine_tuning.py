@@ -342,9 +342,9 @@ if __name__ == "__main__":
         # HACK: export args.output_dir as MODEL_NAME for TGIS
         # container to pick up automatically
         os.environ["MODEL_DIR"] = os.path.dirname(args.output_dir)
-        os.environ[
-            "MODEL_NAME"
-        ] = f"/models/{os.path.basename(args.output_dir)}/artifacts"
+        os.environ["MODEL_NAME"] = os.path.join(
+            "models", os.path.basename(args.output_dir), "artifacts"
+        )
 
         loaded_model = load_model(is_distributed=True, model_path=args.output_dir)
 
