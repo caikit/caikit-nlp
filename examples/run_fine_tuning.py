@@ -232,7 +232,7 @@ def show_experiment_configuration(args, dataset_info, model_type) -> None:
     print_colored("\n".join([print_str for print_str in print_strs if print_str]))
 
 
-def get_model_preds_and_references(model, validation_stream):
+def get_model_preds_and_references(model, validation_stream, truncate_input_tokens):
     """Given a model & a validation stream, run the model against every example in the validation
     stream and compare the outputs to the target/output sequence.
 
@@ -242,7 +242,9 @@ def get_model_preds_and_references(model, validation_stream):
         validation_stream: DataStream[GenerationTrainRecord]
             Validation stream with labeled targets that we want to compare to our model's
             predictions.
-
+        truncate_input_tokens: int
+            maximum number of tokens to be accepted by the model and rest will be
+            truncated.
     Returns:
         Tuple(List)
             Tuple of 2 lists; the model predictions and the expected output sequences.
@@ -253,12 +255,9 @@ def get_model_preds_and_references(model, validation_stream):
     for datum in tqdm(validation_stream):
         # Local .run() currently prepends the input text to the generated string;
         # Ensure that we're just splitting the first predicted token & beyond.
-        # TEMP HACK to avoid too big input to TGIS problem:
-        try:
-            raw_model_text = model.run(datum.input).generated_text
-        except Exception as ex:
-            print(ex)
-            continue
+        raw_model_text = model.run(
+            datum.input, truncate_input_tokens=truncate_input_tokens
+        ).generated_text
         parse_pred_text = raw_model_text.split(datum.input)[-1].strip()
         model_preds.append(parse_pred_text)
         targets.append(datum.output)
@@ -359,8 +358,9 @@ if __name__ == "__main__":
     validation_stream = dataset_info.dataset_loader()[1]
 
     print_colored("Getting model predictions...")
+    truncate_input_tokens = args.args.max_source_length + args.max_target_length
     predictions, references = get_model_preds_and_references(
-        loaded_model, validation_stream
+        loaded_model, validation_stream, truncate_input_tokens
     )
 
     export_model_preds(args.preds_file, predictions, validation_stream)
