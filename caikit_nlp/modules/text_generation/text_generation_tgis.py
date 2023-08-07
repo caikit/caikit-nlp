@@ -97,6 +97,21 @@ class TextGenerationTGIS(ModuleBase):
 
     @classmethod
     def bootstrap(cls, model_path: str, load_backend: Union[BackendBase, None] = None):
+        """Function to bootstrap a pre-trained transformers model and
+        get a caikit text-generation 'model'.
+
+        Args:
+            base_model_path: str
+                Path to transformers model
+                NOTE: Model path needs to contain tokenizer as well
+            load_backend: BackendBase
+                Backend object to be used to run inference with.
+                NOTE: this is required for inferencing. It is
+                made optional to support the model conversion use-case
+        Returns:
+            caikit_nlp.blocks.text_generation.TextGeneration
+                Object of TextGeneration class (model)
+        """
 
         text_generation_inst = TextGeneration.bootstrap(model_path)
         bos_token = text_generation_inst.model._tokenizer.bos_token
@@ -179,11 +194,11 @@ class TextGenerationTGIS(ModuleBase):
     @TextGenerationTask.taskmethod()
     def run(
         self,
-        text,
-        preserve_input_text=False,
-        max_new_tokens=20,
-        min_new_tokens=0,
-        truncate_input_tokens=0,
+        text: str,
+        preserve_input_text: bool = False,
+        max_new_tokens: int = 20,
+        min_new_tokens: int = 0,
+        truncate_input_tokens: int = 0,
     ) -> GeneratedTextResult:
         """Run inference against the model running in TGIS.
 
