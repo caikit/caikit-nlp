@@ -436,7 +436,7 @@ class TextGeneration(ModuleBase):
         """
 
         # NOTE: below is to match TGIS API, where 0 identifies as no truncation
-        if truncate_input_tokens:
+        if truncate_input_tokens == 0:
             # NOTE: below will make model throw error in case inputs are longer
             # than allowed length
             truncation = False
