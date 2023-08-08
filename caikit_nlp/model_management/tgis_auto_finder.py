@@ -87,7 +87,7 @@ class TGISAutoFinder(ModelFinderBase):
         if tgis_backend_priority is not None:
             error.value_check(
                 "<NLP87928813E>",
-                tgis_back_priority >= 0 and tgis_backend_priority < len(backends),
+                tgis_backend_priority >= 0 and tgis_backend_priority < len(backends),
                 "Invalid {}: {}",
                 self._TGIS_BACKEND_PRIORITY_KEY,
                 tgis_backend_priority,
@@ -95,7 +95,7 @@ class TGISAutoFinder(ModelFinderBase):
             self._tgis_backend = backends[tgis_backend_priority]
             error.value_check(
                 "<NLP77150201E>",
-                tgis_backend.backend_type == TGISBackend.backend_type,
+                self._tgis_backend.backend_type == TGISBackend.backend_type,
                 "Index {} is not a TGIS backend",
                 tgis_backend_priority,
             )
