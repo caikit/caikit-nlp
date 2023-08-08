@@ -146,6 +146,7 @@ class TextGenerationTGIS(ModuleBase):
         error.type_check("<NLP03521359E>", TGISBackend, load_backend=load_backend)
 
         config = ModuleConfig.load(model_path)
+        tgis_backend = config.tgis_backend or load_backend
         artifacts_path = config.artifact_path
         if artifacts_path:
             model_name = os.path.join(model_path, artifacts_path)
@@ -161,7 +162,7 @@ class TextGenerationTGIS(ModuleBase):
             sep_token=config.sep_token,
             eos_token=config.eos_token,
             pad_token=config.pad_token,
-            tgis_backend=load_backend,
+            tgis_backend=tgis_backend,
         )
 
     def save(self, model_path: str):
