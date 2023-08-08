@@ -129,15 +129,20 @@ class TGISAutoFinder(ModelFinderBase):
 
         # If connection is ok, set up the module config to point to the remote
         # TGIS text generation module
-        return ModuleConfig(
+        cfg = ModuleConfig(
             {
                 "module_id": TextGenerationTGIS.MODULE_ID,
                 "module_class": TextGenerationTGIS.MODULE_CLASS,
                 "name": TextGenerationTGIS.MODULE_NAME,
                 "version": TextGenerationTGIS.MODULE_VERSION,
-                "base_model_name": model_path,
+                "model_name": model_path,
             }
         )
+        # Set a special indicator in the module config to use the backend that
+        # this finder found. This will override the backend found by the local
+        # initializer.
+        cfg.tgis_backend = self._tgis_backend
+        return cfg
 
 
 model_finder_factory.register(TGISAutoFinder)
