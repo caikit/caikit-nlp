@@ -27,7 +27,7 @@ import alog
 
 # Third Party
 from torch import cuda
-from torch.distributed.launcher.api import LaunchConfig, elastic_launch
+from torch.distributed.launcher.api import LaunchConfig, Std
 import torch.distributed as dist
 
 log = alog.use_channel("TRCH_RN")
@@ -96,4 +96,5 @@ def get_torch_elastic_launch_config(
         rdzv_backend="static",
         rdzv_endpoint=f"{master_addr}:{master_port}",
         rdzv_configs=rdzv_configs,
+        tee=Std.ALL
     )
