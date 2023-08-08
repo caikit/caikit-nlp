@@ -2,9 +2,11 @@
 """
 # Standard
 import os
+import platform
 import tempfile
 
 # Third Party
+import pytest
 import torch
 
 # First Party
@@ -71,6 +73,7 @@ def test_save_model_can_run():
 ############################## Training ################################
 
 
+@pytest.mark.skipif(platform.processor() == "arm", reason="ARM training not supported")
 def test_train_model_seq2seq(disable_wip, set_cpu_device):
     """Ensure that we can finetune a seq2seq model on some toy data for 1+
     steps & run inference."""
@@ -99,6 +102,7 @@ def test_train_model_seq2seq(disable_wip, set_cpu_device):
     assert isinstance(pred, GeneratedTextResult)
 
 
+@pytest.mark.skipif(platform.processor() == "arm", reason="ARM training not supported")
 def test_train_model_save_and_load(disable_wip, set_cpu_device):
     """Ensure that we are able to save and load a finetuned model and execute inference on it"""
     train_kwargs = {
@@ -125,6 +129,7 @@ def test_train_model_save_and_load(disable_wip, set_cpu_device):
         assert isinstance(generated_text, GeneratedTextResult)
 
 
+@pytest.mark.skipif(platform.processor() == "arm", reason="ARM training not supported")
 def test_train_model_causallm(disable_wip, set_cpu_device):
     """Ensure that we can finetune a causal-lm model on some toy data for 1+
     steps & run inference."""
