@@ -3,6 +3,7 @@
 # Standard
 from unittest import mock
 import os
+import platform
 import tempfile
 
 # Third Party
@@ -89,6 +90,7 @@ def test_save_model_can_run():
         StubTGISClient.validate_unary_generate_response(result)
 
 
+@pytest.mark.skipif(platform.processor() == "arm", reason="ARM training not supported")
 def test_local_train_load_tgis():
     """Check if the model trained in local module is able to
     be loaded in TGIS module / backend
