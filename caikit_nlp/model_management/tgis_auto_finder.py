@@ -26,10 +26,8 @@ import grpc
 from caikit import get_config
 from caikit.core import MODEL_MANAGER, error_handler
 from caikit.core.model_management import ModelFinderBase, model_finder_factory
-from caikit.core.model_management.local_model_finder import LocalModelFinder
 from caikit.core.modules import ModuleConfig
 from caikit_tgis_backend import TGISBackend
-from caikit_tgis_backend.protobufs import generation_pb2
 import aconfig
 import alog
 
@@ -48,7 +46,6 @@ class TGISAutoFinder(ModelFinderBase):
     # Constants for the keys of the config blob
     _LOCAL_INITIALIZER_NAME_KEY = "local_initializer_name"
     _TGIS_BACKEND_PRIORITY_KEY = "tgis_backend_priority"
-    _TEST_CONNECTION_KEY = "test_connection"
 
     def __init__(self, config: aconfig.Config, instance_name: str):
         """Initialize from the model finder factory config
@@ -67,11 +64,6 @@ class TGISAutoFinder(ModelFinderBase):
                 backend to use. If not set, the first TGIS backend found will be
                 used.
 
-        test_connection:
-            type: boolean
-            description: If true, connections to TGIS remotes will be tested
-                with a health probe before the model is considered found
-
         Args:
             config (aconfig.Config): The configuration blob from caikit's
                 model_management factory construction
@@ -79,7 +71,6 @@ class TGISAutoFinder(ModelFinderBase):
         """
         local_initializer_name = config.get(self._LOCAL_INITIALIZER_NAME_KEY, "default")
         tgis_backend_priority = config.get(self._TGIS_BACKEND_PRIORITY_KEY)
-        self._test_connection = config.get(self._TEST_CONNECTION_KEY, False)
         error.type_check(
             "<NLP97312902E>", str, local_initializer_name=local_initializer_name
         )
@@ -89,7 +80,6 @@ class TGISAutoFinder(ModelFinderBase):
             tgis_backend_priority=tgis_backend_priority,
             allow_none=True,
         )
-        error.type_check("<NLP97312904E>", bool, test_connection=self._test_connection)
 
         # Extract the TGIS backend instance
         local_initializer = MODEL_MANAGER.get_initializer(local_initializer_name)
@@ -132,24 +122,10 @@ class TGISAutoFinder(ModelFinderBase):
         # Get a connection to this model in tgis
         try:
             log.debug2("Attempting to setup TGIS client for %s", model_path)
-            model_client = self._tgis_backend.get_client(model_id=model_path)
+            self._tgis_backend.get_connection(model_id=model_path)
         except (TypeError, ValueError) as err:
             log.debug2("Unable to set up TGIS client for %s: %s", model_path, err)
             return None
-
-        # If able to make a client, optionally test the connection
-        if self._test_connection:
-            log.debug2("Testing TGIS connection for %s", model_path)
-            try:
-                model_client.Tokenize(
-                    generation_pb2.BatchedTokenizeRequest(
-                        model_id=model_path,
-                        requests=[generation_pb2.TokenizeRequest(text="test")],
-                    )
-                )
-            except grpc.RpcError as err:
-                log.debug2("Unable to make sample request to TGIS for %s", model_path)
-                return None
 
         # If connection is ok, set up the module config to point to the remote
         # TGIS text generation module
