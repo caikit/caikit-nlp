@@ -19,6 +19,7 @@ import gc
 import os
 
 # Third Party
+from datasets import Dataset, IterableDataset as TransformersIterableDataset
 from torch.utils.data import IterableDataset
 from transformers import AutoConfig, AutoTokenizer
 import torch
@@ -510,11 +511,17 @@ class TextGeneration(ModuleBase):
         ) = base_model.build_task_tokenize_function(
             tokenizer, max_source_length, max_target_length, verbalizer="{{input}}"
         )
-        mapped_stream = train_stream.map(tokenize_function)
-        if requires_unwrapping:
-            mapped_stream = mapped_stream.flatten()
 
-        return SimpleIterableStreamWrapper(mapped_stream, shuffle=shuffle)
+        dataset = TransformersIterableDataset.from_generator(train_stream)
+
+        dataset.map(tokenize_function)
+        # mapped_stream = train_stream.map(tokenize_function)
+
+        # if requires_unwrapping:
+        #     mapped_stream = mapped_stream.flatten()
+
+        return dataset.with_format("torch")
+        # return SimpleIterableStreamWrapper(mapped_stream, shuffle=shuffle)
 
 
     @staticmethod
