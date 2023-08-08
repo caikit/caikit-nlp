@@ -39,6 +39,8 @@ ALOG_OPTS = {
     "formatter": "pretty",
 }
 
+log = alog.use_channel("EXMPL_UTILS")
+
 
 def configure_random_seed_and_logging():
     """Ensure that random experiments will be deterministic & set up default ALOG configuration."""
@@ -86,7 +88,7 @@ def get_distributed_model(model_path):
                 "initializers": {
                     "default": {
                         "config": {
-                            "backend_priority": {[{"type": TGISBackend.backend_type}]}
+                            "backend_priority": [{"type": TGISBackend.backend_type}]
                         }
                     }
                 }
@@ -98,14 +100,18 @@ def get_distributed_model(model_path):
     # make sure that its suffix (base model name) aligns with what we have in our config.
     # NOTE: bloom-560m is the default here because that's the default model used in our
     # text generation server hack script.
-    model_name_override = os.getenv("MODEL_NAME", "bloom-560m")
-    loaded_base_model = dist_model.base_model_name
+    model_name_override = os.getenv("MODEL_NAME", "bigscience/bloom-560m")
+    if hasattr(dist_model, "base_model_name"):
+        loaded_base_model = dist_model.base_model_name
+    else:
+        loaded_base_model = dist_model.model_name
     if not model_name_override.endswith(loaded_base_model):
-        raise ValueError(
+        log.error(
             "TGIS using model name: {} conflicts with base model name: {}; set env var MODEL_NAME to the correct base model!".format(
                 model_name_override, loaded_base_model
             )
         )
+
     return dist_model
 
 
