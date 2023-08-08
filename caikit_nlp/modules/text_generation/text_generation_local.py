@@ -22,6 +22,7 @@ import os
 from datasets import Dataset, IterableDataset as TransformersIterableDataset
 from torch.utils.data import IterableDataset
 from transformers import AutoConfig, AutoTokenizer
+import datasets
 import torch
 
 # First Party
@@ -284,6 +285,9 @@ class TextGeneration(ModuleBase):
             "gradient_checkpointing": True,
             "full_determinism": True,
 
+            # Required for iterable dataset
+            "max_steps": 2,
+
             # Some interesting parameters:
             "auto_find_batch_size": True,
 
@@ -512,15 +516,21 @@ class TextGeneration(ModuleBase):
             tokenizer, max_source_length, max_target_length, verbalizer="{{input}}"
         )
 
-        dataset = TransformersIterableDataset.from_generator(train_stream)
+        # dataset = datasets.load_dataset("billsum", split="ca_test", streaming=True)
+        # train_test_dataset = dataset.train_test_split(test_size=0.2)
+        dataset = TransformersIterableDataset.from_generator(get, gen_kwargs={"train_stream": train_stream})
 
-        dataset.map(tokenize_function)
+        mapped_dataset = dataset.map(
+            tokenize_function_seq2seq,
+            fn_kwargs={"tokenizer": tokenizer, "max_source_length": max_source_length, "max_target_length": max_target_length}
+        )
         # mapped_stream = train_stream.map(tokenize_function)
 
         # if requires_unwrapping:
         #     mapped_stream = mapped_stream.flatten()
 
-        return dataset.with_format("torch")
+        # return mapped_dataset.with_format("torch")
+        return mapped_dataset
         # return SimpleIterableStreamWrapper(mapped_stream, shuffle=shuffle)
 
 
@@ -542,3 +552,53 @@ class TextGeneration(ModuleBase):
         # and thus cause incompatibilities in `run` function
         trainer.save_state()
         trainer.save_model(checkpoint_dir)
+
+
+def get(train_stream):
+    for data in train_stream:
+        yield {"input": data.input, "output": data.output}
+
+def tokenize_function_seq2seq(
+        example: GenerationTrainRecord,
+        tokenizer: "AutoTokenizer",
+        max_source_length: int,
+        max_target_length: int,
+    ) :
+        """Tokenization function to be used for seq2seq training; this function consumes a
+        GenerationTrainRecord object and applies the verbalizer to it followed by
+        the model tokenizer. Finally, we postprocess by ignoring pad tokens in the label IDs.
+
+        Args:
+            example: GenerationTrainRecord
+                Training data model object to convert a form we can learn on.
+
+        Returns:
+            transformers.tokenization_utils_base.BatchEncoding
+                encoded tokenization output corresponding to the input example.
+        """
+        IGNORE_ID = -100
+        # Render the verbalizer template with the attributes of this data model example
+        source = example["input"]
+
+        targets = example["output"]
+        model_inputs = tokenizer(
+            source,
+            max_length=max_source_length,
+            padding="max_length",
+            truncation=True,
+        )
+        labels = tokenizer(
+            targets,
+            max_length=max_target_length,
+            padding="max_length",
+            truncation=True,
+        )
+
+        labels = labels["input_ids"]
+
+        labels = list(
+            map(lambda x: IGNORE_ID if x == tokenizer.pad_token_id else x, labels)
+        )
+        model_inputs["labels"] = labels
+
+        return model_inputs
