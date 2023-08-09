@@ -26,6 +26,7 @@ import pytest
 from caikit.config.config import merge_configs
 from caikit.core.model_manager import ModelManager
 from caikit_tgis_backend import TGISBackend
+import aconfig
 import caikit
 
 # Local
@@ -33,6 +34,10 @@ from caikit_nlp.model_management import tgis_auto_finder
 from caikit_nlp.modules.text_generation.text_generation_tgis import TextGenerationTGIS
 
 ## Helpers #####################################################################
+
+# Convenient aliases
+LOCAL_INITIALIZER_NAME = tgis_auto_finder.TGISAutoFinder._LOCAL_INITIALIZER_NAME_KEY
+TGIS_BACKEND_PRIORITY = tgis_auto_finder.TGISAutoFinder._TGIS_BACKEND_PRIORITY_KEY
 
 
 def make_tgis_config(hostname: str):
@@ -106,9 +111,7 @@ def test_auto_find_tgis_model_non_default_local_initializer():
     """
     init_name = "notdefault"
     with temp_model_manager(
-        auto_finder_config={
-            tgis_auto_finder.TGISAutoFinder._LOCAL_INITIALIZER_NAME_KEY: init_name,
-        },
+        auto_finder_config={LOCAL_INITIALIZER_NAME: init_name},
         local_initializer_key=init_name,
     ) as mmgr:
         model = mmgr.load("flan-t5-xl", initializer=init_name)
@@ -146,9 +149,7 @@ def test_auto_find_tgis_model_multiple_tgis_backends_set_order():
             make_tgis_config("foo.bar:1234"),
             make_tgis_config("baz.bat:4567"),
         ],
-        auto_finder_config={
-            tgis_auto_finder.TGISAutoFinder._TGIS_BACKEND_PRIORITY_KEY: 1,
-        },
+        auto_finder_config={TGIS_BACKEND_PRIORITY: 1},
     ) as mmgr:
         tgis_be0 = mmgr.get_initializer("default").backends[0]
         tgis_be1 = mmgr.get_initializer("default").backends[1]
@@ -159,3 +160,104 @@ def test_auto_find_tgis_model_multiple_tgis_backends_set_order():
                 assert isinstance(model, TextGenerationTGIS)
                 get_con_mock0.assert_not_called()
                 get_con_mock1.assert_called()
+
+
+def test_bad_config_args():
+    """Make sure that all flavors of bad configuration args are handled with
+    appropriate errors
+    """
+    # Bad initializer name type
+    with pytest.raises(TypeError):
+        tgis_auto_finder.TGISAutoFinder(
+            aconfig.Config(
+                {LOCAL_INITIALIZER_NAME: 123},
+                override_env_vars=False,
+            )
+        )
+
+    # Bad tgis_backend_priority type
+    with pytest.raises(TypeError):
+        tgis_auto_finder.TGISAutoFinder(
+            aconfig.Config(
+                {TGIS_BACKEND_PRIORITY: "1"},
+                override_env_vars=False,
+            )
+        )
+
+    # Invalid tgis_backend_priority index value
+    with pytest.raises(ValueError):
+        tgis_auto_finder.TGISAutoFinder(
+            aconfig.Config(
+                {TGIS_BACKEND_PRIORITY: 123},
+                override_env_vars=False,
+            )
+        )
+
+    # Invalid tgis_backend_priority index value
+    with pytest.raises(ValueError):
+        tgis_auto_finder.TGISAutoFinder(
+            aconfig.Config(
+                {TGIS_BACKEND_PRIORITY: 123},
+                override_env_vars=False,
+            )
+        )
+
+    # Non-TGIS tgis_backend_priority index value
+    with pytest.raises(ValueError):
+        tgis_auto_finder.TGISAutoFinder(
+            aconfig.Config(
+                {TGIS_BACKEND_PRIORITY: 0},
+                override_env_vars=False,
+            )
+        )
+
+    # No TGIS backend available
+    with pytest.raises(ValueError):
+        tgis_auto_finder.TGISAutoFinder(aconfig.Config({}))
+
+
+def test_unsupported_tgis_model():
+    """Test that attempting to use a TGIS connection for a model that isn't
+    supported by the TGIS backend results in not finding the model
+    """
+    with temp_model_manager(
+        backend_priority=[
+            {
+                "type": TGISBackend.backend_type,
+                "config": {
+                    "remote_models": {
+                        "not-flan-t5-xl": {
+                            "hostname": "foo.bar:123",
+                        }
+                    }
+                }
+            }
+        ],
+    ) as mmgr:
+        finder = mmgr._finders["default"]
+        assert isinstance(finder, tgis_auto_finder.TGISAutoFinder)
+        assert finder.find_model("flan-t5-xl") is None
+
+
+def test_bad_tgis_connection():
+    """Test that attempting to use a TGIS connection that can't connect results
+    in not finding the model
+    """
+    with temp_model_manager(
+        backend_priority=[
+            {
+                "type": TGISBackend.backend_type,
+                "config": {
+                    "remote_models": {
+                        "flan-t5-xl": {
+                            "hostname": "foo.bar:123",
+                        }
+                    },
+                    "test_connections": True,
+                }
+            }
+        ],
+    ) as mmgr:
+        finder = mmgr._finders["default"]
+        assert isinstance(finder, tgis_auto_finder.TGISAutoFinder)
+        assert finder.find_model("flan-t5-xl") is None
