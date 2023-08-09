@@ -242,6 +242,7 @@ class StubTGISBackend(TGISBackend):
     def get_client(self, base_model_name):
         self._model_connections[base_model_name] = TGISConnection(
             hostname="foo.bar",
+            model_id=base_model_name,
             prompt_dir=self._temp_dir,
         )
         return StubTGISClient(base_model_name)
