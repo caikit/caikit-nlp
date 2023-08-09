@@ -47,7 +47,7 @@ class TGISAutoFinder(ModelFinderBase):
     _LOCAL_INITIALIZER_NAME_KEY = "local_initializer_name"
     _TGIS_BACKEND_PRIORITY_KEY = "tgis_backend_priority"
 
-    def __init__(self, config: aconfig.Config, instance_name: str):
+    def __init__(self, config: aconfig.Config, instance_name: str = ""):
         """Initialize from the model finder factory config
 
         Config schema:
