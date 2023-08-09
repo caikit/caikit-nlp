@@ -230,7 +230,7 @@ def test_unsupported_tgis_model():
                             "hostname": "foo.bar:123",
                         }
                     }
-                }
+                },
             }
         ],
     ) as mmgr:
@@ -254,7 +254,7 @@ def test_bad_tgis_connection():
                         }
                     },
                     "test_connections": True,
-                }
+                },
             }
         ],
     ) as mmgr:

@@ -19,11 +19,7 @@ a remote TGIS model.
 # Standard
 from typing import Optional
 
-# Third Party
-import grpc
-
 # First Party
-from caikit import get_config
 from caikit.core import MODEL_MANAGER, error_handler
 from caikit.core.model_management import ModelFinderBase, model_finder_factory
 from caikit.core.modules import ModuleConfig
@@ -87,7 +83,7 @@ class TGISAutoFinder(ModelFinderBase):
         if tgis_backend_priority is not None:
             error.value_check(
                 "<NLP87928813E>",
-                tgis_backend_priority >= 0 and tgis_backend_priority < len(backends),
+                0 <= tgis_backend_priority < len(backends),
                 "Invalid {}: {}",
                 self._TGIS_BACKEND_PRIORITY_KEY,
                 tgis_backend_priority,
