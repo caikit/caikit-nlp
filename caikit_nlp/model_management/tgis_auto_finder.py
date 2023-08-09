@@ -120,11 +120,9 @@ class TGISAutoFinder(ModelFinderBase):
         """Find the model if"""
 
         # Get a connection to this model in tgis
-        try:
-            log.debug2("Attempting to setup TGIS client for %s", model_path)
-            self._tgis_backend.get_connection(model_id=model_path)
-        except (TypeError, ValueError) as err:
-            log.debug2("Unable to set up TGIS client for %s: %s", model_path, err)
+        log.debug2("Attempting to setup TGIS client for %s", model_path)
+        if self._tgis_backend.get_connection(model_id=model_path) is None:
+            log.debug2("TGIS cannot connect to model %s", model_path)
             return None
 
         # If connection is ok, set up the module config to point to the remote
