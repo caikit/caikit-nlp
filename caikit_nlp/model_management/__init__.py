@@ -11,28 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Caikit prompt tuning library
-"""
-# Standard
-import os
-
-# First Party
-from caikit.core.model_manager import *
-
-# Import the model management semantics from the core
-import caikit
 
 # Local
-# Import subpackages
-from . import config, data_model, model_management
-from .config import *
-from .data_model import *
-from .modules import *
-from .resources import *
-
-# Configure the library with library-specific configuration file
-CONFIG_PATH = os.path.realpath(
-    os.path.join(os.path.dirname(__file__), "config", "config.yml")
-)
-
-caikit.configure(CONFIG_PATH)
+from .tgis_auto_finder import TGISAutoFinder
