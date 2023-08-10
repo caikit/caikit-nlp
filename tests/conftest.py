@@ -11,28 +11,19 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Caikit prompt tuning library
 """
+This sets up global test configs when pytest starts
+"""
+
 # Standard
 import os
 
 # First Party
-from caikit.core.model_manager import *
+import alog
 
-# Import the model management semantics from the core
-import caikit
-
-# Local
-# Import subpackages
-from . import config, data_model, model_management
-from .config import *
-from .data_model import *
-from .modules import *
-from .resources import *
-
-# Configure the library with library-specific configuration file
-CONFIG_PATH = os.path.realpath(
-    os.path.join(os.path.dirname(__file__), "config", "config.yml")
+# Configure logging from the environment
+alog.configure(
+    default_level=os.environ.get("LOG_LEVEL", "off"),
+    filters=os.environ.get("LOG_FILTERS", "urllib3:off"),
+    thread_id=os.environ.get("LOG_THREAD_ID", "") == "true",
 )
-
-caikit.configure(CONFIG_PATH)
