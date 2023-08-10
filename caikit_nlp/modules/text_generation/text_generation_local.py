@@ -62,6 +62,28 @@ class TextGeneration(ModuleBase):
     RANDOM_SEED = 73
     supported_resources = [HFAutoCausalLM, HFAutoSeq2SeqLM]
 
+    # Below list is taken from
+    # https://huggingface.co/docs/transformers/main/en/main_classes/trainer#transformers.TrainingArguments
+    allowed_training_args = {
+        "weight_decay",
+        "adam_beta1",
+        "adam_beta2",
+        "adam_epsilon",
+        "max_grad_norm",
+        "lr_scheduler_type",
+        "warmup_ratio",
+        "warmup_steps",
+        "use_ipex",
+        "disable_tqdm",
+        "label_names",
+        "optim",
+        "optim_args",
+        "group_by_length",
+        "dataloader_pin_memory",
+        "gradient_checkpointing",
+        "full_determinism",
+    }
+
     def __init__(
         self,
         model_name: str,
@@ -258,10 +280,16 @@ class TextGeneration(ModuleBase):
         # in base model
         ## TODO: Fetch trainer from resource
 
-        # TODO: Make this whole thing configurable by end-users,
-        # by optionally accepting `training_args`
-        # as argument to this train function.
-        # TODO: Remove all the default used below and make them all configurable
+        # Filter **training_arguments to only process allowed ones
+        filtered_training_arguments = {k: v for k, v in training_arguments.items() if k in cls.allowed_training_args}
+
+        extra_training_args = set(training_arguments.keys()).difference(filtered_training_arguments.keys())
+
+        if extra_training_args:
+            log.warning(
+                "<NLP24424909W>",
+                f"{extra_training_args} parameter(s) not allowed by {cls.name} currently and will be ignored!"
+            )
 
         training_args = {
             "output_dir": checkpoint_dir,
@@ -272,7 +300,6 @@ class TextGeneration(ModuleBase):
             # NOTE: We have disabled evaluation for now
             "do_eval": False,
             "do_train": True,
-            # "evaluation_strategy ": "epoch",
             "learning_rate": lr,
             "weight_decay": 0.01,
             "save_total_limit": 3,
@@ -291,20 +318,16 @@ class TextGeneration(ModuleBase):
             # Some interesting parameters:
             "auto_find_batch_size": True,
 
-            # eval_steps=1,
-            # load_best_model_at_end
             "fsdp": "full_shard offload auto_wrap",
-            # "fsdp_config": {
-            #     "fsdp_min_num_params": 2000
-            # },
             "fsdp_config": {
-                "fsdp_transformer_layer_cls_to_wrap": [
-                    # "SelfAttnLayer",
-                    # "CrossAttnLayer",
-                    "T5Block",
-                ]
+                # Not specifying fsdp_transformer_layer_cls_to_wrap
+                # allows automatic deduction of layers using model._no_split_module
+                # "fsdp_transformer_layer_cls_to_wrap": [
+                #     "T5Block",
+                # ]
             },
-            **training_arguments,
+            # NOTE: following can override above arguments in order
+            **filtered_training_arguments,
             **dtype_based_params,
         }
 
