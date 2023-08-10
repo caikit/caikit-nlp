@@ -19,7 +19,8 @@ import gc
 import os
 
 # Third Party
-from datasets import Dataset, IterableDataset as TransformersIterableDataset
+from datasets import Dataset
+from datasets import IterableDataset as TransformersIterableDataset
 from torch.utils.data import IterableDataset
 from transformers import AutoConfig, AutoTokenizer
 import datasets
@@ -253,7 +254,6 @@ class TextGeneration(ModuleBase):
             # base_model is actually a resource object
             resource_type = type(base_model)
 
-
         error.type_check("<NLP03221895E>", PretrainedModelBase, base_model=base_model)
         ## Generate data loader from stream
         training_dataset: IterableDataset = cls._preprocess_function(
@@ -285,14 +285,18 @@ class TextGeneration(ModuleBase):
         ## TODO: Fetch trainer from resource
 
         # Filter **training_arguments to only process allowed ones
-        filtered_training_arguments = {k: v for k, v in kwargs.items() if k in cls.allowed_training_args}
+        filtered_training_arguments = {
+            k: v for k, v in kwargs.items() if k in cls.allowed_training_args
+        }
 
-        extra_training_args = set(kwargs.keys()).difference(filtered_training_arguments.keys())
+        extra_training_args = set(kwargs.keys()).difference(
+            filtered_training_arguments.keys()
+        )
 
         if extra_training_args:
             log.warning(
                 "<NLP24424909W>",
-                f"{extra_training_args} parameter(s) not allowed by {cls.name} currently and will be ignored!"
+                f"{extra_training_args} parameter(s) not allowed by {cls.name} currently and will be ignored!",
             )
 
         training_args = {
@@ -315,20 +319,17 @@ class TextGeneration(ModuleBase):
             "eval_accumulation_steps": accumulate_steps,
             "gradient_checkpointing": True,
             "full_determinism": True,
-
             # Required for iterable dataset
             "max_steps": 2,
-
             # Some interesting parameters:
             "auto_find_batch_size": True,
-
             "fsdp": "full_shard offload auto_wrap",
             "fsdp_config": {
-                # Not specifying fsdp_transformer_layer_cls_to_wrap
-                # allows automatic deduction of layers using model._no_split_module
-                # "fsdp_transformer_layer_cls_to_wrap": [
-                #     "T5Block",
-                # ]
+                # NOTE: Every transformers model has `_no_split_modules` property that can be leveraged to identify
+                # the layers to split. This seems to be a decent "default" behavior unless we want to optimize further.
+                # We will start with this generic approach, since it allows us to handle variety
+                # of models and iterate on it, based on what we encounter.
+                "fsdp_transformer_layer_cls_to_wrap": base_model._model._no_split_modules
             },
             **kwargs,
             # NOTE: following can override above arguments in order
@@ -348,17 +349,14 @@ class TextGeneration(ModuleBase):
                 model=base_model,
             )
 
-
         launch_config = get_torch_elastic_launch_config(
             get_config().master_addr,
             get_config().master_port,
         )
 
         torch.distributed.launcher.api.elastic_launch(
-            launch_config,
-            cls._launch_training
+            launch_config, cls._launch_training
         )(base_model, training_dataset, training_args, checkpoint_dir)
-
 
         # In case this program is started via torchrun, below might not work as is
         # because this case of multiple devices, this whole program gets run
@@ -511,11 +509,17 @@ class TextGeneration(ModuleBase):
 
         # dataset = datasets.load_dataset("billsum", split="ca_test", streaming=True)
         # train_test_dataset = dataset.train_test_split(test_size=0.2)
-        dataset = TransformersIterableDataset.from_generator(get, gen_kwargs={"train_stream": train_stream})
+        dataset = TransformersIterableDataset.from_generator(
+            get, gen_kwargs={"train_stream": train_stream}
+        )
 
         mapped_dataset = dataset.map(
             tokenize_function_seq2seq,
-            fn_kwargs={"tokenizer": tokenizer, "max_source_length": max_source_length, "max_target_length": max_target_length}
+            fn_kwargs={
+                "tokenizer": tokenizer,
+                "max_source_length": max_source_length,
+                "max_target_length": max_target_length,
+            },
         )
         # mapped_stream = train_stream.map(tokenize_function)
 
@@ -526,9 +530,10 @@ class TextGeneration(ModuleBase):
         return mapped_dataset
         # return SimpleIterableStreamWrapper(mapped_stream, shuffle=shuffle)
 
-
     @staticmethod
-    def _launch_training(base_model, training_dataset, training_args, checkpoint_dir) -> None:
+    def _launch_training(
+        base_model, training_dataset, training_args, checkpoint_dir
+    ) -> None:
         """Utility function to wrap trainer and execute training"""
 
         trainer = base_model.get_trainer(
@@ -551,47 +556,48 @@ def get(train_stream):
     for data in train_stream:
         yield {"input": data.input, "output": data.output}
 
+
 def tokenize_function_seq2seq(
-        example: GenerationTrainRecord,
-        tokenizer: "AutoTokenizer",
-        max_source_length: int,
-        max_target_length: int,
-    ) :
-        """Tokenization function to be used for seq2seq training; this function consumes a
-        GenerationTrainRecord object and applies the verbalizer to it followed by
-        the model tokenizer. Finally, we postprocess by ignoring pad tokens in the label IDs.
+    example: GenerationTrainRecord,
+    tokenizer: "AutoTokenizer",
+    max_source_length: int,
+    max_target_length: int,
+):
+    """Tokenization function to be used for seq2seq training; this function consumes a
+    GenerationTrainRecord object and applies the verbalizer to it followed by
+    the model tokenizer. Finally, we postprocess by ignoring pad tokens in the label IDs.
 
-        Args:
-            example: GenerationTrainRecord
-                Training data model object to convert a form we can learn on.
+    Args:
+        example: GenerationTrainRecord
+            Training data model object to convert a form we can learn on.
 
-        Returns:
-            transformers.tokenization_utils_base.BatchEncoding
-                encoded tokenization output corresponding to the input example.
-        """
-        IGNORE_ID = -100
-        # Render the verbalizer template with the attributes of this data model example
-        source = example["input"]
+    Returns:
+        transformers.tokenization_utils_base.BatchEncoding
+            encoded tokenization output corresponding to the input example.
+    """
+    IGNORE_ID = -100
+    # Render the verbalizer template with the attributes of this data model example
+    source = example["input"]
 
-        targets = example["output"]
-        model_inputs = tokenizer(
-            source,
-            max_length=max_source_length,
-            padding="max_length",
-            truncation=True,
-        )
-        labels = tokenizer(
-            targets,
-            max_length=max_target_length,
-            padding="max_length",
-            truncation=True,
-        )
+    targets = example["output"]
+    model_inputs = tokenizer(
+        source,
+        max_length=max_source_length,
+        padding="max_length",
+        truncation=True,
+    )
+    labels = tokenizer(
+        targets,
+        max_length=max_target_length,
+        padding="max_length",
+        truncation=True,
+    )
 
-        labels = labels["input_ids"]
+    labels = labels["input_ids"]
 
-        labels = list(
-            map(lambda x: IGNORE_ID if x == tokenizer.pad_token_id else x, labels)
-        )
-        model_inputs["labels"] = labels
+    labels = list(
+        map(lambda x: IGNORE_ID if x == tokenizer.pad_token_id else x, labels)
+    )
+    model_inputs["labels"] = labels
 
-        return model_inputs
+    return model_inputs
