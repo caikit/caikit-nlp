@@ -22,15 +22,16 @@ Ref: https://github.com/pytorch/pytorch/blob/main/torch/distributed/run.py
 # Standard
 import os
 
-# First Party
-import alog
-
 # Third Party
 from torch import cuda
 from torch.distributed.launcher.api import LaunchConfig, Std
 import torch.distributed as dist
 
+# First Party
+import alog
+
 log = alog.use_channel("TRCH_RN")
+
 
 def initialize_torch_distribution(world_size, rank=0, backend="gloo|nccl"):
 
@@ -56,20 +57,16 @@ def determine_local_world_size():
 
     return min_nodes, max_nodes
 
+
 def get_torch_elastic_launch_config(
-        master_addr: str,
-        master_port: str,
-        start_method: str= "spawn"
-    ) -> LaunchConfig:
+    master_addr: str, master_port: str, start_method: str = "spawn"
+) -> LaunchConfig:
 
     # Constants
     min_nodes = 1
     max_nodes = 1
 
-    rdzv_configs = {
-        "rank": 0
-    }
-
+    rdzv_configs = {"rank": 0}
 
     # NOTE: below code assumes number of node(s) to be 1
     nproc_per_node = determine_local_world_size()
@@ -83,7 +80,7 @@ def get_torch_elastic_launch_config(
             "please further tune the variable for optimal performance in "
             "your application as needed. \n"
             "*****************************************",
-            omp_num_threads
+            omp_num_threads,
         )
         # This env variable will be passed down to the subprocesses
         os.environ["OMP_NUM_THREADS"] = str(omp_num_threads)
@@ -96,5 +93,5 @@ def get_torch_elastic_launch_config(
         rdzv_backend="static",
         rdzv_endpoint=f"{master_addr}:{master_port}",
         rdzv_configs=rdzv_configs,
-        tee=Std.ALL
+        tee=Std.ALL,
     )
