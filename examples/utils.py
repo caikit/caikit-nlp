@@ -100,7 +100,7 @@ def get_distributed_model(model_path):
     # make sure that its suffix (base model name) aligns with what we have in our config.
     # NOTE: bloom-560m is the default here because that's the default model used in our
     # text generation server hack script.
-    model_name_override = os.getenv("MODEL_NAME", "bloom-560m")
+    model_name_override = os.getenv("MODEL_NAME", "bigscience/bloom-560m")
     if hasattr(dist_model, "base_model_name"):
         loaded_base_model = dist_model.base_model_name
     else:

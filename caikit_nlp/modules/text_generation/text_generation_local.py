@@ -173,8 +173,8 @@ class TextGeneration(ModuleBase):
         lr: float = 2e-5,
         # Directory where model predictions and checkpoints will be written
         checkpoint_dir: str = "/tmp/trained_model",
-        **training_arguments,
-    ):
+        **kwargs,
+    ) -> "TextGeneration":
         """
         Fine-tune a CausalLM or Seq2seq text generation model.
 
@@ -203,7 +203,7 @@ class TextGeneration(ModuleBase):
                 Learning rate to be used while tuning model. Default: 2e-5.
             checkpoint_dir: str
                 Directory where model predictions and checkpoints will be written
-            **training_arguments:
+            **kwargs:
                 Arguments supported by HF Training Arguments.
                 TrainingArguments:
                     https://huggingface.co/docs/transformers/v4.30.0/en/main_classes/trainer#transformers.TrainingArguments
@@ -281,9 +281,9 @@ class TextGeneration(ModuleBase):
         ## TODO: Fetch trainer from resource
 
         # Filter **training_arguments to only process allowed ones
-        filtered_training_arguments = {k: v for k, v in training_arguments.items() if k in cls.allowed_training_args}
+        filtered_training_arguments = {k: v for k, v in kwargs.items() if k in cls.allowed_training_args}
 
-        extra_training_args = set(training_arguments.keys()).difference(filtered_training_arguments.keys())
+        extra_training_args = set(kwargs.keys()).difference(filtered_training_arguments.keys())
 
         if extra_training_args:
             log.warning(
@@ -434,13 +434,14 @@ class TextGeneration(ModuleBase):
 
     def run(
         self,
-        text,
-        repetition_penalty=2.5,
-        length_penalty=1.0,
-        early_stopping=True,
-        num_beams=1,
-        max_new_tokens=20,
-        min_new_tokens=0,
+        text: str,
+        repetition_penalty: float = 2.5,
+        length_penalty: float = 1.0,
+        early_stopping: bool = True,
+        num_beams: int = 1,
+        max_new_tokens: int = 20,
+        min_new_tokens: int = 0,
+        truncate_input_tokens: int = 0,
         **kwargs,
     ) -> "GeneratedTextResult":
         """Run inference against the model running in TGIS.
@@ -476,6 +477,11 @@ class TextGeneration(ModuleBase):
             min_new_tokens: int
                 The minimum numbers of tokens to generate.
                 Default: 0 - means no minimum
+            truncate_input_tokens: int
+                Truncate inputs to provided number of tokens. This can be
+                use to avoid failing due to input being longer than
+                configured limits.
+                Default: 0 - means don't truncate, thus throw error.
             kwargs:
                 Any other parameters to pass to generate as specified in GenerationConfig.
                 https://huggingface.co/docs/transformers/v4.30.0/en/main_classes/text_generation#transformers.GenerationConfig
@@ -484,7 +490,21 @@ class TextGeneration(ModuleBase):
                 Generated text result produced by the model.
         """
 
-        inputs = self.model.tokenizer(text, return_tensors="pt")
+        # NOTE: below is to match TGIS API, where 0 identifies as no truncation
+        if truncate_input_tokens == 0:
+            # NOTE: below will make model throw error in case inputs are longer
+            # than allowed length
+            truncation = False
+
+        else:
+            truncation = True
+
+        inputs = self.model.tokenizer(
+            text,
+            truncation=truncation,
+            max_length=truncate_input_tokens,
+            return_tensors="pt",
+        )
         generate_ids = self.model.model.generate(
             input_ids=inputs["input_ids"],
             num_beams=num_beams,
