@@ -266,7 +266,7 @@ class PretrainedModelBase(ABC, ModuleBase):
         trainer_arguments = {
             "train_dataset": train_dataset,
             "data_collator": data_collator,
-            "tokenizer": self._tokenizer,
+            # "tokenizer": self._tokenizer,
             "optimizers": optimizers,
             "eval_dataset": eval_dataset,
         }
