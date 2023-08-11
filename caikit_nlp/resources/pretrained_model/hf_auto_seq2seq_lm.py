@@ -104,7 +104,7 @@ class HFAutoSeq2SeqLM(PretrainedModelBase):
         trainer_arguments = {
             "train_dataset": train_dataset,
             "data_collator": data_collator,
-            "tokenizer": self._tokenizer,
+            # "tokenizer": self._tokenizer,
             "optimizers": optimizers,
             "eval_dataset": eval_dataset,
             # "generation_max_length": max_target_length,
