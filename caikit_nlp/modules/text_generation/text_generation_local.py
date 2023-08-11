@@ -295,6 +295,22 @@ class TextGeneration(ModuleBase):
                 f"{extra_training_args} parameter(s) not allowed by {cls.name} currently and will be ignored!",
             )
 
+        processing_configuration = {}
+
+        # Conditionally enable sharding if multiple GPUs available
+        if torch.cuda.is_available() and torch.cuda.device_count() > 1:
+            processing_configuration = {
+                "fsdp": "full_shard offload auto_wrap",
+                "fsdp_config": {
+                    # NOTE: Every transformers model has `_no_split_modules` property that can be
+                    # leveraged to identify the layers to split. This seems to be a decent
+                    # "default" behavior unless we want to optimize further. We will start with
+                    # this generic approach, since it allows us to handle variety
+                    # of models and iterate on it, based on what we encounter.
+                    "fsdp_transformer_layer_cls_to_wrap": base_model._model._no_split_modules
+                },
+            }
+
         training_args = {
             "output_dir": checkpoint_dir,
             "per_device_train_batch_size": batch_size,
@@ -319,16 +335,10 @@ class TextGeneration(ModuleBase):
             "max_steps": 2,
             # Some interesting parameters:
             "auto_find_batch_size": True,
-            "fsdp": "full_shard offload auto_wrap",
-            "fsdp_config": {
-                # NOTE: Every transformers model has `_no_split_modules` property that can be leveraged to identify
-                # the layers to split. This seems to be a decent "default" behavior unless we want to optimize further.
-                # We will start with this generic approach, since it allows us to handle variety
-                # of models and iterate on it, based on what we encounter.
-                "fsdp_transformer_layer_cls_to_wrap": base_model._model._no_split_modules
-            },
+
             # NOTE: following can override above arguments in order
             **filtered_training_arguments,
+            **processing_configuration,
             **dtype_based_params,
         }
 
