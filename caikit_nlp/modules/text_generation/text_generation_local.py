@@ -332,7 +332,7 @@ class TextGeneration(ModuleBase):
             "gradient_checkpointing": True,
             "full_determinism": True,
             # Required for iterable dataset
-            "max_steps": 2,
+            "max_steps": 50,
             # Some interesting parameters:
             "auto_find_batch_size": True,
 
