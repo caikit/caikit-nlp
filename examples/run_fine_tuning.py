@@ -349,7 +349,7 @@ if __name__ == "__main__":
         loaded_model = load_model(is_distributed=True, model_path=args.output_dir)
 
     else:
-        # Use trained model directly.
+        # Use trained model directly
         loaded_model = model
 
     ## Evaluation
