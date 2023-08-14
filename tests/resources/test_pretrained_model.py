@@ -27,6 +27,16 @@ from tests.fixtures import (
     temp_cache_dir,
 )
 
+def test_bootstrap_with_preloaded_tokenizer(models_cache_dir):
+    """Ensure that if we have a tokenizer instance, we can bootstrap with it directly."""
+    tok_instance = transformers.AutoTokenizer.from_pretrained(CAUSAL_LM_MODEL)
+    base_model = HFAutoCausalLM.bootstrap(
+        model_name=CAUSAL_LM_MODEL, tokenizer_name=tok_instance
+    )
+    assert isinstance(base_model, HFAutoCausalLM)
+    assert base_model.MODEL_TYPE is transformers.AutoModelForCausalLM
+    assert base_model.TASK_TYPE == "CAUSAL_LM"
+
 
 def test_boostrap_causal_lm(models_cache_dir):
     """Ensure that we can bootstrap a causal LM if we have download access."""
