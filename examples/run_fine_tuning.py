@@ -358,7 +358,7 @@ if __name__ == "__main__":
     validation_stream = dataset_info.dataset_loader()[1]
 
     print_colored("Getting model predictions...")
-    truncate_input_tokens = args.args.max_source_length + args.max_target_length
+    truncate_input_tokens = args.max_source_length + args.max_target_length
     predictions, references = get_model_preds_and_references(
         loaded_model, validation_stream, truncate_input_tokens
     )
