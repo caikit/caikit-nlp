@@ -302,7 +302,7 @@ class TextGeneration(ModuleBase):
         if extra_training_args:
             log.warning(
                 "<NLP24424909W>",
-                f"{extra_training_args} parameter(s) not allowed by {cls.name} currently and will be ignored!",
+                f"{extra_training_args} parameter(s) not allowed by {cls.__name__} currently and will be ignored!",
             )
 
         processing_configuration = {}
