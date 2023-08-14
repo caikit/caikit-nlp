@@ -174,6 +174,7 @@ class TextGeneration(ModuleBase):
         lr: float = 2e-5,
         # Directory where model predictions and checkpoints will be written
         checkpoint_dir: str = "/tmp/trained_model",
+        use_iterable_dataset: bool = False,
         **kwargs,
     ) -> "TextGeneration":
         """
@@ -204,6 +205,10 @@ class TextGeneration(ModuleBase):
                 Learning rate to be used while tuning model. Default: 2e-5.
             checkpoint_dir: str
                 Directory where model predictions and checkpoints will be written
+            use_iterable_dataset: bool
+                Indicates that we should use an iterable dataset. If this is set to False, the
+                whole dataset will be loaded into memory, but the sharded training will be faster.
+                Default: False
             **kwargs:
                 Arguments supported by HF Training Arguments.
                 TrainingArguments:
@@ -259,6 +264,7 @@ class TextGeneration(ModuleBase):
             max_source_length=max_source_length,
             max_target_length=max_target_length,
             shuffle=True,
+            use_iterable_dataset=use_iterable_dataset,
         )
 
         ### Dtype based processing
@@ -554,25 +560,25 @@ class TextGeneration(ModuleBase):
         max_source_length: int,
         max_target_length: int,
         shuffle: bool,
+        use_iterable_dataset: bool,
     ):
         """Pre-process each example to get it prepared for training."""
-
-        # TODO: We are using a default verbalizer which is strictly tied to
-        # source training record currently. We need to figure out a better
-        # way to make verbalizer optional for build_task_tokenize_function
-        (
-            tokenize_function,
-            requires_unwrapping,
-        ) = base_model.build_task_tokenize_function(
-            tokenizer, max_source_length, max_target_length, verbalizer="{{input}}"
-        )
-
-        # dataset = datasets.load_dataset("billsum", split="ca_test", streaming=True)
-        # train_test_dataset = dataset.train_test_split(test_size=0.2)
-        dataset = TransformersIterableDataset.from_generator(
-            get, gen_kwargs={"train_stream": train_stream}
-        )
-
+        if use_iterable_dataset:
+            # Generator based
+            log.debug("Loading data as an iterable dataset")
+            dataset = TransformersIterableDataset.from_generator(
+                get, gen_kwargs={"train_stream": train_stream}
+            )
+        else:
+            # Convert the train stream to an normal dataset in memory
+            log.debug("Loading data as a normal dataset")
+            # TODO - this can probably be optimized a bit
+            inputs = []
+            outputs = []
+            for datum in train_stream:
+                inputs.append(datum.input)
+                outputs.append(datum.output)
+            dataset = Dataset.from_dict({"input": inputs, "output": outputs})
         mapped_dataset = dataset.map(
             tokenize_function_seq2seq,
             fn_kwargs={
@@ -581,14 +587,7 @@ class TextGeneration(ModuleBase):
                 "max_target_length": max_target_length,
             },
         )
-        # mapped_stream = train_stream.map(tokenize_function)
-
-        # if requires_unwrapping:
-        #     mapped_stream = mapped_stream.flatten()
-
-        # return mapped_dataset.with_format("torch")
         return mapped_dataset
-        # return SimpleIterableStreamWrapper(mapped_stream, shuffle=shuffle)
 
     @staticmethod
     def _launch_training(
@@ -624,8 +623,8 @@ def tokenize_function_seq2seq(
     max_target_length: int,
 ):
     """Tokenization function to be used for seq2seq training; this function consumes a
-    GenerationTrainRecord object and applies the verbalizer to it followed by
-    the model tokenizer. Finally, we postprocess by ignoring pad tokens in the label IDs.
+    GenerationTrainRecord object and postprocesses by ignoring pad tokens in the
+    label IDs; currently it does not allow us to use a verbalizer.
 
     Args:
         example: GenerationTrainRecord
@@ -636,7 +635,6 @@ def tokenize_function_seq2seq(
             encoded tokenization output corresponding to the input example.
     """
     IGNORE_ID = -100
-    # Render the verbalizer template with the attributes of this data model example
     source = example["input"]
 
     targets = example["output"]
