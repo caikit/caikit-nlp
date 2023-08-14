@@ -36,6 +36,9 @@ log = alog.use_channel("TRCH_RN")
 def initialize_torch_distribution(world_size, rank=0, backend="gloo|nccl"):
 
     if dist.is_available():
+        log.debug(
+            f"Initializing process group - backend {backend}, rank {rank}, world size {world_size}"
+        )
         dist.init_process_group(backend=backend, world_size=world_size, rank=rank)
 
 
@@ -50,25 +53,22 @@ def determine_local_world_size():
         num_proc = cuda.device_count()
         log.info(f"Cuda devices available! Using {num_proc} devices.")
         return num_proc
-    else:
-        num_proc = os.cpu_count()
-        log.info(f"Cuda devices NOT available! Using CPU {num_proc} processes.")
-        return num_proc
-
-    return min_nodes, max_nodes
+    # Fall back to using the OS cpu count
+    # TODO: Callibrate this to some reasonable default...
+    num_proc = os.cpu_count()
+    log.info(f"Cuda devices NOT available! Using CPU {num_proc} processes.")
+    return num_proc
 
 
 def get_torch_elastic_launch_config(
-    master_addr: str, master_port: str, start_method: str = "spawn"
+    master_addr: str, master_port: str, start_method: str = "spawn", max_restarts=3,
 ) -> LaunchConfig:
 
-    # Constants
+    # Constants; we assume everything executes on the same node
     min_nodes = 1
     max_nodes = 1
-
     rdzv_configs = {"rank": 0}
 
-    # NOTE: below code assumes number of node(s) to be 1
     nproc_per_node = determine_local_world_size()
 
     if "OMP_NUM_THREADS" not in os.environ and nproc_per_node > 1:
@@ -94,4 +94,5 @@ def get_torch_elastic_launch_config(
         rdzv_endpoint=f"{master_addr}:{master_port}",
         rdzv_configs=rdzv_configs,
         tee=Std.ALL,
+        max_restarts=max_restarts,
     )
