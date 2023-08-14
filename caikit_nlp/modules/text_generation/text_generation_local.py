@@ -373,8 +373,13 @@ class TextGeneration(ModuleBase):
         # because this case of multiple devices, this whole program gets run
         # in parallel, so the model might still be in "write" mode on 1 process
         # while we try to read it in below process.
+        #
+        # Note that we forward the base model tokenizer instance to bootstrap to avoid
+        # dealing with temporarily exporting and reloading the tokenizer off of the trainer.
         model = resource_type.bootstrap(
-            checkpoint_dir, checkpoint_dir, torch_dtype=torch_dtype
+            model_name=checkpoint_dir,
+            tokenizer_name=base_model.tokenizer,
+            torch_dtype=torch_dtype,
         )
 
         return cls(
