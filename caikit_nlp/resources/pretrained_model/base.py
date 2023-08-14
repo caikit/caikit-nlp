@@ -14,12 +14,18 @@
 
 # Standard
 from abc import ABC, abstractmethod
-from typing import Callable, List, Optional, Tuple, Type
+from typing import Callable, List, Optional, Tuple, Type, Union
 import json
 import os
 
 # Third Party
-from transformers import AutoTokenizer
+from torch.utils.data import IterableDataset
+from transformers import (
+    AutoTokenizer,
+    DataCollatorWithPadding,
+    Trainer,
+    TrainingArguments,
+)
 from transformers.models.auto.auto_factory import _BaseAutoModelClass
 import torch
 
@@ -233,6 +239,61 @@ class PretrainedModelBase(ABC, ModuleBase):
             self.tokenizer.save_pretrained(tok_abs_path)
             self.model.save_pretrained(model_abs_path)
 
+    def get_trainer(
+        self,
+        train_dataset: IterableDataset,
+        eval_dataset: Union[IterableDataset, None] = None,
+        optimizers=(None, None),
+        **kwargs,
+    ):
+        """
+        Args:
+            **kwargs: arguments supported by HF TrainingArguments:
+            https://huggingface.co/docs/transformers/v4.30.0/en/main_classes/trainer#transformers.TrainingArguments
+
+        NOTE: following parameters are not supported currently:
+            1. model_init
+            2. compute_metrics
+            3. callbacks
+            4. preprocess_logits_for_metrics
+        """
+
+        training_args = TrainingArguments(**kwargs)
+
+        data_collator = self._get_data_collator(**kwargs)
+
+        trainer_arguments = {
+            "train_dataset": train_dataset,
+            "data_collator": data_collator,
+            "tokenizer": self._tokenizer,
+            "optimizers": optimizers,
+            "eval_dataset": eval_dataset,
+        }
+
+        return Trainer(self._model, training_args, **trainer_arguments)
+
+    def _get_data_collator(self, **kwargs):
+        """Function to return appropriate data collator based on resource.
+
+        The default implementation of the base resource uses
+        DataCollatorWithPadding which will dynamically pad the inputs received.
+
+        Args:
+            **kwargs:
+                All the keyword arguments passed to this function
+                will get filtered out to appropriate ones that are
+                applicable to implemented data collator.
+        Returns:
+            transformers.DataCollator
+        """
+
+        applicable_args = ["max_length", "pad_to_multiple_of"]
+        collator_kwargs = {key: kwargs[key] for key in applicable_args if key in kwargs}
+
+        return DataCollatorWithPadding(
+            tokenizer=self._tokenizer, padding=True, **collator_kwargs
+        )
+
     # pylint: disable=unused-argument
     @classmethod
     def get_num_transformers_submodules(
@@ -249,6 +310,7 @@ class PretrainedModelBase(ABC, ModuleBase):
         max_source_length: int,
         max_target_length: int,
         verbalizer: str,
+        task_ids: Union[None, int] = None,
     ) -> Tuple[Callable, bool]:
         """Builds tokenizer functions which can be mapped over train streams to process
         data which can then be easily passed to a DataLoader for different model types.
@@ -263,6 +325,10 @@ class PretrainedModelBase(ABC, ModuleBase):
             verbalizer: str
                 Verbalizer template to be used for formatting data. This template may use brackets
                 to indicate where fields from the data model TrainGenerationRecord must be rendered.
+            task_ids: Union[None, int]
+                Task id corresponding particular task for multi-task prompt tuning.
+                NOTE: Only required for MPT (Multi-task prompt tuning)
+                Default: None
 
         Returns:
             Tuple(Callable, bool)

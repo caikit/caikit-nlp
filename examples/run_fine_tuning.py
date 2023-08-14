@@ -20,6 +20,7 @@ from utils import (
     SUPPORTED_METRICS,
     DatasetInfo,
     configure_random_seed_and_logging,
+    load_model,
     print_colored,
 )
 
@@ -30,7 +31,7 @@ import alog
 
 # Local
 from caikit_nlp.data_model import GenerationTrainRecord, TuningConfig
-from caikit_nlp.modules.text_generation import FineTuning
+from caikit_nlp.modules.text_generation import TextGeneration
 from caikit_nlp.resources.pretrained_model import (
     HFAutoCausalLM,
     HFAutoSeq2SeqLM,
@@ -170,6 +171,11 @@ def register_common_arguments(subparser: argparse.ArgumentParser) -> None:
         nargs="*",
         default=["accuracy"],
     )
+    subparser.add_argument(
+        "--tgis",
+        help="Run inference using TGIS. NOTE: This involves saving and reloading model in TGIS container",
+        action="store_true",
+    )
 
 
 def validate_common_args(args: argparse.Namespace):
@@ -226,7 +232,7 @@ def show_experiment_configuration(args, dataset_info, model_type) -> None:
     print_colored("\n".join([print_str for print_str in print_strs if print_str]))
 
 
-def get_model_preds_and_references(model, validation_stream):
+def get_model_preds_and_references(model, validation_stream, truncate_input_tokens):
     """Given a model & a validation stream, run the model against every example in the validation
     stream and compare the outputs to the target/output sequence.
 
@@ -236,7 +242,9 @@ def get_model_preds_and_references(model, validation_stream):
         validation_stream: DataStream[GenerationTrainRecord]
             Validation stream with labeled targets that we want to compare to our model's
             predictions.
-
+        truncate_input_tokens: int
+            maximum number of tokens to be accepted by the model and rest will be
+            truncated.
     Returns:
         Tuple(List)
             Tuple of 2 lists; the model predictions and the expected output sequences.
@@ -247,7 +255,9 @@ def get_model_preds_and_references(model, validation_stream):
     for datum in tqdm(validation_stream):
         # Local .run() currently prepends the input text to the generated string;
         # Ensure that we're just splitting the first predicted token & beyond.
-        raw_model_text = model.run(datum.input).text
+        raw_model_text = model.run(
+            datum.input, truncate_input_tokens=truncate_input_tokens
+        ).generated_text
         parse_pred_text = raw_model_text.split(datum.input)[-1].strip()
         model_preds.append(parse_pred_text)
         targets.append(datum.output)
@@ -303,19 +313,17 @@ if __name__ == "__main__":
 
     # Then actually train the model & save it
     print_colored("[Starting the training...]")
-    model = FineTuning.train(
+    model = TextGeneration.train(
         base_model,
         train_stream,
         max_source_length=args.max_source_length,
         max_target_length=args.max_target_length,
         lr=args.learning_rate,
-        torch_dtype="float16",
+        torch_dtype=args.torch_dtype,
         batch_size=args.batch_size,
         accumulate_steps=args.accumulate_steps,
         num_epochs=args.num_epochs,
     )
-
-    # model.save(args.output_dir, save_base_model=not args.prompt_only)
 
     print_colored("[Training Complete]")
 
@@ -325,13 +333,35 @@ if __name__ == "__main__":
 
     print("Generated text: ", prediction_results)
 
+    if args.tgis:
+
+        # Saving model
+        model.save(args.output_dir)
+
+        # Load model in TGIS
+        # HACK: export args.output_dir as MODEL_NAME for TGIS
+        # container to pick up automatically
+        os.environ["MODEL_DIR"] = os.path.dirname(args.output_dir)
+        os.environ["MODEL_NAME"] = os.path.join(
+            "models", os.path.basename(args.output_dir), "artifacts"
+        )
+
+        loaded_model = load_model(is_distributed=True, model_path=args.output_dir)
+
+    else:
+        # Use trained model directly
+        loaded_model = model
+
     ## Evaluation
     print_colored("[Starting Evaluation]")
 
     validation_stream = dataset_info.dataset_loader()[1]
 
     print_colored("Getting model predictions...")
-    predictions, references = get_model_preds_and_references(model, validation_stream)
+    truncate_input_tokens = args.max_source_length + args.max_target_length
+    predictions, references = get_model_preds_and_references(
+        loaded_model, validation_stream, truncate_input_tokens
+    )
 
     export_model_preds(args.preds_file, predictions, validation_stream)
 

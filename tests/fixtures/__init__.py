@@ -32,6 +32,20 @@ CAUSAL_LM_MODEL = os.path.join(TINY_MODELS_DIR, "BloomForCausalLM")
 SEQ2SEQ_LM_MODEL = os.path.join(TINY_MODELS_DIR, "T5ForConditionalGeneration")
 
 
+@pytest.fixture()
+def set_cpu_device(request):
+    """Fixture to set default cuda device.
+    This fixture is particularly useful for running the unit tests where
+    cuda devices are available, in which case, some transformers function
+    may try to consume cuda and give device mismatch error.
+    """
+    visible_devices = os.environ.get("CUDA_VISIBLE_DEVICES", "")
+    os.environ["CUDA_VISIBLE_DEVICES"] = ""
+    with mock.patch.object(torch.cuda, "is_available", return_value=False):
+        yield
+    os.environ["CUDA_VISIBLE_DEVICES"] = visible_devices
+
+
 @pytest.fixture
 def disable_wip(request):
     """Fixture to temporarily disable wip decorator"""
@@ -228,6 +242,7 @@ class StubTGISBackend(TGISBackend):
     def get_client(self, base_model_name):
         self._model_connections[base_model_name] = TGISConnection(
             hostname="foo.bar",
+            model_id=base_model_name,
             prompt_dir=self._temp_dir,
         )
         return StubTGISClient(base_model_name)

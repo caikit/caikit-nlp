@@ -1,16 +1,17 @@
 #!/usr/bin/env bash
-# This script is primarily meant for illustrative purposes; if we don't have 
+# This script is primarily meant for illustrative purposes; if we don't have
 # the text-generation-launcher command locally available, but we do have a Docker
 # container, we add this script onto our path so when the TGIS backend in caikit
 # tries to start the server, it runs this script instead.
 #
-# NOTE: 
+# NOTE:
 #    - Model ID, directories, etc are hardcoded to our example, params from the backend,
 #      e.g., shard configuration, are ignored.
 #
 #    - We need to export port 3000 (for probes in core distributed), and we forward 8033->50055
 #      so that our gRPC server is exposed on the expected port for local TGIS.
 TGIS_MODEL="${MODEL_NAME:-bigscience/bloom-560m}"
+MODEL_DIR="${MODEL_DIR:-models}"
 echo "Running TGIS with model: $TGIS_MODEL"
 
 docker run --rm \
@@ -21,7 +22,7 @@ docker run --rm \
     -p 8087:8087 \
     -p 50055:8033 \
     -p 3000:3000 \
-    -v $(pwd)/models:/models \
+    -v $(pwd)/${MODEL_DIR}:/models \
     -v $(pwd)/../runtime_config.yaml:/conf/runtime_config.yaml \
     -v $(pwd)/transformers_cache:/shared_model_storage/transformers_cache \
     -v $(pwd)/prompt_prefixes:/prompt_prefixes \
