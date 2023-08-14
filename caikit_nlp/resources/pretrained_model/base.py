@@ -27,6 +27,7 @@ from transformers import (
     TrainingArguments,
 )
 from transformers.models.auto.auto_factory import _BaseAutoModelClass
+from transformers.tokenization_utils_base import PreTrainedTokenizerBase
 import torch
 
 # First Party
@@ -125,12 +126,14 @@ class PretrainedModelBase(ABC, ModuleBase):
         Args:
             model_name (str)
                 The name/path of the HF sequence classifier model
-            tokenizer_name (Optional[str])
+            tokenizer_name (Optional[Union[str, PreTrainedTokenizerBase]])
                 The name/path of the HF tokenizer model (matches model_name if
-                not given)
+                not given) or an instance of a loaded tokenizer.
+                NOTE: If a loaded tokenizer is provided, and it doesn't have
+                a pad token ID, the pad token ID will be set to the EOS token ID.
             padding_side (Optional[str])
                 The padding side for the tokenizer. Found by convention if not
-                given.
+                given. This value is only used if a tokenizer needs to be loaded.
             torch_dtype: (Optional[Union[torch.dtype, str]])
                 Data type to load the model as; if no value is provided, we pull
                 torch_dtype from config.
@@ -150,32 +153,42 @@ class PretrainedModelBase(ABC, ModuleBase):
             "Must provide path to tokenizer if model_name is a path",
         )
         torch_dtype = get_torch_dtype(torch_dtype)
-        if tokenizer_name is None:
-            tokenizer_name = model_name
-        if not os.path.isdir(tokenizer_name) and tokenizer_name != model_name:
-            log.warning(
-                "Bootstrapping with mismatched tokenizer (%s) / model (%s)",
+        # Check if we passed the tokenizer directly; for now, we keep
+        # the arg name tokenizer_name for compatibility reasons
+        if isinstance(tokenizer_name, PreTrainedTokenizerBase):
+            log.debug("Bootstrapping with in-memory tokenizer")
+            tokenizer = tokenizer_name
+
+        else:
+            if tokenizer_name is None:
+                tokenizer_name = model_name
+
+            if not os.path.isdir(tokenizer_name) and tokenizer_name != model_name:
+                log.warning(
+                    "Bootstrapping with mismatched tokenizer (%s) / model (%s)",
+                    tokenizer_name,
+                    model_name,
+                )
+
+            # Figure out the right padding side based on the name of the HF model
+            # NOTE: This matches models whose name includes the left-pad types as a
+            #   substring and not just as an exact match.
+            if padding_side is None:
+                padding_side = (
+                    "left"
+                    if any(k in model_name for k in cls._LEFT_PAD_MODEL_TYPES)
+                    else "right"
+                )
+
+            # Load the tokenizer
+            tokenizer = AutoTokenizer.from_pretrained(
                 tokenizer_name,
-                model_name,
+                local_files_only=not get_config().allow_downloads,
+                padding_side=padding_side,
+                use_fast=False,
             )
-
-        # Figure out the right padding side based on the name of the HF model
-        # NOTE: This matches models whose name includes the left-pad types as a
-        #   substring and not just as an exact match.
-        if padding_side is None:
-            padding_side = (
-                "left"
-                if any(k in model_name for k in cls._LEFT_PAD_MODEL_TYPES)
-                else "right"
-            )
-
-        # Load the tokenizer and set up the pad token if needed
-        tokenizer = AutoTokenizer.from_pretrained(
-            tokenizer_name,
-            local_files_only=not get_config().allow_downloads,
-            padding_side=padding_side,
-            use_fast=False,
-        )
+        # set up the pad token if needed; note that this will mutate
+        # the tokenizer that is pass as an argument if one is provided.
         if tokenizer.pad_token_id is None:
             tokenizer.pad_token_id = tokenizer.eos_token_id
 
