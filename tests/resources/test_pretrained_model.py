@@ -105,7 +105,7 @@ def test_causal_lm_tokenize_func_contains_wrapped_stream(models_cache_dir):
     causal_lm = HFAutoCausalLM.bootstrap(
         model_name=CAUSAL_LM_MODEL, tokenizer_name=CAUSAL_LM_MODEL
     )
-    (tok_func, requires_unwrapping) = causal_lm.build_task_tokenize_function(
+    (tok_func, requires_unwrapping) = causal_lm.build_task_tokenize_closure(
         tokenizer=causal_lm.tokenizer,
         max_source_length=100,
         max_target_length=100,
@@ -133,7 +133,7 @@ def test_causal_lm_tok_output_correctness(models_cache_dir):
     sample = GenerationTrainRecord(
         input="This len does not matter", output="but this one does!"
     )
-    (tok_func, requires_unwrapping) = causal_lm.build_task_tokenize_function(
+    (tok_func, requires_unwrapping) = causal_lm.build_task_tokenize_closure(
         tokenizer=causal_lm.tokenizer,
         max_source_length=100,
         max_target_length=100,
@@ -176,7 +176,7 @@ def test_seq2seq_tokenize_func_contains_unwrapped_stream(models_cache_dir):
     seq2seq = HFAutoSeq2SeqLM.bootstrap(
         model_name=SEQ2SEQ_LM_MODEL, tokenizer_name=SEQ2SEQ_LM_MODEL
     )
-    (tok_func, requires_unwrapping) = seq2seq.build_task_tokenize_function(
+    (tok_func, requires_unwrapping) = seq2seq.build_task_tokenize_closure(
         tokenizer=seq2seq.tokenizer,
         max_source_length=100,
         max_target_length=100,
@@ -202,7 +202,7 @@ def test_seq2seq_tok_output_correctness(models_cache_dir):
     sample = GenerationTrainRecord(
         input="This len does not matter", output="and this one doesn't either!"
     )
-    (tok_func, requires_unwrapping) = seq2seq.build_task_tokenize_function(
+    (tok_func, requires_unwrapping) = seq2seq.build_task_tokenize_closure(
         tokenizer=seq2seq.tokenizer,
         max_source_length=20,
         max_target_length=20,

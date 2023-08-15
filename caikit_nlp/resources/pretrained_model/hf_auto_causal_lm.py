@@ -16,6 +16,7 @@ Huggingface auto causal LM resource type
 """
 # Standard
 from copy import deepcopy
+from collections.abc import Mapping
 from typing import Callable, Tuple, Union
 
 # Third Party
@@ -45,90 +46,65 @@ class HFAutoCausalLM(PretrainedModelBase):
     TASK_TYPE = "CAUSAL_LM"
     PROMPT_OUTPUT_TYPES = [PromptOutputModelType.DECODER]
     MAX_NUM_TRANSFORMERS = 1
+    REQUIRES_TOKEN_UNWRAPPING = True
 
-    @staticmethod
-    def build_task_tokenize_function(
+    @classmethod
+    def tokenize_function(
+        cls,
+        example: Union[GenerationTrainRecord, Mapping],
         tokenizer: "AutoTokenizer",
         max_source_length: int,
         max_target_length: int,
-        verbalizer: str,
+        verbalizer: Union[None, str] = None,
         task_ids: Union[None, int] = None,
-    ) -> Tuple[Callable, bool]:
-        """Builds tokenizer functions which can be mapped over train streams to process
-        data which can then be easily passed to a DataLoader for CausalLM models.
+    ) -> DataStream["BatchEncoding"]:
+        """Tokenization function to be used for causallm training; this function consumes a
+        GenerationTrainRecord object and applies the verbalizer to it followed by
+        the model tokenizer. Due to the nature of our training data with src/target seqs,
+        each sample yields one example per token in the target sequence.
 
         Args:
-            tokenizer: AutoTokenizer
-                Model tokenizer to be used in preprocessing, i.e., when we iterate over our data.
-            max_source_length: int
-                Max length of sequences being considered.
-            max_target_length: int
-                Max length of target sequences being predicted.
-            verbalizer: str
-                Verbalizer template to be used for formatting data. This template may use brackets
-                to indicate where fields from the data model TrainGenerationRecord must be rendered.
-            task_ids: Union[None, int]
-                Task id corresponding particular task for multi-task prompt tuning.
-                NOTE: Only required for MPT (Multi-task prompt tuning)
-                Default: None
+            example: GenerationTrainRecord | Mapping
+                Training data model object to convert a form we can learn on, or a Mapping
+                that has keys input/output.
 
         Returns:
-            Tuple(Callable, bool)
-                Mappable tokenize function to be applied to a training stream and bool indicating
-                whether or not the stream needs to be unwrapped, i.e., each sample yields a stream
-                of 1+ samples.
+            DataStream[transformers.tokenization_utils_base.BatchEncoding]
+                stream of encoded tokenization output corresponding to the input example.
         """
+        # Only render the verbalizer if one is provided
+        source, target = cls.decompose_example_io(example)
+        source = source if verbalizer is None else render_verbalizer(verbalizer, example)
 
-        def tokenize_function_language_model(
-            example: GenerationTrainRecord,
-        ) -> "BatchEncoding":
-            """Tokenization function to be used for causallm training; this function consumes a
-            GenerationTrainRecord object and applies the verbalizer to it followed by
-            the model tokenizer. Due to the nature of our training data with src/target seqs,
-            each sample yields one example per token in the target sequence.
+        source_ids = tokenizer(
+            source, max_length=max_source_length, truncation=True
+        )
+        target_ids = tokenizer(
+            target, max_length=max_target_length, truncation=True
+        )
+        source_ids["input_ids"] = source_ids.input_ids + target_ids.input_ids
+        # Here, we need to yield and manipulate the attention mask to attend
+        # to the input seq + the tokens we have seen so far...
+        num_target_samples = len(target_ids.input_ids)
 
-            Args:
-                example: GenerationTrainRecord
-                    Training data model object to convert a form we can learn on.
+        if task_ids is not None:
+            source_ids["task_ids"] = task_ids
 
-            Returns:
-                transformers.tokenization_utils_base.BatchEncoding
-                    encoded tokenization output corresponding to the input example.
-            """
+        def generator_func():
+            for idx in range(num_target_samples):
+                # This may not actually be needed, but for now we do it, since the underlying
+                # data may be referenced in multiple places, and the data will be dynamically
+                # padded by the LM collator
+                s = deepcopy(source_ids)
+                s["attention_mask"] = (
+                    s["attention_mask"]
+                    + [1] * (idx + 1)
+                    + [0] * (num_target_samples - idx - 1)
+                )
+                yield s
 
-            # Render the verbalizer template with the attributes of this data model example
-            source = render_verbalizer(verbalizer, example)
+        return DataStream(generator_func)
 
-            source_ids = tokenizer(
-                source, max_length=max_source_length, truncation=True
-            )
-            target_ids = tokenizer(
-                example.output, max_length=max_target_length, truncation=True
-            )
-            source_ids["input_ids"] = source_ids.input_ids + target_ids.input_ids
-            # Here, we need to yield and manipulate the attention mask to attend
-            # to the input seq + the tokens we have seen so far...
-            num_target_samples = len(target_ids.input_ids)
-
-            if task_ids is not None:
-                source_ids["task_ids"] = task_ids
-
-            def generator_func():
-                for idx in range(num_target_samples):
-                    # This may not actually be needed, but for now we do it, since the underlying
-                    # data may be referenced in multiple places, and the data will be dynamically
-                    # padded by the LM collator
-                    s = deepcopy(source_ids)
-                    s["attention_mask"] = (
-                        s["attention_mask"]
-                        + [1] * (idx + 1)
-                        + [0] * (num_target_samples - idx - 1)
-                    )
-                    yield s
-
-            return DataStream(generator_func)
-
-        return (tokenize_function_language_model, True)
 
     def _get_data_collator(self, **kwargs):
         """Function to return appropriate data collator based on resource.
