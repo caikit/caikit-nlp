@@ -51,6 +51,7 @@ from caikit.core.data_model import DataStream
 from caikit.core.modules import ModuleBase, ModuleConfig, ModuleSaver, module
 from caikit.core.toolkit import error_handler, wip_decorator
 from caikit.interfaces.nlp.data_model import (
+    ClassificationTrainRecord,
     GeneratedTextResult,
     GeneratedTextStreamResult,
 )
@@ -58,12 +59,7 @@ from caikit.interfaces.nlp.tasks import TextGenerationTask
 import alog
 
 # Local
-from ...data_model import (
-    ClassificationTrainRecord,
-    GenerationTrainRecord,
-    PromptOutputModelType,
-    TuningConfig,
-)
+from ...data_model import GenerationTrainRecord, PromptOutputModelType, TuningConfig
 from ...resources.pretrained_model import (
     HFAutoCausalLM,
     HFAutoSeq2SeqLM,

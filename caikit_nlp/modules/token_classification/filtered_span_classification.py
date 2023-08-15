@@ -29,17 +29,17 @@ from caikit.core.modules import (
     module,
 )
 from caikit.core.toolkit import error_handler
-import alog
-
-# Local
-from ...data_model import (
-    StreamingTokenClassificationResult,
-    TokenClassification,
+from caikit.interfaces.nlp.data_model import (
     TokenClassificationResult,
+    TokenClassificationResults,
+    TokenClassificationStreamResult,
 )
-from ..text_classification.text_classification_task import TextClassificationTask
-from .token_classification_task import TokenClassificationTask
-from caikit_nlp.modules.tokenization.tokenization_task import TokenizationTask
+from caikit.interfaces.nlp.tasks import (
+    TextClassificationTask,
+    TokenClassificationTask,
+    TokenizationTask,
+)
+import alog
 
 log = alog.use_channel("FILT_SPAN")
 error = error_handler.get(log)
@@ -73,10 +73,10 @@ class FilteredSpanClassification(ModuleBase):
             lang: str
                 2 letter language code
             tokenizer: ModuleBase
-                Tokenizer that returns TokenizationResult
+                Tokenizer that returns TokenizationResults
             classifier: ModuleBase
                 Classification model instance returning Classification or
-                TokenClassification output on .run
+                TokenClassificationResult output on .run
             default_threshold: float
                 Default threshold for scores
             labels_to_output: List[str]
@@ -117,7 +117,7 @@ class FilteredSpanClassification(ModuleBase):
     @TokenClassificationTask.taskmethod()
     def run(
         self, text: str, threshold: Optional[float] = None
-    ) -> TokenClassificationResult:
+    ) -> TokenClassificationResults:
         """Run classification on text split into spans. Returns results
         based on score threshold for labels that are to be outputted
 
@@ -128,7 +128,7 @@ class FilteredSpanClassification(ModuleBase):
                 (Optional) Threshold based on which to return score results
 
         Returns:
-            TokenClassificationResult
+            TokenClassificationResults
         """
         if threshold is None:
             threshold = self.default_threshold
@@ -163,7 +163,7 @@ class FilteredSpanClassification(ModuleBase):
                     if not self.labels_to_output or (
                         self.labels_to_output and label in self.labels_to_output
                     ):
-                        token_classification = TokenClassification(
+                        token_classification = TokenClassificationResult(
                             start=start,
                             end=end,
                             word=word,
@@ -171,12 +171,12 @@ class FilteredSpanClassification(ModuleBase):
                             score=classification.score,
                         )
                         token_classification_results.append(token_classification)
-        return TokenClassificationResult(results=token_classification_results)
+        return TokenClassificationResults(results=token_classification_results)
 
     @TokenClassificationTask.taskmethod(input_streaming=True, output_streaming=True)
     def run_bidi_stream(
         self, text_stream: Iterable[str], threshold: Optional[float] = None
-    ) -> Iterable[StreamingTokenClassificationResult]:
+    ) -> Iterable[TokenClassificationStreamResult]:
         """Run bi-directional streaming inferencing for this module.
         Run classification on text split into spans. Returns results
         based on score threshold for labels that are to be outputted
@@ -188,7 +188,7 @@ class FilteredSpanClassification(ModuleBase):
                 (Optional) Threshold based on which to return score results
 
         Returns:
-            Iterable[StreamingTokenClassificationResult]
+            Iterable[TokenClassificationStreamResult]
         """
         # TODO: For optimization implement window based approach.
         if threshold is None:
@@ -215,9 +215,9 @@ class FilteredSpanClassification(ModuleBase):
                     ):
                         # Need to add offset to track actual place of spans within a stream,
                         # as the span splitting will be expected to stream and detect spans
-                        yield StreamingTokenClassificationResult(
+                        yield TokenClassificationStreamResult(
                             results=[
-                                TokenClassification(
+                                TokenClassificationResult(
                                     start=start,
                                     end=end,
                                     word=word,
@@ -231,7 +231,7 @@ class FilteredSpanClassification(ModuleBase):
                             results_to_end_of_span = True
 
             if not results_to_end_of_span:
-                yield StreamingTokenClassificationResult(
+                yield TokenClassificationStreamResult(
                     results=[], processed_index=span_output.end
                 )
 
@@ -296,10 +296,10 @@ class FilteredSpanClassification(ModuleBase):
             lang: str
                 2 letter language code
             tokenizer: ModuleBase
-                Tokenizer that returns TokenizationResult
+                Tokenizer that returns TokenizationResults
             classifier: ModuleBase
                 Classification model instance returning Classification or
-                TokenClassification output on .run
+                TokenClassificationResult output on .run
             default_threshold: float
                 Default threshold for scores
             labels_to_output: List[str]
