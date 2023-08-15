@@ -328,18 +328,18 @@ class TextGeneration(ModuleBase):
             "weight_decay": 0.01,
             "save_total_limit": 3,
             "push_to_hub": False,
-            "no_cuda": False,  # Default
+            "no_cuda": not torch.cuda.is_available(),  # Default
             "remove_unused_columns": True,
             "dataloader_pin_memory": False,
             "gradient_accumulation_steps": accumulate_steps,
-            "eval_accumulation_steps": accumulate_steps,
             "gradient_checkpointing": True,
-            "full_determinism": True,
+            # NOTE: This is explicitly set to false since it will
+            # negatively impact the performance
+            "full_determinism": False,
             # Required for iterable dataset
-            "max_steps": 2,
+            "max_steps": 1,
             # Some interesting parameters:
             "auto_find_batch_size": True,
-
             # NOTE: following can override above arguments in order
             **filtered_training_arguments,
             **processing_configuration,
@@ -363,9 +363,17 @@ class TextGeneration(ModuleBase):
             get_config().master_port,
         )
 
-        torch.distributed.launcher.api.elastic_launch(
-            launch_config, cls._launch_training
-        )(base_model, training_dataset, training_args, checkpoint_dir)
+        if torch.cuda.is_available():
+            # NOTE: torch distributed can hang if run on CPUs,
+            # to avoid that, specially for unit tests, we are only
+            # running below when GPUs are available
+            torch.distributed.launcher.api.elastic_launch(
+                launch_config, cls._launch_training
+            )(base_model, training_dataset, training_args, checkpoint_dir)
+        else:
+            cls._launch_training(
+                base_model, training_dataset, training_args, checkpoint_dir
+            )
 
         # In case this program is started via torchrun, below might not work as is
         # because this case of multiple devices, this whole program gets run
@@ -621,6 +629,9 @@ class TextGeneration(ModuleBase):
         # and thus cause incompatibilities in `run` function
         trainer.save_state()
         trainer.save_model(checkpoint_dir)
+
+        # save tokenizer explicitly
+        base_model.tokenizer.save_pretrained(checkpoint_dir)
 
 
 def get(train_stream):

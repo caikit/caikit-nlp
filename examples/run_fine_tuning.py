@@ -237,7 +237,9 @@ def show_experiment_configuration(args, dataset_info, model_type) -> None:
     print_colored("\n".join([print_str for print_str in print_strs if print_str]))
 
 
-def get_model_preds_and_references(model, validation_stream, truncate_input_tokens, max_new_tokens):
+def get_model_preds_and_references(
+    model, validation_stream, truncate_input_tokens, max_new_tokens
+):
     """Given a model & a validation stream, run the model against every example in the validation
     stream and compare the outputs to the target/output sequence.
 
@@ -261,7 +263,9 @@ def get_model_preds_and_references(model, validation_stream, truncate_input_toke
         # Local .run() currently prepends the input text to the generated string;
         # Ensure that we're just splitting the first predicted token & beyond.
         raw_model_text = model.run(
-            datum.input, truncate_input_tokens=truncate_input_tokens, max_new_tokens=max_new_tokens
+            datum.input,
+            truncate_input_tokens=truncate_input_tokens,
+            max_new_tokens=max_new_tokens,
         ).generated_text
         parse_pred_text = raw_model_text.split(datum.input)[-1].strip()
         model_preds.append(parse_pred_text)
