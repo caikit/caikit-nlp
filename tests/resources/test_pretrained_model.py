@@ -9,6 +9,7 @@ NOTE: If the subclasses become sufficiently complex, this test file should be sp
 from unittest.mock import patch
 
 # Third Party
+from datasets import IterableDataset as TransformersIterableDataset
 import pytest
 import torch
 import transformers
@@ -220,3 +221,33 @@ def test_seq2seq_tok_output_correctness(models_cache_dir):
     # Ensure we support MPT
     assert hasattr(tok_sample, "task_ids")
     assert tok_sample["task_ids"] == 0
+
+
+def test_causal_lm_batch_tokenization(models_cache_dir):
+    """Ensure that we can batch process causal lm inputs correctly."""
+    causal_lm = HFAutoCausalLM.bootstrap(
+        model_name=CAUSAL_LM_MODEL, tokenizer_name=CAUSAL_LM_MODEL
+    )
+    train_stream = [
+        GenerationTrainRecord(input="foo!", output="bar!"),
+        GenerationTrainRecord(input="baz!", output="bat!"),
+        GenerationTrainRecord(input="foobar!", output="boozar!"),
+    ]
+    fn_kwargs = {
+        "tokenizer": causal_lm.tokenizer,
+        "max_source_length": 10,
+        "max_target_length": 10,
+    }
+    def get(train_stream):
+        for data in train_stream:
+            yield {"input": data.input, "output": data.output}
+    dataset = TransformersIterableDataset.from_generator(
+        get, gen_kwargs={"train_stream": train_stream}
+    )
+    mapped_dataset = dataset.map(
+        causal_lm.tokenize_function,
+        fn_kwargs=fn_kwargs,
+        batched=True,
+    )
+    # Ensure we can iterate over the mapped iterable dataset
+    [_ for _ in mapped_dataset]
