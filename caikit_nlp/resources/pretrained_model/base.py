@@ -194,8 +194,15 @@ class PretrainedModelBase(ABC, ModuleBase):
                 padding_side=padding_side,
                 use_fast=False,
             )
-        # set up the pad token if needed; note that this will mutate
-        # the tokenizer that is pass as an argument if one is provided.
+
+        # Load the tokenizer and set up the pad token if needed
+        tokenizer = AutoTokenizer.from_pretrained(
+            tokenizer_name,
+            local_files_only=not get_config().allow_downloads,
+            padding_side=padding_side,
+            # We can't disable use_fast otherwise unit test fails
+            # use_fast=False,
+        )
         if tokenizer.pad_token_id is None:
             tokenizer.pad_token_id = tokenizer.eos_token_id
 
