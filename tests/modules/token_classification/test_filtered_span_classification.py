@@ -12,17 +12,15 @@ import pytest
 # First Party
 from caikit.core import data_model
 from caikit.core.modules import ModuleBase, module
+from caikit.interfaces.nlp.data_model import (
+    TokenClassificationResult,
+    TokenClassificationResults,
+)
+from caikit.interfaces.nlp.tasks import TokenClassificationTask
 
 # Local
-from caikit_nlp.data_model.classification import (
-    TokenClassification,
-    TokenClassificationResult,
-)
 from caikit_nlp.modules.text_classification import SequenceClassification
-from caikit_nlp.modules.token_classification import (
-    FilteredSpanClassification,
-    TokenClassificationTask,
-)
+from caikit_nlp.modules.token_classification import FilteredSpanClassification
 from caikit_nlp.modules.tokenization.regex_sentence_splitter import (
     RegexSentenceSplitter,
 )
@@ -42,16 +40,16 @@ DOCUMENT = (
 )
 
 # Token classifications in document
-FOX_CLASS = TokenClassification(
+FOX_CLASS = TokenClassificationResult(
     start=16, end=19, word="fox", entity="animal", score=0.8
 )
-DOG_CLASS = TokenClassification(
+DOG_CLASS = TokenClassificationResult(
     start=40, end=43, word="dog", entity="animal", score=0.3
 )
-LAND_CLASS = TokenClassification(
+LAND_CLASS = TokenClassificationResult(
     start=22, end=26, word="land", entity="thing", score=0.7
 )
-TOK_CLASSIFICATION_RESULT = TokenClassificationResult(results=[FOX_CLASS, DOG_CLASS])
+TOK_CLASSIFICATION_RESULT = TokenClassificationResults(results=[FOX_CLASS, DOG_CLASS])
 
 # Modules that already returns token classification for tests
 @module(
@@ -62,33 +60,33 @@ TOK_CLASSIFICATION_RESULT = TokenClassificationResult(results=[FOX_CLASS, DOG_CL
 )
 class FakeTokenClassificationModule(ModuleBase):
     # This returns results for the whole document
-    def run(self, text: str) -> TokenClassificationResult:
+    def run(self, text: str) -> TokenClassificationResults:
         return TOK_CLASSIFICATION_RESULT
 
-    def run_batch(self, texts: List[str]) -> List[TokenClassificationResult]:
+    def run_batch(self, texts: List[str]) -> List[TokenClassificationResults]:
         return [
             TOK_CLASSIFICATION_RESULT,
-            TokenClassificationResult(results=[LAND_CLASS]),
+            TokenClassificationResults(results=[LAND_CLASS]),
         ]
 
 
 class StreamFakeTokenClassificationModule(FakeTokenClassificationModule):
     # Make module return results per sentence
-    def run(self, text: str) -> TokenClassificationResult:
+    def run(self, text: str) -> TokenClassificationResults:
         if "land" in text:
-            return TokenClassificationResult(results=[LAND_CLASS])
+            return TokenClassificationResults(results=[LAND_CLASS])
         else:
             return TOK_CLASSIFICATION_RESULT
 
 
 class EmptyResFakeTokenClassificationModule(FakeTokenClassificationModule):
-    def run(self, text: str) -> TokenClassificationResult:
-        return TokenClassificationResult(results=[])
+    def run(self, text: str) -> TokenClassificationResults:
+        return TokenClassificationResults(results=[])
 
-    def run_batch(self, texts: List[str]) -> List[TokenClassificationResult]:
+    def run_batch(self, texts: List[str]) -> List[TokenClassificationResults]:
         return [
-            TokenClassificationResult(results=[]),
-            TokenClassificationResult(results=[]),
+            TokenClassificationResults(results=[]),
+            TokenClassificationResults(results=[]),
         ]
 
 
@@ -108,9 +106,9 @@ def test_bootstrap_run():
         default_threshold=0.5,
     )
     token_classification_result = model.run(DOCUMENT)
-    assert isinstance(token_classification_result, TokenClassificationResult)
+    assert isinstance(token_classification_result, TokenClassificationResults)
     assert len(token_classification_result.results) == 2  # 2 results over 0.5 expected
-    assert isinstance(token_classification_result.results[0], TokenClassification)
+    assert isinstance(token_classification_result.results[0], TokenClassificationResult)
     first_result = token_classification_result.results[0]
     assert first_result.start == 0
     assert first_result.end == 44
@@ -129,7 +127,7 @@ def test_bootstrap_run_with_threshold():
         default_threshold=0.5,
     )
     token_classification_result = model.run(DOCUMENT, threshold=0.0)
-    assert isinstance(token_classification_result, TokenClassificationResult)
+    assert isinstance(token_classification_result, TokenClassificationResults)
     assert (
         len(token_classification_result.results) == 4
     )  # 4 (all) results over 0.0 expected
@@ -164,9 +162,9 @@ def test_bootstrap_run_with_token_classification():
         default_threshold=0.5,
     )
     token_classification_result = model.run(DOCUMENT)
-    assert isinstance(token_classification_result, TokenClassificationResult)
+    assert isinstance(token_classification_result, TokenClassificationResults)
     assert len(token_classification_result.results) == 2  # 2 results over 0.5 expected
-    assert isinstance(token_classification_result.results[0], TokenClassification)
+    assert isinstance(token_classification_result.results[0], TokenClassificationResult)
     first_result = token_classification_result.results[0]
     assert first_result.start == 16
     assert first_result.end == 19
@@ -185,7 +183,7 @@ def test_bootstrap_run_with_token_classification_no_results():
         default_threshold=0.5,
     )
     token_classification_result = model.run(DOCUMENT)
-    assert isinstance(token_classification_result, TokenClassificationResult)
+    assert isinstance(token_classification_result, TokenClassificationResults)
     assert len(token_classification_result.results) == 0
 
 
@@ -205,7 +203,7 @@ def test_save_load_and_run_model():
 
         new_model = FilteredSpanClassification.load(model_dir)
         token_classification_result = new_model.run(DOCUMENT)
-        assert isinstance(token_classification_result, TokenClassificationResult)
+        assert isinstance(token_classification_result, TokenClassificationResults)
         assert (
             len(token_classification_result.results) == 2
         )  # 2 results over 0.5 expected
@@ -231,7 +229,7 @@ def test_run_bidi_stream_model():
     result_list = list(streaming_token_classification_result)
 
     first_result = result_list[0].results[0]
-    assert isinstance(first_result, TokenClassification)
+    assert isinstance(first_result, TokenClassificationResult)
     assert first_result.start == 0
     assert first_result.end == 44
     assert first_result.word == "The quick brown fox jumps over the lazy dog."
@@ -263,7 +261,7 @@ def test_run_bidi_stream_with_token_classification():
     result_list = list(streaming_token_classification_result)
     # Convert to list to more easily check outputs
     first_result = result_list[0].results[0]
-    assert isinstance(first_result, TokenClassification)
+    assert isinstance(first_result, TokenClassificationResult)
     assert first_result.start == 16
     assert first_result.end == 19
     assert first_result.word == "fox"
@@ -326,7 +324,7 @@ def test_run_bidi_stream_chunk_stream_input():
     result_list = list(streaming_token_classification_result)
     # Convert to list to more easily check outputs
     first_result = result_list[0].results[0]
-    assert isinstance(first_result, TokenClassification)
+    assert isinstance(first_result, TokenClassificationResult)
     assert first_result.start == 16
     assert first_result.end == 19
     assert first_result.word == "fox"
@@ -366,7 +364,7 @@ def test_run_bidi_stream_with_multiple_spans_in_chunk():
     result_list = list(streaming_token_classification_result)
 
     first_result = result_list[0].results[0]
-    assert isinstance(first_result, TokenClassification)
+    assert isinstance(first_result, TokenClassificationResult)
     assert first_result.start == 0
     assert first_result.end == 44
     assert first_result.word == "The quick brown fox jumps over the lazy dog."

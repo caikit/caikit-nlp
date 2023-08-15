@@ -20,11 +20,9 @@ import re
 # First Party
 from caikit.core.modules import ModuleBase, ModuleConfig, ModuleSaver, module
 from caikit.core.toolkit import error_handler
+from caikit.interfaces.nlp.data_model import Token, TokenizationResults
+from caikit.interfaces.nlp.tasks import TokenizationTask
 import alog
-
-# Local
-from ...data_model import Token, TokenizationResult
-from .tokenization_task import TokenizationTask
 
 log = alog.use_channel("RGX_SNT_SPLT")
 error = error_handler.get(log)
@@ -100,7 +98,7 @@ class RegexSentenceSplitter(ModuleBase):
         config = ModuleConfig.load(os.path.abspath(model_path))
         return cls(regex_str=config.regex_str)
 
-    def run(self, text: str) -> TokenizationResult:
+    def run(self, text: str) -> TokenizationResults:
         """Run sentence splitting regex on input text.
 
         Args:
@@ -108,8 +106,8 @@ class RegexSentenceSplitter(ModuleBase):
                 Document to run sentence splitting on.
 
         Returns:
-            TokenizationResult
-                TokenizationResult object containing tokens where each token
+            TokenizationResults
+                TokenizationResults object containing tokens where each token
                 corresponds to a detected sentence.
         """
 
@@ -121,4 +119,4 @@ class RegexSentenceSplitter(ModuleBase):
             token = Token(start=match.start(), end=match.end(), text=match.group())
             tokens.append(token)
 
-        return TokenizationResult(results=tokens)
+        return TokenizationResults(results=tokens)

@@ -23,14 +23,14 @@ import torch
 # First Party
 from caikit.core.modules import ModuleBase, ModuleLoader, ModuleSaver, module
 from caikit.core.toolkit import error_handler
+from caikit.interfaces.nlp.data_model import ClassificationResult, ClassificationResults
+from caikit.interfaces.nlp.tasks import TextClassificationTask
 import alog
 
 # Local
-from ...data_model import Classification, ClassificationResult
 from ...resources.pretrained_model.hf_auto_seq_classifier import (
     HFAutoSequenceClassifier,
 )
-from .text_classification_task import TextClassificationTask
 
 log = alog.use_channel("SEQ_CLASS")
 error = error_handler.get(log)
@@ -62,7 +62,7 @@ class SequenceClassification(ModuleBase):
 
     ################################## API functions #############################################
 
-    def run(self, text: str) -> ClassificationResult:
+    def run(self, text: str) -> ClassificationResults:
         """Run the sequence classification.
             NOTE: This will truncate sequences that are too long for model
 
@@ -71,13 +71,13 @@ class SequenceClassification(ModuleBase):
                 Input string to be classified
 
         Returns:
-            ClassificationResult
+            ClassificationResults
         """
         scores_dict = self._get_scores(text)
         # Re-organize scores_dict - for one text, this is just the first score
         return SequenceClassification._process_predictions(scores_dict, text_idx=0)
 
-    def run_batch(self, texts: List[str]) -> List[ClassificationResult]:
+    def run_batch(self, texts: List[str]) -> List[ClassificationResults]:
         """Run the sequence classification on batch, truncates sequences too long for model
 
         Args:
@@ -85,7 +85,7 @@ class SequenceClassification(ModuleBase):
                 Input strings to be classified
 
         Returns:
-            List[ClassificationResult]
+            List[ClassificationResults]
         """
         scores_dict = self._get_scores(texts)
         num_texts = len(texts)
@@ -207,8 +207,8 @@ class SequenceClassification(ModuleBase):
         return scores_dict
 
     @staticmethod
-    def _process_predictions(scores_dict: Dict, text_idx: int) -> ClassificationResult:
-        """Process dictionary of label: scores to ClassificationResult
+    def _process_predictions(scores_dict: Dict, text_idx: int) -> ClassificationResults:
+        """Process dictionary of label: scores to ClassificationResults
 
         Args:
             scores_dict: Dict
@@ -218,13 +218,13 @@ class SequenceClassification(ModuleBase):
                 Integer index of text in batch
 
         Returns:
-            ClassificationResult
+            ClassificationResults
         """
         error.type_check("<NLP40517898E>", Dict, scores_dict=scores_dict)
         classification_list = []
         for label, score_array in scores_dict.items():
             # NOTE: labels are expected to be str, especially for config
             classification_list.append(
-                Classification(label=str(label), score=score_array[text_idx])
+                ClassificationResult(label=str(label), score=score_array[text_idx])
             )
-        return ClassificationResult(results=classification_list)
+        return ClassificationResults(results=classification_list)
