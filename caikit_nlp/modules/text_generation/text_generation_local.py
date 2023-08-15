@@ -554,6 +554,8 @@ class TextGeneration(ModuleBase):
                 "max_target_length": max_target_length,
             },
         )
+        if shuffle:
+            return mapped_dataset.shuffle()
         return mapped_dataset
 
     @staticmethod
