@@ -566,8 +566,6 @@ class TextGeneration(ModuleBase):
         use_iterable_dataset: bool,
     ):
         """Pre-process each example to get it prepared for training."""
-        if base_model.REQUIRES_TOKEN_UNWRAPPING:
-            raise NotImplementedError("Token unwrapping not implemented for fine tuning data prep")
         if use_iterable_dataset:
             # Generator based
             log.debug("Loading data as an iterable dataset")
@@ -577,11 +575,18 @@ class TextGeneration(ModuleBase):
         else:
             # Convert the train stream to an normal dataset in memory
             log.debug("Loading data as a normal dataset")
+            # TODO: Optimize and clean this up!
             inputs = []
             outputs = []
-            for datum in train_stream:
-                inputs.append(datum.input)
-                outputs.append(datum.output)
+            if base_model.REQUIRES_TOKEN_UNWRAPPING:
+                for substream in train_stream:
+                    for data in substream:
+                        inputs.append(data.input)
+                        outputs.append(data.output)
+            else:
+                for data in train_stream:
+                    inputs.append(data.input)
+                    outputs.append(data.output)
             dataset = Dataset.from_dict({"input": inputs, "output": outputs})
         # Map our HF datasets; with our tokenizer functions
         mapped_dataset = dataset.map(
@@ -618,4 +623,10 @@ class TextGeneration(ModuleBase):
 
 def get(train_stream):
     for data in train_stream:
-        yield {"input": data.input, "output": data.output}
+        # Handle token unwrapping for causal language modeling
+        if isinstance(data, DataStream):
+            for datum in data:
+               yield {"input": datum.input, "output": datum.output}
+        # Otherwise assume we directly yield dictionaries
+        else:
+            yield {"input": data.input, "output": data.output}
