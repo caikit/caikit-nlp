@@ -555,7 +555,7 @@ class TextGeneration(ModuleBase):
             },
         )
         if shuffle:
-            return mapped_dataset.shuffle()
+            return mapped_dataset.shuffle(seed=TextGeneration.RANDOM_SEED)
         return mapped_dataset
 
     @staticmethod
