@@ -17,6 +17,7 @@
 from typing import Optional
 import gc
 import os
+import tempfile
 
 # Third Party
 from datasets import Dataset
@@ -170,8 +171,6 @@ class TextGeneration(ModuleBase):
         accumulate_steps: int = 32,
         random_seed: int = RANDOM_SEED,
         lr: float = 2e-5,
-        # Directory where model predictions and checkpoints will be written
-        checkpoint_dir: str = "/tmp/trained_model",
         use_iterable_dataset: bool = False,
         **kwargs,
     ) -> "TextGeneration":
@@ -201,8 +200,6 @@ class TextGeneration(ModuleBase):
                 Number of steps to use for gradient accumulation. Default: 1.
             lr: float
                 Learning rate to be used while tuning model. Default: 2e-5.
-            checkpoint_dir: str
-                Directory where model predictions and checkpoints will be written
             use_iterable_dataset: bool
                 Indicates that we should use an iterable dataset. If this is set to False, the
                 whole dataset will be loaded into memory, but the sharded training will be faster.
@@ -315,78 +312,81 @@ class TextGeneration(ModuleBase):
                 },
             }
 
-        training_args = {
-            "output_dir": checkpoint_dir,
-            "per_device_train_batch_size": batch_size,
-            "per_device_eval_batch_size": batch_size,
-            "num_train_epochs": num_epochs,
-            "seed": random_seed,
-            # NOTE: We have disabled evaluation for now
-            "do_eval": False,
-            "do_train": True,
-            "learning_rate": lr,
-            "weight_decay": 0.01,
-            "save_total_limit": 3,
-            "push_to_hub": False,
-            "no_cuda": not torch.cuda.is_available(),  # Default
-            "remove_unused_columns": True,
-            "dataloader_pin_memory": False,
-            "gradient_accumulation_steps": accumulate_steps,
-            "gradient_checkpointing": True,
-            # NOTE: This is explicitly set to false since it will
-            # negatively impact the performance
-            "full_determinism": False,
-            # Required for iterable dataset
-            "max_steps": 1,
-            # Some interesting parameters:
-            "auto_find_batch_size": True,
-            # NOTE: following can override above arguments in order
-            **filtered_training_arguments,
-            **processing_configuration,
-            **dtype_based_params,
-        }
+        # Open an intermediate checkpoint directory until we've bootstrapped
+        # our model or we've early exited (if epochs < 1)
+        with tempfile.TemporaryDirectory() as checkpoint_dir:
+            training_args = {
+                "output_dir": checkpoint_dir,
+                "per_device_train_batch_size": batch_size,
+                "per_device_eval_batch_size": batch_size,
+                "num_train_epochs": num_epochs,
+                "seed": random_seed,
+                # NOTE: We have disabled evaluation for now
+                "do_eval": False,
+                "do_train": True,
+                "learning_rate": lr,
+                "weight_decay": 0.01,
+                "save_total_limit": 3,
+                "push_to_hub": False,
+                "no_cuda": not torch.cuda.is_available(),  # Default
+                "remove_unused_columns": True,
+                "dataloader_pin_memory": False,
+                "gradient_accumulation_steps": accumulate_steps,
+                "gradient_checkpointing": True,
+                # NOTE: This is explicitly set to false since it will
+                # negatively impact the performance
+                "full_determinism": False,
+                # Required for iterable dataset
+                "max_steps": 1,
+                # Some interesting parameters:
+                "auto_find_batch_size": True,
+                # NOTE: following can override above arguments in order
+                **filtered_training_arguments,
+                **processing_configuration,
+                **dtype_based_params,
+            }
 
-        if num_epochs < 1:
-            log.warning(
-                "<NLP64076114W>",
-                f"Number of epochs configured is {num_epochs} which is less than minimum 1. \
-                    No training will be performed",
+            if num_epochs < 1:
+                log.warning(
+                    "<NLP64076114W>",
+                    f"Number of epochs configured is {num_epochs} which is less than minimum 1. \
+                        No training will be performed",
+                )
+
+                return TextGeneration(
+                    model_name=base_model._model_name,
+                    model=base_model,
+                )
+
+            launch_config = get_torch_elastic_launch_config(
+                get_config().master_addr,
+                get_config().master_port,
             )
 
-            return TextGeneration(
-                model_name=base_model._model_name,
-                model=base_model,
+            if torch.cuda.is_available():
+                # NOTE: torch distributed can hang if run on CPUs,
+                # to avoid that, specially for unit tests, we are only
+                # running below when GPUs are available
+                torch.distributed.launcher.api.elastic_launch(
+                    launch_config, cls._launch_training
+                )(base_model, training_dataset, training_args, checkpoint_dir)
+            else:
+                cls._launch_training(
+                    base_model, training_dataset, training_args, checkpoint_dir
+                )
+
+            # In case this program is started via torchrun, below might not work as is
+            # because this case of multiple devices, this whole program gets run
+            # in parallel, so the model might still be in "write" mode on 1 process
+            # while we try to read it in below process.
+            #
+            # Note that we forward the base model tokenizer instance to bootstrap to avoid
+            # dealing with temporarily exporting and reloading the tokenizer off of the trainer.
+            model = resource_type.bootstrap(
+                model_name=checkpoint_dir,
+                tokenizer_name=base_model.tokenizer,
+                torch_dtype=torch_dtype,
             )
-
-        launch_config = get_torch_elastic_launch_config(
-            get_config().master_addr,
-            get_config().master_port,
-        )
-
-        if torch.cuda.is_available():
-            # NOTE: torch distributed can hang if run on CPUs,
-            # to avoid that, specially for unit tests, we are only
-            # running below when GPUs are available
-            torch.distributed.launcher.api.elastic_launch(
-                launch_config, cls._launch_training
-            )(base_model, training_dataset, training_args, checkpoint_dir)
-        else:
-            cls._launch_training(
-                base_model, training_dataset, training_args, checkpoint_dir
-            )
-
-        # In case this program is started via torchrun, below might not work as is
-        # because this case of multiple devices, this whole program gets run
-        # in parallel, so the model might still be in "write" mode on 1 process
-        # while we try to read it in below process.
-        #
-        # Note that we forward the base model tokenizer instance to bootstrap to avoid
-        # dealing with temporarily exporting and reloading the tokenizer off of the trainer.
-        model = resource_type.bootstrap(
-            model_name=checkpoint_dir,
-            tokenizer_name=base_model.tokenizer,
-            torch_dtype=torch_dtype,
-        )
 
         return cls(
             model_name=base_model._model_name,
