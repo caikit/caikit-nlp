@@ -23,7 +23,6 @@ from datasets import Dataset
 from datasets import IterableDataset as TransformersIterableDataset
 from torch.utils.data import IterableDataset
 from transformers import AutoConfig, AutoTokenizer
-import datasets
 import torch
 
 # First Party
@@ -42,7 +41,6 @@ from ...resources.pretrained_model import (
     HFAutoSeq2SeqLM,
     PretrainedModelBase,
 )
-from ...toolkit.data_stream_wrapper import SimpleIterableStreamWrapper
 from ...toolkit.data_type_utils import get_torch_dtype, str_to_torch_dtype
 from ...toolkit.text_generation.model_run_utils import (
     GENERATE_FUNCTION_ARGS,
@@ -516,6 +514,8 @@ class TextGeneration(ModuleBase):
         use_iterable_dataset: bool,
     ):
         """Pre-process each example to get it prepared for training."""
+        if base_model.REQUIRES_TOKEN_UNWRAPPING:
+            raise NotImplementedError("Token unwrapping not implemented for fine tuning data prep")
         if use_iterable_dataset:
             # Generator based
             log.debug("Loading data as an iterable dataset")
@@ -525,15 +525,15 @@ class TextGeneration(ModuleBase):
         else:
             # Convert the train stream to an normal dataset in memory
             log.debug("Loading data as a normal dataset")
-            # TODO - this can probably be optimized a bit
             inputs = []
             outputs = []
             for datum in train_stream:
                 inputs.append(datum.input)
                 outputs.append(datum.output)
             dataset = Dataset.from_dict({"input": inputs, "output": outputs})
+        # Map our HF datasets; with our tokenizer functions
         mapped_dataset = dataset.map(
-            tokenize_function_seq2seq,
+            base_model.tokenize_function,
             fn_kwargs={
                 "tokenizer": tokenizer,
                 "max_source_length": max_source_length,
@@ -567,48 +567,3 @@ class TextGeneration(ModuleBase):
 def get(train_stream):
     for data in train_stream:
         yield {"input": data.input, "output": data.output}
-
-
-def tokenize_function_seq2seq(
-    example: GenerationTrainRecord,
-    tokenizer: "AutoTokenizer",
-    max_source_length: int,
-    max_target_length: int,
-):
-    """Tokenization function to be used for seq2seq training; this function consumes a
-    GenerationTrainRecord object and postprocesses by ignoring pad tokens in the
-    label IDs; currently it does not allow us to use a verbalizer.
-
-    Args:
-        example: GenerationTrainRecord
-            Training data model object to convert a form we can learn on.
-
-    Returns:
-        transformers.tokenization_utils_base.BatchEncoding
-            encoded tokenization output corresponding to the input example.
-    """
-    IGNORE_ID = -100
-    source = example["input"]
-
-    targets = example["output"]
-    model_inputs = tokenizer(
-        source,
-        max_length=max_source_length,
-        padding="max_length",
-        truncation=True,
-    )
-    labels = tokenizer(
-        targets,
-        max_length=max_target_length,
-        padding="max_length",
-        truncation=True,
-    )
-
-    labels = labels["input_ids"]
-
-    labels = list(
-        map(lambda x: IGNORE_ID if x == tokenizer.pad_token_id else x, labels)
-    )
-    model_inputs["labels"] = labels
-
-    return model_inputs
