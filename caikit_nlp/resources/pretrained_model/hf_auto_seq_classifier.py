@@ -55,7 +55,7 @@ class HFAutoSequenceClassifier(PretrainedModelBase):
         return super().bootstrap(*args, return_dict=True, **kwargs)
 
     @staticmethod
-    def build_task_tokenize_closure(*args, **kwargs) -> Tuple[Callable, bool]:
+    def tokenize_function(*args, **kwargs) -> Tuple[Callable, bool]:
         raise NotImplementedError(
-            "Tokenize func builder not implemented for sequence classifier"
+            "Tokenize func not implemented for sequence classifier"
         )
