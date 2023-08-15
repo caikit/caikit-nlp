@@ -174,7 +174,8 @@ class PretrainedModelBase(ABC, ModuleBase):
             tokenizer_name,
             local_files_only=not get_config().allow_downloads,
             padding_side=padding_side,
-            use_fast=False,
+            # We can't disable use_fast otherwise unit test fails
+            # use_fast=False,
         )
         if tokenizer.pad_token_id is None:
             tokenizer.pad_token_id = tokenizer.eos_token_id
