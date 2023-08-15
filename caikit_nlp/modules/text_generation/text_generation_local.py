@@ -175,7 +175,6 @@ class TextGeneration(ModuleBase):
         accumulate_steps: int = 32,
         random_seed: int = RANDOM_SEED,
         lr: float = 2e-5,
-        use_iterable_dataset: bool = False,
         **kwargs,
     ) -> "TextGeneration":
         """
@@ -204,10 +203,6 @@ class TextGeneration(ModuleBase):
                 Number of steps to use for gradient accumulation. Default: 1.
             lr: float
                 Learning rate to be used while tuning model. Default: 2e-5.
-            use_iterable_dataset: bool
-                Indicates that we should use an iterable dataset. If this is set to False, the
-                whole dataset will be loaded into memory, but the sharded training will be faster.
-                Default: False
             **kwargs:
                 Arguments supported by HF Training Arguments.
                 TrainingArguments:
@@ -263,7 +258,7 @@ class TextGeneration(ModuleBase):
             max_source_length=max_source_length,
             max_target_length=max_target_length,
             shuffle=True,
-            use_iterable_dataset=use_iterable_dataset,
+            use_iterable_dataset=False, # TODO: We'll expose this in the future!
         )
 
         ### Dtype based processing
@@ -340,8 +335,8 @@ class TextGeneration(ModuleBase):
                 # NOTE: This is explicitly set to false since it will
                 # negatively impact the performance
                 "full_determinism": False,
-                # Required for iterable dataset
-                "max_steps": 1,
+                # Required for iterable dataset - TODO: for now we don't support this
+                # "max_steps": 1,
                 # Some interesting parameters:
                 "auto_find_batch_size": True,
                 # NOTE: following can override above arguments in order
@@ -520,24 +515,36 @@ class TextGeneration(ModuleBase):
         max_source_length: int,
         max_target_length: int,
         shuffle: bool,
-        use_iterable_dataset: bool,
+        use_iterable_dataset: bool, # Currently not publicly exposed
     ):
         """Pre-process each example to get it prepared for training."""
         dataset_type = TransformersIterableDataset if use_iterable_dataset else Dataset
         log.debug("Loading dataset class: [%s]", dataset_type.__name__)
-        dataset = dataset_type.from_generator(
-            get, gen_kwargs={"train_stream": train_stream}
-        )
-        mapped_dataset = dataset.map(
-            base_model.tokenize_function,
-            fn_kwargs={
-                "tokenizer": tokenizer,
-                "max_source_length": max_source_length,
-                "max_target_length": max_target_length,
-            },
-        )
+        fn_kwargs = {
+            "tokenizer": tokenizer,
+            "max_source_length": max_source_length,
+            "max_target_length": max_target_length,
+        }
+
+        if base_model.REQUIRES_TOKEN_UNWRAPPING:
+            # HACK: Currently Causal LM requires special handling to unpack the nested
+            # stream yielded by the tokenizer. For now, we get around this by handling
+            # map on the datastream so we can flatten it, but this is not ideal.
+            mapped_dataset = Dataset.from_list(
+                list(train_stream.map(base_model.tokenize_function, **fn_kwargs).flatten())
+            )
+        else:
+            dataset = dataset_type.from_generator(
+                get, gen_kwargs={"train_stream": train_stream}
+            )
+            mapped_dataset = dataset.map(
+                base_model.tokenize_function,
+                fn_kwargs=fn_kwargs,
+            )
+
         if shuffle:
             return mapped_dataset.shuffle(seed=TextGeneration.RANDOM_SEED)
+
         return mapped_dataset
 
     @staticmethod
@@ -568,9 +575,8 @@ class TextGeneration(ModuleBase):
 def get(train_stream):
     for data in train_stream:
         # Handle token unwrapping for causal language modeling
-        if isinstance(data, DataStream):
-            for datum in data:
-               yield {"input": datum.input, "output": datum.output}
-        # Otherwise assume we directly yield dictionaries
-        else:
+        if isinstance(data, GenerationTrainRecord):
             yield {"input": data.input, "output": data.output}
+        # Otherwise assume we directly yield tokenized results
+        else:
+            yield data
