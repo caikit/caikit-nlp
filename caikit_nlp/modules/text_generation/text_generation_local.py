@@ -328,7 +328,6 @@ class TextGeneration(ModuleBase):
             "remove_unused_columns": True,
             "dataloader_pin_memory": False,
             "gradient_accumulation_steps": accumulate_steps,
-
             "gradient_checkpointing": True,
             # NOTE: This is explicitly set to false since it will
             # negatively impact the performance
@@ -337,7 +336,6 @@ class TextGeneration(ModuleBase):
             "max_steps": 1,
             # Some interesting parameters:
             "auto_find_batch_size": True,
-
             # NOTE: following can override above arguments in order
             **filtered_training_arguments,
             **processing_configuration,
@@ -369,7 +367,9 @@ class TextGeneration(ModuleBase):
                 launch_config, cls._launch_training
             )(base_model, training_dataset, training_args, checkpoint_dir)
         else:
-            cls._launch_training(base_model, training_dataset, training_args, checkpoint_dir)
+            cls._launch_training(
+                base_model, training_dataset, training_args, checkpoint_dir
+            )
 
         # In case this program is started via torchrun, below might not work as is
         # because this case of multiple devices, this whole program gets run
