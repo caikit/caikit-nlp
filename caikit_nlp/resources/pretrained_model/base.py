@@ -192,7 +192,8 @@ class PretrainedModelBase(ABC, ModuleBase):
                 tokenizer_name,
                 local_files_only=not get_config().allow_downloads,
                 padding_side=padding_side,
-                use_fast=False,
+                # We can't disable use_fast otherwise unit test fails
+                # use_fast=False,
             )
         # set up the pad token if needed; note that this will mutate
         # the tokenizer that is pass as an argument if one is provided.
