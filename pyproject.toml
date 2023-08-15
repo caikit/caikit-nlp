@@ -15,8 +15,7 @@ classifiers=[
 ]
 dependencies = [
     "caikit[runtime-grpc,runtime-http]>=0.16.0,<0.17.0",
-    "caikit-tgis-backend>=0.1.15,<0.2.0",
-
+    "caikit-tgis-backend>=0.1.16,<0.2.0",
     # TODO: loosen dependencies
     "accelerate>=0.18.0",
     "datasets>=2.4.0",
