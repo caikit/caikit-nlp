@@ -15,25 +15,28 @@
 # Third Party
 import pytest
 
+# First Party
+from caikit.interfaces.nlp.data_model import ClassificationTrainRecord
+
 # Local
-from caikit_nlp import data_model as dm
+from caikit_nlp.data_model import GenerationTrainRecord
 from caikit_nlp.toolkit.task_specific_utils import convert_to_generation_record
 
 
 def test_convert_classification_train_record_to_generation_record():
-    classification_train_record = dm.ClassificationTrainRecord(
+    classification_train_record = ClassificationTrainRecord(
         text="foo bar", labels=["label1"]
     )
     generated_train = convert_to_generation_record(classification_train_record)
-    assert isinstance(generated_train, dm.GenerationTrainRecord)
+    assert isinstance(generated_train, GenerationTrainRecord)
     assert generated_train.input == "foo bar"
     assert generated_train.output == "label1"
 
 
 def test_convert_generation_record_to_generation_record():
-    generation_train_record = dm.GenerationTrainRecord(input="foo bar", output="label1")
+    generation_train_record = GenerationTrainRecord(input="foo bar", output="label1")
     generated_train = convert_to_generation_record(generation_train_record)
-    assert isinstance(generated_train, dm.GenerationTrainRecord)
+    assert isinstance(generated_train, GenerationTrainRecord)
     assert generated_train.input == generation_train_record.input
     assert generated_train.output == generation_train_record.output
 

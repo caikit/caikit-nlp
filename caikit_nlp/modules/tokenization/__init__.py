@@ -14,4 +14,3 @@
 
 # Local
 from .regex_sentence_splitter import RegexSentenceSplitter
-from .tokenization_task import TokenizationTask

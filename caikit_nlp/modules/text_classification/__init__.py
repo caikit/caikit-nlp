@@ -14,4 +14,3 @@
 
 # Local
 from .sequence_classification import SequenceClassification
-from .text_classification_task import TextClassificationTask

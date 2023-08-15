@@ -14,10 +14,11 @@
 
 # First Party
 from caikit.core.toolkit import error_handler
+from caikit.interfaces.nlp.data_model import ClassificationTrainRecord
 import alog
 
 # Local
-from ..data_model import ClassificationTrainRecord, GenerationTrainRecord
+from ..data_model import GenerationTrainRecord
 
 log = alog.use_channel("TASK_UTILS")
 error = error_handler.get(log)

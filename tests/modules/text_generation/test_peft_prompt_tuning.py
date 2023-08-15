@@ -17,6 +17,7 @@ import torch
 
 # First Party
 from caikit.interfaces.nlp.data_model import (
+    ClassificationTrainRecord,
     GeneratedTextResult,
     GeneratedTextStreamResult,
 )
@@ -147,10 +148,10 @@ def test_train_model_classification_record(causal_lm_train_kwargs, set_cpu_devic
         "verbalizer": "Tweet text : {{input}} Label : ",
         "train_stream": caikit.core.data_model.DataStream.from_iterable(
             [
-                caikit_nlp.data_model.ClassificationTrainRecord(
+                ClassificationTrainRecord(
                     text="@foo what a cute dog!", labels=["no complaint"]
                 ),
-                caikit_nlp.data_model.ClassificationTrainRecord(
+                ClassificationTrainRecord(
                     text="@bar this is the worst idea ever.", labels=["complaint"]
                 ),
             ]
