@@ -523,29 +523,11 @@ class TextGeneration(ModuleBase):
         use_iterable_dataset: bool,
     ):
         """Pre-process each example to get it prepared for training."""
-        if use_iterable_dataset:
-            # Generator based
-            log.debug("Loading data as an iterable dataset")
-            dataset = TransformersIterableDataset.from_generator(
-                get, gen_kwargs={"train_stream": train_stream}
-            )
-        else:
-            # Convert the train stream to an normal dataset in memory
-            log.debug("Loading data as a normal dataset")
-            # TODO: Optimize and clean this up!
-            inputs = []
-            outputs = []
-            if base_model.REQUIRES_TOKEN_UNWRAPPING:
-                for substream in train_stream:
-                    for data in substream:
-                        inputs.append(data.input)
-                        outputs.append(data.output)
-            else:
-                for data in train_stream:
-                    inputs.append(data.input)
-                    outputs.append(data.output)
-            dataset = Dataset.from_dict({"input": inputs, "output": outputs})
-        # Map our HF datasets; with our tokenizer functions
+        dataset_type = TransformersIterableDataset if use_iterable_dataset else Dataset
+        log.debug("Loading dataset class: [%s]", dataset_type.__name__)
+        dataset = dataset_type.from_generator(
+            get, gen_kwargs={"train_stream": train_stream}
+        )
         mapped_dataset = dataset.map(
             base_model.tokenize_function,
             fn_kwargs={
