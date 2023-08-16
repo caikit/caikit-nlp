@@ -388,7 +388,7 @@ class TextGeneration(ModuleBase):
             # dealing with temporarily exporting and reloading the tokenizer off of the trainer.
             model = resource_type.bootstrap(
                 model_name=checkpoint_dir,
-                tokenizer_name=base_model.tokenizer,
+                tokenizer_name=checkpoint_dir,
                 torch_dtype=torch_dtype,
             )
 
@@ -520,7 +520,7 @@ class TextGeneration(ModuleBase):
         max_source_length: int,
         max_target_length: int,
         shuffle: bool,
-        use_iterable_dataset: bool, # Currently not publicly exposed
+        use_iterable_dataset: bool,
     ):
         """Pre-process each example to get it prepared for training."""
         dataset_type = TransformersIterableDataset if use_iterable_dataset else Dataset
