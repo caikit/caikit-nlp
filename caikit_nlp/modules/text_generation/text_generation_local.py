@@ -14,16 +14,16 @@
 
 
 # Standard
-from typing import Optional
+from typing import Optional, Union
 import gc
 import os
+import tempfile
 
 # Third Party
 from datasets import Dataset
 from datasets import IterableDataset as TransformersIterableDataset
 from torch.utils.data import IterableDataset
 from transformers import AutoConfig, AutoTokenizer
-import datasets
 import torch
 
 # First Party
@@ -42,7 +42,6 @@ from ...resources.pretrained_model import (
     HFAutoSeq2SeqLM,
     PretrainedModelBase,
 )
-from ...toolkit.data_stream_wrapper import SimpleIterableStreamWrapper
 from ...toolkit.data_type_utils import get_torch_dtype, str_to_torch_dtype
 from ...toolkit.torch_run import get_torch_elastic_launch_config
 
@@ -172,8 +171,7 @@ class TextGeneration(ModuleBase):
         accumulate_steps: int = 32,
         random_seed: int = RANDOM_SEED,
         lr: float = 2e-5,
-        # Directory where model predictions and checkpoints will be written
-        checkpoint_dir: str = "/tmp/trained_model",
+        use_iterable_dataset: bool = True,
         **kwargs,
     ) -> "TextGeneration":
         """
@@ -202,8 +200,10 @@ class TextGeneration(ModuleBase):
                 Number of steps to use for gradient accumulation. Default: 1.
             lr: float
                 Learning rate to be used while tuning model. Default: 2e-5.
-            checkpoint_dir: str
-                Directory where model predictions and checkpoints will be written
+            use_iterable_dataset: bool
+                Indicates whether or not we should load the full dataset into memory
+                NOTE: use True for this option if you are fine tuning a causal LM with
+                a large target sequence length unless your dataset is VERY small!
             **kwargs:
                 Arguments supported by HF Training Arguments.
                 TrainingArguments:
@@ -252,13 +252,14 @@ class TextGeneration(ModuleBase):
 
         error.type_check("<NLP03221895E>", PretrainedModelBase, base_model=base_model)
         ## Generate data loader from stream
-        training_dataset: IterableDataset = cls._preprocess_function(
+        training_dataset: Union[Dataset, TransformersIterableDataset] = cls._preprocess_function(
             base_model=base_model,
             train_stream=train_stream,
             tokenizer=base_model.tokenizer,
             max_source_length=max_source_length,
             max_target_length=max_target_length,
             shuffle=True,
+            use_iterable_dataset=use_iterable_dataset,
         )
 
         ### Dtype based processing
@@ -311,73 +312,81 @@ class TextGeneration(ModuleBase):
                 },
             }
 
-        training_args = {
-            "output_dir": checkpoint_dir,
-            "per_device_train_batch_size": batch_size,
-            "per_device_eval_batch_size": batch_size,
-            "num_train_epochs": num_epochs,
-            "seed": random_seed,
-            # NOTE: We have disabled evaluation for now
-            "do_eval": False,
-            "do_train": True,
-            "learning_rate": lr,
-            "weight_decay": 0.01,
-            "save_total_limit": 3,
-            "push_to_hub": False,
-            "no_cuda": not torch.cuda.is_available(),  # Default
-            "remove_unused_columns": True,
-            "dataloader_pin_memory": False,
-            "gradient_accumulation_steps": accumulate_steps,
-            "gradient_checkpointing": True,
-            # NOTE: This is explicitly set to false since it will
-            # negatively impact the performance
-            "full_determinism": False,
-            # Required for iterable dataset
-            "max_steps": 1,
-            # Some interesting parameters:
-            "auto_find_batch_size": True,
-            # NOTE: following can override above arguments in order
-            **filtered_training_arguments,
-            **processing_configuration,
-            **dtype_based_params,
-        }
+        # Open an intermediate checkpoint directory until we've bootstrapped
+        # our model or we've early exited (if epochs < 1)
+        with tempfile.TemporaryDirectory() as checkpoint_dir:
+            training_args = {
+                "output_dir": checkpoint_dir,
+                "per_device_train_batch_size": batch_size,
+                "per_device_eval_batch_size": batch_size,
+                "num_train_epochs": num_epochs,
+                "seed": random_seed,
+                # NOTE: We have disabled evaluation for now
+                "do_eval": False,
+                "do_train": True,
+                "learning_rate": lr,
+                "weight_decay": 0.01,
+                "save_total_limit": 3,
+                "push_to_hub": False,
+                "no_cuda": not torch.cuda.is_available(),  # Default
+                "remove_unused_columns": True,
+                "dataloader_pin_memory": False,
+                "gradient_accumulation_steps": accumulate_steps,
+                "gradient_checkpointing": True,
+                # NOTE: This is explicitly set to false since it will
+                # negatively impact the performance
+                "full_determinism": False,
+                # Required for iterable dataset
+                "max_steps": cls.infer_max_steps(num_epochs, batch_size, training_dataset),
+                # Some interesting parameters:
+                "auto_find_batch_size": True,
+                # NOTE: following can override above arguments in order
+                **filtered_training_arguments,
+                **processing_configuration,
+                **dtype_based_params,
+            }
 
-        if num_epochs < 1:
-            log.warning(
-                "<NLP64076114W>",
-                f"Number of epochs configured is {num_epochs} which is less than minimum 1. \
-                    No training will be performed",
+            if num_epochs < 1:
+                log.warning(
+                    "<NLP64076114W>",
+                    f"Number of epochs configured is {num_epochs} which is less than minimum 1. \
+                        No training will be performed",
+                )
+
+                return TextGeneration(
+                    model_name=base_model._model_name,
+                    model=base_model,
+                )
+
+            launch_config = get_torch_elastic_launch_config(
+                get_config().master_addr,
+                get_config().master_port,
             )
 
-            return TextGeneration(
-                model_name=base_model._model_name,
-                model=base_model,
+            if torch.cuda.is_available():
+                # NOTE: torch distributed can hang if run on CPUs,
+                # to avoid that, specially for unit tests, we are only
+                # running below when GPUs are available
+                torch.distributed.launcher.api.elastic_launch(
+                    launch_config, cls._launch_training
+                )(base_model, training_dataset, training_args, checkpoint_dir)
+            else:
+                cls._launch_training(
+                    base_model, training_dataset, training_args, checkpoint_dir
+                )
+
+            # In case this program is started via torchrun, below might not work as is
+            # because this case of multiple devices, this whole program gets run
+            # in parallel, so the model might still be in "write" mode on 1 process
+            # while we try to read it in below process.
+            #
+            # Note that we forward the base model tokenizer instance to bootstrap to avoid
+            # dealing with temporarily exporting and reloading the tokenizer off of the trainer.
+            model = resource_type.bootstrap(
+                model_name=checkpoint_dir,
+                tokenizer_name=checkpoint_dir,
+                torch_dtype=torch_dtype,
             )
-
-        launch_config = get_torch_elastic_launch_config(
-            get_config().master_addr,
-            get_config().master_port,
-        )
-
-        if torch.cuda.is_available():
-            # NOTE: torch distributed can hang if run on CPUs,
-            # to avoid that, specially for unit tests, we are only
-            # running below when GPUs are available
-            torch.distributed.launcher.api.elastic_launch(
-                launch_config, cls._launch_training
-            )(base_model, training_dataset, training_args, checkpoint_dir)
-        else:
-            cls._launch_training(
-                base_model, training_dataset, training_args, checkpoint_dir
-            )
-
-        # In case this program is started via torchrun, below might not work as is
-        # because this case of multiple devices, this whole program gets run
-        # in parallel, so the model might still be in "write" mode on 1 process
-        # while we try to read it in below process.
-        model = resource_type.bootstrap(
-            checkpoint_dir, checkpoint_dir, torch_dtype=torch_dtype
-        )
 
         return cls(
             model_name=base_model._model_name,
@@ -562,41 +571,33 @@ class TextGeneration(ModuleBase):
         max_source_length: int,
         max_target_length: int,
         shuffle: bool,
+        use_iterable_dataset: bool,
     ):
         """Pre-process each example to get it prepared for training."""
-
-        # TODO: We are using a default verbalizer which is strictly tied to
-        # source training record currently. We need to figure out a better
-        # way to make verbalizer optional for build_task_tokenize_function
-        (
-            tokenize_function,
-            requires_unwrapping,
-        ) = base_model.build_task_tokenize_function(
-            tokenizer, max_source_length, max_target_length, verbalizer="{{input}}"
-        )
-
-        # dataset = datasets.load_dataset("billsum", split="ca_test", streaming=True)
-        # train_test_dataset = dataset.train_test_split(test_size=0.2)
-        dataset = TransformersIterableDataset.from_generator(
+        dataset_type = TransformersIterableDataset if use_iterable_dataset else Dataset
+        log.debug("Loading dataset class: [%s]", dataset_type.__name__)
+        fn_kwargs = {
+            "tokenizer": tokenizer,
+            "max_source_length": max_source_length,
+            "max_target_length": max_target_length,
+        }
+        dataset = dataset_type.from_generator(
             get, gen_kwargs={"train_stream": train_stream}
         )
-
         mapped_dataset = dataset.map(
-            tokenize_function_seq2seq,
-            fn_kwargs={
-                "tokenizer": tokenizer,
-                "max_source_length": max_source_length,
-                "max_target_length": max_target_length,
-            },
+            base_model.tokenize_function,
+            fn_kwargs=fn_kwargs,
+            batched=base_model.REQUIRES_TOKEN_UNWRAPPING,
+            # Drop the input / output columns; we need to do this for dimensions to play
+            # happily when operating on batched inputs for causal language modeling.
+            remove_columns=["input", "output"],
         )
-        # mapped_stream = train_stream.map(tokenize_function)
 
-        # if requires_unwrapping:
-        #     mapped_stream = mapped_stream.flatten()
+        if shuffle:
+            log.debug("Shuffling the dataset")
+            return mapped_dataset.shuffle(seed=TextGeneration.RANDOM_SEED)
 
-        # return mapped_dataset.with_format("torch")
         return mapped_dataset
-        # return SimpleIterableStreamWrapper(mapped_stream, shuffle=shuffle)
 
     @staticmethod
     def _launch_training(
@@ -622,53 +623,21 @@ class TextGeneration(ModuleBase):
         # save tokenizer explicitly
         base_model.tokenizer.save_pretrained(checkpoint_dir)
 
+    @staticmethod
+    def infer_max_steps(num_epochs: int, batch_size: int, training_dataset: Union[Dataset, TransformersIterableDataset]):
+        # Calculate the number of samples that we have
+        if isinstance(training_dataset, Dataset):
+            data_len = len(training_dataset)
+        else:
+            data_len = 0
+            for _ in training_dataset:
+                data_len += 1
+        # Figure out how many batches we'll have per epoch; we assume drop_last=True for now
+        num_batches = data_len // batch_size
+        num_steps = num_batches * num_epochs
+        log.debug("Number of inferred steps: [%s]", num_steps)
+        return num_steps
 
 def get(train_stream):
     for data in train_stream:
         yield {"input": data.input, "output": data.output}
-
-
-def tokenize_function_seq2seq(
-    example: GenerationTrainRecord,
-    tokenizer: "AutoTokenizer",
-    max_source_length: int,
-    max_target_length: int,
-):
-    """Tokenization function to be used for seq2seq training; this function consumes a
-    GenerationTrainRecord object and applies the verbalizer to it followed by
-    the model tokenizer. Finally, we postprocess by ignoring pad tokens in the label IDs.
-
-    Args:
-        example: GenerationTrainRecord
-            Training data model object to convert a form we can learn on.
-
-    Returns:
-        transformers.tokenization_utils_base.BatchEncoding
-            encoded tokenization output corresponding to the input example.
-    """
-    IGNORE_ID = -100
-    # Render the verbalizer template with the attributes of this data model example
-    source = example["input"]
-
-    targets = example["output"]
-    model_inputs = tokenizer(
-        source,
-        max_length=max_source_length,
-        padding="max_length",
-        truncation=True,
-    )
-    labels = tokenizer(
-        targets,
-        max_length=max_target_length,
-        padding="max_length",
-        truncation=True,
-    )
-
-    labels = labels["input_ids"]
-
-    labels = list(
-        map(lambda x: IGNORE_ID if x == tokenizer.pad_token_id else x, labels)
-    )
-    model_inputs["labels"] = labels
-
-    return model_inputs
