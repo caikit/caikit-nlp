@@ -171,6 +171,7 @@ class TextGeneration(ModuleBase):
         accumulate_steps: int = 32,
         random_seed: int = RANDOM_SEED,
         lr: float = 2e-5,
+        use_iterable_dataset: bool = True,
         **kwargs,
     ) -> "TextGeneration":
         """
@@ -199,6 +200,10 @@ class TextGeneration(ModuleBase):
                 Number of steps to use for gradient accumulation. Default: 1.
             lr: float
                 Learning rate to be used while tuning model. Default: 2e-5.
+            use_iterable_dataset: bool
+                Indicates whether or not we should load the full dataset into memory
+                NOTE: use True for this option if you are fine tuning a causal LM with
+                a large target sequence length unless your dataset is VERY small!
             **kwargs:
                 Arguments supported by HF Training Arguments.
                 TrainingArguments:
@@ -254,7 +259,7 @@ class TextGeneration(ModuleBase):
             max_source_length=max_source_length,
             max_target_length=max_target_length,
             shuffle=True,
-            use_iterable_dataset=False, # TODO: We'll expose this in the future!
+            use_iterable_dataset=use_iterable_dataset,
         )
 
         ### Dtype based processing
@@ -332,7 +337,7 @@ class TextGeneration(ModuleBase):
                 # negatively impact the performance
                 "full_determinism": False,
                 # Required for iterable dataset - TODO: for now we don't support this
-                # "max_steps": 1,
+                "max_steps": 1,
                 # Some interesting parameters:
                 "auto_find_batch_size": True,
                 # NOTE: following can override above arguments in order
@@ -576,24 +581,20 @@ class TextGeneration(ModuleBase):
             "max_source_length": max_source_length,
             "max_target_length": max_target_length,
         }
-
-        if base_model.REQUIRES_TOKEN_UNWRAPPING:
-            # HACK: Currently Causal LM requires special handling to unpack the nested
-            # stream yielded by the tokenizer. For now, we get around this by handling
-            # map on the datastream so we can flatten it, but this is not ideal.
-            mapped_dataset = Dataset.from_list(
-                list(train_stream.map(base_model.tokenize_function, **fn_kwargs).flatten())
-            )
-        else:
-            dataset = dataset_type.from_generator(
-                get, gen_kwargs={"train_stream": train_stream}
-            )
-            mapped_dataset = dataset.map(
-                base_model.tokenize_function,
-                fn_kwargs=fn_kwargs,
-            )
+        dataset = dataset_type.from_generator(
+            get, gen_kwargs={"train_stream": train_stream}
+        )
+        mapped_dataset = dataset.map(
+            base_model.tokenize_function,
+            fn_kwargs=fn_kwargs,
+            batched=base_model.REQUIRES_TOKEN_UNWRAPPING,
+            # Drop the input / output columns; we need to do this for dimensions to play
+            # happily when operating on batched inputs for causal language modeling.
+            remove_columns=["input", "output"],
+        )
 
         if shuffle:
+            log.debug("Shuffling the dataset")
             return mapped_dataset.shuffle(seed=TextGeneration.RANDOM_SEED)
 
         return mapped_dataset
@@ -625,9 +626,4 @@ class TextGeneration(ModuleBase):
 
 def get(train_stream):
     for data in train_stream:
-        # Handle token unwrapping for causal language modeling
-        if isinstance(data, GenerationTrainRecord):
-            yield {"input": data.input, "output": data.output}
-        # Otherwise assume we directly yield tokenized results
-        else:
-            yield data
+        yield {"input": data.input, "output": data.output}
