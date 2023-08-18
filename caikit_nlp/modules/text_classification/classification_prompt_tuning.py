@@ -1,26 +1,21 @@
 # Standard
-from typing import Any, Dict, List
+from typing import List
 
-# Third party
-from transformers.models.auto.tokenization_auto import AutoTokenizer
-from peft import (
-    PeftModel,
-)
+# Third Party
+import torch
 
+# First Party
 # First party
 from caikit.core.data_model import DataStream
 from caikit.core.modules import ModuleBase, ModuleSaver, module
+from caikit.interfaces.nlp.data_model import ClassificationTrainRecord
+from caikit.interfaces.nlp.tasks import TextClassificationTask
 
 # Local
-from ...data_model import (
-    ClassificationTrainRecord,
-    PromptOutputModelType,
-    TuningConfig,
-)
-from .text_classification_task import TextClassificationTask
-from ..text_generation import PeftPromptTuning
-from ..text_generation.peft_prompt_tuning import TuningType
+from ...data_model import TuningConfig
 from ...toolkit.task_specific_utils import get_sorted_unique_class_labels
+from ..text_generation import PeftPromptTuning
+
 
 # TODO: try to refactor this into a smaller module
 # pylint: disable=too-many-lines,too-many-instance-attributes
@@ -30,7 +25,6 @@ from ...toolkit.task_specific_utils import get_sorted_unique_class_labels
     version="0.1.0",
     task=TextClassificationTask,
 )
-
 class ClassificationPeftPromptTuning(ModuleBase):
 
     _DETECT_DEVICE = "__DETECT__"
@@ -40,19 +34,10 @@ class ClassificationPeftPromptTuning(ModuleBase):
         classifier: PeftPromptTuning,
         unique_class_labels: List[str],
     ):
-        
+
         self.classifier = classifier
         self.unique_class_labels = unique_class_labels
 
-    def __del__(self):
-        del self.model
-        del self.tokenizer
-        gc.collect()
-        try:
-            torch.cuda.empty_cache()
-        except AttributeError:
-            pass
-    
     @classmethod
     def train(
         cls,
@@ -121,15 +106,27 @@ class ClassificationPeftPromptTuning(ModuleBase):
                 Instance of this class with tuned prompt vectors.
         """
 
-        
         unique_class_labels = get_sorted_unique_class_labels(train_stream)
         # Wrap up the trained model in a class instance
         return cls(
-            classifier = PeftPromptTuning.train(base_model, train_stream, tuning_config,
-                               val_stream,  device, tuning_type, num_epochs, 
-                               lr, verbalizer, batch_size, max_source_length, 
-                               max_target_length, accumulate_steps, torch_dtype,
-                               silence_progress_bars, **kwargs),
+            classifier=PeftPromptTuning.train(
+                base_model,
+                train_stream,
+                tuning_config,
+                val_stream,
+                device,
+                tuning_type,
+                num_epochs,
+                lr,
+                verbalizer,
+                batch_size,
+                max_source_length,
+                max_target_length,
+                accumulate_steps,
+                torch_dtype,
+                silence_progress_bars,
+                **kwargs,
+            ),
             unique_class_labels=unique_class_labels,
             # TODO: Export other training params to model as well
         )
@@ -150,8 +147,7 @@ class ClassificationPeftPromptTuning(ModuleBase):
         with saver:
             saver.update_config(
                 {
-                     "unique_class_labels": {self.unique_class_labels},
-                     "classifier_path": classifier_artifacts_path
+                    "unique_class_labels": {self.unique_class_labels},
+                    "classifier_path": classifier_artifacts_path,
                 }
             )
-        
