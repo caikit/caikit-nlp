@@ -15,9 +15,15 @@
 # Third Party
 import pytest
 
+# First Party
+from caikit.core.data_model import DataStream
+
 # Local
 from caikit_nlp import data_model as dm
-from caikit_nlp.toolkit.task_specific_utils import convert_to_generation_record
+from caikit_nlp.toolkit.task_specific_utils import (
+    convert_to_generation_record,
+    get_sorted_unique_class_labels,
+)
 
 
 def test_convert_classification_train_record_to_generation_record():
@@ -53,3 +59,17 @@ def test_convert_to_generation_record_gives_error_with_unsupported_type():
     string_record = "test record"
     with pytest.raises(TypeError):
         convert_to_generation_record(string_record)
+
+
+def test_get_sorted_unique_class_labels():
+    # Sample train data
+    sample_data = [
+        dm.ClassificationTrainRecord(text="foo bar", labels=["label1"]),
+        dm.ClassificationTrainRecord(
+            text="foo bar", labels=["label1", "label2", "label3"]
+        ),
+    ]
+    output_labels = ["label1", "label2", "label3"]
+    sample_stream = DataStream.from_iterable(sample_data)
+    class_labels = get_sorted_unique_class_labels(sample_stream)
+    assert output_labels == class_labels
