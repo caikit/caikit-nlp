@@ -313,7 +313,11 @@ if __name__ == "__main__":
 
     # Init the resource & Build the tuning config from our dataset/arg info
     print_colored("[Loading the base model resource...]")
-    base_model = model_type.bootstrap(args.model_name, tokenizer_name=args.model_name, torch_dtype=args.torch_dtype)
+    base_model = model_type.bootstrap(
+        args.model_name, 
+        tokenizer_name=args.model_name, 
+        torch_dtype=args.torch_dtype
+    )
 
     # Then actually train the model & save it
     print_colored("[Starting the training...]")
