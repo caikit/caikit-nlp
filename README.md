@@ -1,10 +1,20 @@
 # Caikit NLP
 
-Welcome to the README.md page of `caikit-nlp`! This repository provides NLP domain capabilities running on [caikit](https://github.com/caikit/caikit) framework.
+Caikit-NLP is a python library providing various Natural Language Processing (NLP) capabilities built on top of [caikit](https://github.com/caikit/caikit) framework. 
 
 ## Introduction
 
-`caikit_nlp` is a [Caikit](https://github.com/caikit/caikit) library that currently provides [PEFT prompt tuning](https://github.com/huggingface/peft) and MPT (multi-task prompt tuning) functionalities.
+Caikit-NLP implements concept of "task" from `caikit` framework to define (and consume) interfaces for various NLP problems and implements various "modules" to provide functionalities for these "modules". 
+
+Capabilities provided by `caikit-nlp`:
+
+| Task                 | Module(s)                                 | Salient Feature(s)                                                                                                                                          |
+|----------------------|-------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Text Generation      | 1. `PeftPromptTuning` <br> 2. `TextGeneration` | 1. Prompt Tuning, Multi-task Prompt tuning <br> 2. Fine-tuning  Both modules above provide optimized inference capability using Text Generation Inference Server |
+| Text Classification  | 1. `SequenceClassification`               | 1. (Work in progress..)                                                                                                                                     |
+| Token Classification | 1. `FilteredSpanClassification`           | 1. (Work in progress..)                                                                                                                                     |
+| Tokenization         | 1. `RegexSentenceSplitter`                | 1. Demo purposes only                                                                                                                                       |
+| Embedding         | [COMING SOON]                | [COMING SOON]                                                                                                                                       |
 
 ### Getting Started
 
