@@ -1,5 +1,6 @@
 # Standard
 from typing import List
+import os
 
 # Third Party
 import torch
@@ -7,8 +8,18 @@ import torch
 # First Party
 # First party
 from caikit.core.data_model import DataStream
-from caikit.core.modules import ModuleBase, ModuleSaver, module
-from caikit.interfaces.nlp.data_model import ClassificationTrainRecord
+from caikit.core.modules import (
+    ModuleBase,
+    ModuleConfig,
+    ModuleLoader,
+    ModuleSaver,
+    module,
+)
+from caikit.interfaces.nlp.data_model import (
+    ClassificationResult,
+    ClassificationResults,
+    ClassificationTrainRecord,
+)
 from caikit.interfaces.nlp.tasks import TextClassificationTask
 
 # Local
@@ -131,23 +142,50 @@ class ClassificationPeftPromptTuning(ModuleBase):
             # TODO: Export other training params to model as well
         )
 
-    def save(self, model_path, save_base_model: bool = False):
+    def save(self, model_path):
         """Save classification model
 
         Args:
             model_path: str
                 Folder to save classification prompt tuning model
-            save_base_model: bool
-                Save base model along with the prompts in the model_path provided.
-                Default: False
         """
         saver = ModuleSaver(self, model_path=model_path)
-        classifier_artifacts_path = "classifier"
-        self.classifier.save(classifier_artifacts_path, save_base_model)
         with saver:
+            saver.save_module(self.classifier, "artifacts")
             saver.update_config(
                 {
-                    "unique_class_labels": {self.unique_class_labels},
-                    "classifier_path": classifier_artifacts_path,
+                    "unique_class_labels": self.unique_class_labels,
                 }
             )
+
+    @classmethod
+    def load(cls, model_path: str) -> "ClassificationPeftPromptTuning":
+        """Load a filtered span classification model.
+
+        Args:
+            model_path: str
+                Path to the model to be loaded.
+
+        Returns:
+            FilteredSpanClassification
+                Instance of this class built from the on disk model.
+        """
+        config = ModuleConfig.load(os.path.abspath(model_path))
+        print("\n________________\n")
+        print(config)
+        print("\n________________\n")
+        loader = ModuleLoader(model_path)
+        classifier = loader.load_module("artifacts")
+        print(loader)
+        print("\n________________\n")
+        return cls(
+            classifier=classifier,
+            unique_class_labels=config.unique_class_labels,
+        )
+
+    def run(
+        self, text: str, device: _DETECT_DEVICE, max_new_tokens=20, min_new_tokens=0
+    ) -> ClassificationResults:
+        classification_list = [ClassificationResult(label="ff", score=0.5)]
+
+        return ClassificationResults(results=classification_list)
