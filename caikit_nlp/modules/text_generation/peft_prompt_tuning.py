@@ -49,7 +49,7 @@ import torch
 from caikit import get_config
 from caikit.core.data_model import DataStream
 from caikit.core.modules import ModuleBase, ModuleConfig, ModuleSaver, module
-from caikit.core.toolkit import error_handler, wip_decorator
+from caikit.core.toolkit import error_handler
 from caikit.interfaces.nlp.data_model import (
     ClassificationTrainRecord,
     GeneratedTextResult,
@@ -213,10 +213,13 @@ class PeftPromptTuning(ModuleBase):
             )
         return GeneratedTextResult(generated_text=gen_text[0])
 
+    # NOTE: We need to disable wip decorator here otherwise we get issues in
+    # proto generation for streaming. We are keeping it commented out for now,
+    # to essentially document that this streaming function is WIP.
+    # @wip_decorator.work_in_progress(
+    #     category=wip_decorator.WipCategory.WIP, action=wip_decorator.Action.WARNING
+    # )
     @TextGenerationTask.taskmethod(output_streaming=True)
-    @wip_decorator.work_in_progress(
-        category=wip_decorator.WipCategory.WIP, action=wip_decorator.Action.WARNING
-    )
     def run_stream_out(
         self, text: str, max_new_tokens=20, min_new_tokens=0
     ) -> Iterable[GeneratedTextStreamResult]:
