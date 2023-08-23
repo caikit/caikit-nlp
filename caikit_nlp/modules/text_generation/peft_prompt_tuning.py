@@ -213,10 +213,10 @@ class PeftPromptTuning(ModuleBase):
             )
         return GeneratedTextResult(generated_text=gen_text[0])
 
+    # @wip_decorator.work_in_progress(
+    #     category=wip_decorator.WipCategory.WIP, action=wip_decorator.Action.WARNING
+    # )
     @TextGenerationTask.taskmethod(output_streaming=True)
-    @wip_decorator.work_in_progress(
-        category=wip_decorator.WipCategory.WIP, action=wip_decorator.Action.WARNING
-    )
     def run_stream_out(
         self, text: str, max_new_tokens=20, min_new_tokens=0
     ) -> Iterable[GeneratedTextStreamResult]:
