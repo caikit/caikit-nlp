@@ -37,7 +37,10 @@ def initialize_torch_distribution(world_size, rank=0, backend="gloo|nccl"):
 
     if dist.is_available():
         log.debug(
-            f"Initializing process group - backend {backend}, rank {rank}, world size {world_size}"
+            "Initializing process group - backend %s, rank %d, world size %d",
+            backend,
+            rank,
+            world_size
         )
         dist.init_process_group(backend=backend, world_size=world_size, rank=rank)
 
@@ -51,12 +54,12 @@ def determine_local_world_size():
 
     if cuda.is_available():
         num_proc = cuda.device_count()
-        log.info(f"Cuda devices available! Using {num_proc} devices.")
+        log.info("Cuda devices available! Using %d devices.", num_proc)
         return num_proc
     # Fall back to using the OS cpu count
     # TODO: Callibrate this to some reasonable default...
     num_proc = os.cpu_count()
-    log.info(f"Cuda devices NOT available! Using CPU {num_proc} processes.")
+    log.info("Cuda devices NOT available! Using CPU %d processes.", num_proc)
     return num_proc
 
 

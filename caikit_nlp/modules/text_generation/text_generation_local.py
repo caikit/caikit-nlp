@@ -22,7 +22,6 @@ import tempfile
 # Third Party
 from datasets import Dataset
 from datasets import IterableDataset as TransformersIterableDataset
-from torch.utils.data import IterableDataset
 from transformers import AutoConfig, AutoTokenizer
 import torch
 
@@ -295,7 +294,8 @@ class TextGeneration(ModuleBase):
         if extra_training_args:
             log.warning(
                 "<NLP24424909W>",
-                f"{extra_training_args} parameter(s) not allowed by {cls.__name__} currently and will be ignored!",
+                f"{extra_training_args} parameter(s) not allowed by \
+                    {cls.__name__} currently and will be ignored!",
             )
 
         processing_configuration = {}
