@@ -61,7 +61,10 @@ def determine_local_world_size():
 
 
 def get_torch_elastic_launch_config(
-    master_addr: str, master_port: str, start_method: str = "spawn", max_restarts=3,
+    master_addr: str,
+    master_port: str,
+    start_method: str = "spawn",
+    max_restarts=3,
 ) -> LaunchConfig:
 
     # Constants; we assume everything executes on the same node
