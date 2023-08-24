@@ -354,7 +354,9 @@ class PeftPromptTuning(ModuleBase):
             init_method = tuning_config.prompt_tuning_init_method
 
             error.value_check(
-                "<NLP11848053E>", init_method in allowed_tuning_init_methods
+                "<NLP11848053E>",
+                init_method in allowed_tuning_init_methods,
+                f"Init method [{init_method}] not in allowed init methods: [{allowed_tuning_init_methods}]",
             )
 
             init_method = MultitaskPromptTuningInit(init_method)
@@ -438,7 +440,9 @@ class PeftPromptTuning(ModuleBase):
             )
 
         error.value_check(
-            "<NLP30542004E>", len(output_model_types) <= base_model.MAX_NUM_TRANSFORMERS
+            "<NLP30542004E>",
+            len(output_model_types) <= base_model.MAX_NUM_TRANSFORMERS,
+            f"Too many output model types. Got {len(output_model_types)}, maximum {base_model.MAX_NUM_TRANSFORMERS}",
         )
         # Ensure that our verbalizer is a string and will not render to a hardcoded string
         error.value_check(
@@ -456,6 +460,7 @@ class PeftPromptTuning(ModuleBase):
             error.value_check(
                 "<NLP65714994E>",
                 tuning_type in TuningType._member_names_,
+                f"Invalid tuning type [{tuning_type}]. Allowed types: [{TuningType._member_names_}]",
             )
             tuning_type = TuningType(tuning_type)
         error.type_check("<NLP65714993E>", TuningType, tuning_type=tuning_type)
@@ -721,7 +726,11 @@ class PeftPromptTuning(ModuleBase):
         # Our model should only have one or two transformer modules; PEFT config lets you
         # arbitrarily configure these, but the slicing assumptions for the prompt tuning
         # seem to assume this...
-        error.value_check("<NLP83837722E>", 1 <= num_transformer_submodules <= 2)
+        error.value_check(
+            "<NLP83837722E>",
+            1 <= num_transformer_submodules <= 2,
+            f"Only 1 or 2 transformer submodules allowed. {num_transformer_submodules} detected.",
+        )
         # Get the prompt vectors.
         if tuning_type == TuningType.PROMPT_TUNING:  # Should also be done for prefix
             # NOTE; If this is done for MPT, we get the SHARED prompt vector.
@@ -762,6 +771,7 @@ class PeftPromptTuning(ModuleBase):
         error.value_check(
             "<NLP83444722E>",
             prompt_vector.shape[0] == num_transformer_submodules * num_virtual_tokens,
+            f"Row mismatch: Expected num_transformer_submodules * num_virtual_tokens ({num_transformer_submodules * num_virtual_tokens} but got f{prompt_vector.shape[0]})",
         )
 
         # Otherwise it depends on the number of transformer modules. See seq2seq forward()
