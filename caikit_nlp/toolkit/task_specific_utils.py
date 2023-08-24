@@ -39,3 +39,22 @@ def convert_to_generation_record(train_record):
             and GenerationTrainRecord are supported"
         ),
     )
+
+
+def get_sorted_unique_class_labels(data_stream):
+    """Get the list of sorted unique class labels from a data stream of ClassificationTrainRecord.
+
+    Args:
+        data_stream: DataStream[ClassificationTrainRecord]
+            Data stream of ClassificationTrainRecord from which to extract unique class labels
+    Returns:
+        unique_labels
+            Sorted list containing the unique set of classes discovered in the data stream
+    """
+    labels_data_stream = data_stream.map(lambda item: item.labels)
+    unique_labels = set()
+    for label_list in labels_data_stream:
+        for label in label_list:
+            unique_labels.add(label)
+
+    return sorted(unique_labels)
