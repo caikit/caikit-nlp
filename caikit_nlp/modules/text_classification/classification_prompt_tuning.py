@@ -1,12 +1,8 @@
 # Standard
-from typing import List
+from typing import List, Optional, Union
 import os
 
-# Third Party
-import torch
-
 # First Party
-# First party
 from caikit.core.data_model import DataStream
 from caikit.core.modules import (
     ModuleBase,
@@ -15,18 +11,22 @@ from caikit.core.modules import (
     ModuleSaver,
     module,
 )
+from caikit.core.toolkit import error_handler, wip_decorator
 from caikit.interfaces.nlp.data_model import (
     ClassificationResult,
     ClassificationResults,
     ClassificationTrainRecord,
 )
 from caikit.interfaces.nlp.tasks import TextClassificationTask
+import alog
 
 # Local
 from ...data_model import TuningConfig
 from ...toolkit.task_specific_utils import get_sorted_unique_class_labels
 from ..text_generation import PeftPromptTuning
 
+log = alog.use_channel("CLASSIFICATION_PROMPT")
+error = error_handler.get(log)
 
 # TODO: try to refactor this into a smaller module
 # pylint: disable=too-many-lines,too-many-instance-attributes
@@ -45,11 +45,24 @@ class ClassificationPeftPromptTuning(ModuleBase):
         classifier: PeftPromptTuning,
         unique_class_labels: List[str],
     ):
-
+        super().__init__()
+        error.type_check(
+            "<NLP61752820E>",
+            PeftPromptTuning,
+            classifier=classifier,
+        )
+        error.type_check(
+            "<NLP15832720E>",
+            List,
+            unique_class_labels=unique_class_labels,
+        )
         self.classifier = classifier
         self.unique_class_labels = unique_class_labels
 
     @classmethod
+    @wip_decorator.work_in_progress(
+        category=wip_decorator.WipCategory.WIP, action=wip_decorator.Action.WARNING
+    )
     def train(
         cls,
         base_model: str,  # TODO: Union[str, PretrainedModelBase]
@@ -75,13 +88,12 @@ class ClassificationPeftPromptTuning(ModuleBase):
         Args:
             base_model:  Union[str, caikit_nlp.resources.pretrained_model.base.PretrainedModelBase]
                 Base resource model used for underlying generation.
-            train_stream: DataStream[GenerationTrainRecord] or DataStream[ClassificationTrainRecord]
+            train_stream: DataStream[ClassificationTrainRecord]
                 Data to be used for training the prompt vectors of the generation model.
             tuning_config: TuningConfig
                 Additional model tuning configurations to be considered for prompt vector
                 initialization and training behavior.
-            val_stream: Optional[DataStream[GenerationTrainRecord]
-                           or DataStream[ClassificationTrainRecord]]
+            val_stream: Optional[DataStream[ClassificationTrainRecord]
                 Data to be used for validation throughout the train process or None.
             device: str
                 Device to be used for training the model. Default: cls._DETECT_DEVICE, which
@@ -113,7 +125,7 @@ class ClassificationPeftPromptTuning(ModuleBase):
             silence_progress_bars: bool
                 Silences TQDM progress bars at train time. Default: True.
         Returns:
-            PeftPromptTuning
+            ClassificationPeftPromptTuning
                 Instance of this class with tuned prompt vectors.
         """
 
@@ -142,6 +154,10 @@ class ClassificationPeftPromptTuning(ModuleBase):
             # TODO: Export other training params to model as well
         )
 
+    # TODO: enable passing save_base_model flag as argument when supported by caikit
+    @wip_decorator.work_in_progress(
+        category=wip_decorator.WipCategory.WIP, action=wip_decorator.Action.WARNING
+    )
     def save(self, model_path):
         """Save classification model
 
@@ -159,33 +175,61 @@ class ClassificationPeftPromptTuning(ModuleBase):
             )
 
     @classmethod
+    @wip_decorator.work_in_progress(
+        category=wip_decorator.WipCategory.WIP, action=wip_decorator.Action.WARNING
+    )
     def load(cls, model_path: str) -> "ClassificationPeftPromptTuning":
-        """Load a filtered span classification model.
+        """Load a classification model.
 
         Args:
             model_path: str
                 Path to the model to be loaded.
 
         Returns:
-            FilteredSpanClassification
-                Instance of this class built from the on disk model.
+            ClassificationPeftPromptTuning
+                Instance of this class.
         """
         config = ModuleConfig.load(os.path.abspath(model_path))
-        print("\n________________\n")
-        print(config)
-        print("\n________________\n")
         loader = ModuleLoader(model_path)
         classifier = loader.load_module("artifacts")
-        print(loader)
-        print("\n________________\n")
         return cls(
             classifier=classifier,
             unique_class_labels=config.unique_class_labels,
         )
 
+    # TODO: Currently only singlelabel classification is supported, \
+    # hence it will always return list of 1 element.
+    # Support for multilabel may be added in future.
     def run(
-        self, text: str, device: _DETECT_DEVICE, max_new_tokens=20, min_new_tokens=0
+        self,
+        text: str,
+        device: Optional[Union[str, int]] = _DETECT_DEVICE,
+        max_new_tokens=20,
+        min_new_tokens=0,
     ) -> ClassificationResults:
-        classification_list = [ClassificationResult(label="ff", score=0.5)]
+        """Run the classifier model.
 
-        return ClassificationResults(results=classification_list)
+        Args:
+            text: str
+                Input string to be used to the classification model.
+            device: Optional[Union[str, int]]
+                Device on which we should run inference; by default, we use the detected device.
+            max_new_tokens: int
+                The maximum numbers of tokens to generate for class label.
+                Default: 20
+            min_new_tokens: int
+                The minimum numbers of tokens to generate.
+                Default: 0 - means no minimum
+
+        Returns:
+            ClassificationResults
+        """
+        gen_result = self.classifier.run(text, device, max_new_tokens, min_new_tokens)
+        # Either return supported class labels or None
+        label = (
+            gen_result.generated_text
+            if gen_result.generated_text in self.unique_class_labels
+            else None
+        )
+
+        return ClassificationResults(results=[ClassificationResult(label=label)])
