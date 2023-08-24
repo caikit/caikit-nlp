@@ -17,7 +17,7 @@ Huggingface auto causal LM resource type
 # Standard
 from collections.abc import Mapping
 from copy import deepcopy
-from typing import Callable, Tuple, Union
+from typing import Union
 
 # Third Party
 from transformers import (
@@ -76,7 +76,7 @@ class HFAutoCausalLM(PretrainedModelBase):
             DataStream[transformers.tokenization_utils_base.BatchEncoding]
                 stream of encoded tokenization output corresponding to the input example.
         """
-        # Extract the soruce & target from our provided inputs
+        # Extract the source & target from our provided inputs
         source, target = cls.decompose_example_io(example)
         # Determine if our mapped inputs are in batched mode or not
         batched_mode = isinstance(source, list) and isinstance(target, list)
@@ -106,7 +106,7 @@ class HFAutoCausalLM(PretrainedModelBase):
         )
         if batched_mode:
             num_target_samples = []
-            for idx in range(len(source_ids.input_ids)):
+            for idx, _ in enumerate(source_ids.input_ids):
                 source_ids["input_ids"][idx] = (
                     source_ids.input_ids[idx] + target_ids.input_ids[idx]
                 )
