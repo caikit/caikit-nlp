@@ -28,7 +28,6 @@ from transformers import (
     TrainingArguments,
 )
 from transformers.models.auto.auto_factory import _BaseAutoModelClass
-from transformers.tokenization_utils_base import PreTrainedTokenizerBase
 import torch
 
 # First Party
