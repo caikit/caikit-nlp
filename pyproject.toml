@@ -18,12 +18,7 @@ dependencies = [
     "caikit-tgis-backend>=0.1.15,<0.2.0",
 
     # TODO: loosen dependencies
-    # NOTE: accelerate needs to be above 0.20.3 to make it
-    # work with fsdp save method with latest transformers.
-    # GK-Aug-6-2023: There is an `ignored_parameters` being passed from accelerate
-    # to pytorch which throws error. This is fixed in latest main and not yet
-    # released
-    "accelerate@git+https://github.com/huggingface/accelerate.git@main",
+    "accelerate>=0.22.0",
     "datasets>=2.4.0",
     "huggingface-hub",
     "numpy>=1.22.4",
@@ -33,7 +28,7 @@ dependencies = [
     "tokenizers>=0.13.3",
     "torch>=2.0.1",
     "tqdm>=4.65.0",
-    "transformers>=4.31.0",
+    "transformers>=4.32.0",
     "peft@git+https://github.com/mayank31398/peft.git@mpt-os-test"
 ]
 
