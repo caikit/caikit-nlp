@@ -256,7 +256,9 @@ class TextGeneration(ModuleBase):
 
         error.type_check("<NLP03221895E>", PretrainedModelBase, base_model=base_model)
         ## Generate data loader from stream
-        training_dataset: Union[Dataset, TransformersIterableDataset] = cls._preprocess_function(
+        training_dataset: Union[
+            Dataset, TransformersIterableDataset
+        ] = cls._preprocess_function(
             base_model=base_model,
             train_stream=train_stream,
             tokenizer=base_model.tokenizer,
@@ -341,7 +343,9 @@ class TextGeneration(ModuleBase):
                 # negatively impact the performance
                 "full_determinism": False,
                 # Required for iterable dataset
-                "max_steps": cls.infer_max_steps(num_epochs, batch_size, training_dataset),
+                "max_steps": cls.infer_max_steps(
+                    num_epochs, batch_size, training_dataset
+                ),
                 # Some interesting parameters:
                 "auto_find_batch_size": True,
                 # NOTE: following can override above arguments in order
@@ -573,7 +577,11 @@ class TextGeneration(ModuleBase):
         base_model.tokenizer.save_pretrained(checkpoint_dir)
 
     @staticmethod
-    def infer_max_steps(num_epochs: int, batch_size: int, training_dataset: Union[Dataset, TransformersIterableDataset]):
+    def infer_max_steps(
+        num_epochs: int,
+        batch_size: int,
+        training_dataset: Union[Dataset, TransformersIterableDataset],
+    ):
         # Calculate the number of samples that we have
         if isinstance(training_dataset, Dataset):
             data_len = len(training_dataset)
@@ -586,6 +594,7 @@ class TextGeneration(ModuleBase):
         num_steps = num_batches * num_epochs
         log.debug("Number of inferred steps: [%s]", num_steps)
         return num_steps
+
 
 def get(train_stream):
     for data in train_stream:

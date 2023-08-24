@@ -156,7 +156,9 @@ class HFAutoSeq2SeqLM(PretrainedModelBase):
                 encoded tokenization output corresponding to the input example.
         """
         source, target = cls.decompose_example_io(example)
-        source = source if verbalizer is None else render_verbalizer(verbalizer, example)
+        source = (
+            source if verbalizer is None else render_verbalizer(verbalizer, example)
+        )
 
         model_inputs = tokenizer(
             source,
