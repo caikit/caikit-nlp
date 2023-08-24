@@ -15,11 +15,11 @@ import torch
 import transformers
 
 # First Party
+from caikit.core.data_model import DataStream
 import aconfig
 import caikit
 
 # Local
-from caikit.core.data_model import DataStream
 from caikit_nlp.data_model import GenerationTrainRecord
 from caikit_nlp.resources.pretrained_model import HFAutoCausalLM, HFAutoSeq2SeqLM
 from tests.fixtures import (
@@ -28,6 +28,7 @@ from tests.fixtures import (
     models_cache_dir,
     temp_cache_dir,
 )
+
 
 def test_bootstrap_with_preloaded_tokenizer(models_cache_dir):
     """Ensure that if we have a tokenizer instance, we can bootstrap with it directly."""
@@ -229,10 +230,12 @@ def test_causal_lm_batch_tokenization(models_cache_dir):
     causal_lm = HFAutoCausalLM.bootstrap(
         model_name=CAUSAL_LM_MODEL, tokenizer_name=CAUSAL_LM_MODEL
     )
-    train_stream = DataStream.from_iterable([
-        GenerationTrainRecord(input="hello there", output="world"),
-        GenerationTrainRecord(input="how", output="today"),
-    ])
+    train_stream = DataStream.from_iterable(
+        [
+            GenerationTrainRecord(input="hello there", output="world"),
+            GenerationTrainRecord(input="how", output="today"),
+        ]
+    )
     fn_kwargs = {
         "tokenizer": causal_lm.tokenizer,
         "max_source_length": 10,
@@ -242,6 +245,7 @@ def test_causal_lm_batch_tokenization(models_cache_dir):
     def get(train_stream):
         for data in train_stream:
             yield {"input": data.input, "output": data.output}
+
     dataset = TransformersIterableDataset.from_generator(
         get, gen_kwargs={"train_stream": train_stream}
     )
@@ -249,7 +253,7 @@ def test_causal_lm_batch_tokenization(models_cache_dir):
         causal_lm.tokenize_function,
         fn_kwargs=fn_kwargs,
         batched=True,
-        remove_columns=["input", "output"]
+        remove_columns=["input", "output"],
     )
 
     # Do the same thing with no batching via tokenize closure + unwrapping

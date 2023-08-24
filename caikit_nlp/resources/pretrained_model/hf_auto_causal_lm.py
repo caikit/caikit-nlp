@@ -15,13 +15,16 @@
 Huggingface auto causal LM resource type
 """
 # Standard
-from copy import deepcopy
 from collections.abc import Mapping
+from copy import deepcopy
 from typing import Callable, Tuple, Union
 
 # Third Party
-from transformers import BatchEncoding
-from transformers import AutoModelForCausalLM, DataCollatorForLanguageModeling
+from transformers import (
+    AutoModelForCausalLM,
+    BatchEncoding,
+    DataCollatorForLanguageModeling,
+)
 from transformers.models.auto import modeling_auto
 
 # First Party
@@ -80,24 +83,36 @@ class HFAutoCausalLM(PretrainedModelBase):
 
         # TODO: Handle batched verbalizer stuff!
         if batched_mode and verbalizer is not None:
-            raise NotImplementedError("Verbalizer rendering not implemented for batch mode")
-        source = source if verbalizer is None else render_verbalizer(verbalizer, example)
+            raise NotImplementedError(
+                "Verbalizer rendering not implemented for batch mode"
+            )
+        source = (
+            source if verbalizer is None else render_verbalizer(verbalizer, example)
+        )
 
         # HACK: We shouldn't have to pad here, but the causal LM data collator dynamic padding
         # does not appear to be playing nicely with the Huggingface trainer / torch fsdp...
         source_ids = tokenizer(
-            source, max_length=max_source_length, truncation=True, padding="max_length",
+            source,
+            max_length=max_source_length,
+            truncation=True,
+            padding="max_length",
         )
         target_ids = tokenizer(
-            target, max_length=max_target_length, truncation=True, padding="max_length",
+            target,
+            max_length=max_target_length,
+            truncation=True,
+            padding="max_length",
         )
         if batched_mode:
             num_target_samples = []
             for idx in range(len(source_ids.input_ids)):
-                source_ids["input_ids"][idx] = source_ids.input_ids[idx] + target_ids.input_ids[idx]
+                source_ids["input_ids"][idx] = (
+                    source_ids.input_ids[idx] + target_ids.input_ids[idx]
+                )
                 num_target_samples.append(len(target_ids.input_ids[idx]))
                 if task_ids is not None:
-                        source_ids["task_ids"][idx] = task_ids
+                    source_ids["task_ids"][idx] = task_ids
         else:
             source_ids["input_ids"] = source_ids.input_ids + target_ids.input_ids
             # Here, we need to yield and manipulate the attention mask to attend
@@ -150,7 +165,6 @@ class HFAutoCausalLM(PretrainedModelBase):
         if batched_mode:
             return get_batched_output()
         return DataStream(single_generator_func)
-
 
     def _get_data_collator(self, **kwargs):
         """Function to return appropriate data collator based on resource.

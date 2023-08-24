@@ -322,7 +322,7 @@ class PretrainedModelBase(ABC, ModuleBase):
         extract the input / output texts. Depending on the manner in which
         the sample is being leveraged, this might be a raw data model object,
         a dict, or some other mappable, e.g., a HF dataset LazyRow.
-        
+
         args:
             example: Union[GenerationTrainRecord, Mapping]
                 Objects whose input / output we want to retrieve.
@@ -346,13 +346,16 @@ class PretrainedModelBase(ABC, ModuleBase):
         This is largely for convenience if we want a closure that can be applied
         without having to carry around other parameters.
         """
+
         def tokenize_wrapper(example: GenerationTrainRecord):
             return cls.tokenize_function(example, *args, **kwargs)
+
         return (tokenize_wrapper, cls.REQUIRES_TOKEN_UNWRAPPING)
 
     @classmethod
     @abstractmethod
-    def tokenize_function(cls,
+    def tokenize_function(
+        cls,
         example: Union[GenerationTrainRecord, Mapping],
         tokenizer: "AutoTokenizer",
         max_source_length: int,
