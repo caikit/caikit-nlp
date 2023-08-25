@@ -173,6 +173,7 @@ class PeftPromptTuning(ModuleBase):
         device: Optional[Union[str, int]] = _DETECT_DEVICE,
         max_new_tokens=20,
         min_new_tokens=0,
+        truncate_input_tokens,
     ) -> GeneratedTextResult:
         """Run the full text generation model.
 
@@ -187,15 +188,33 @@ class PeftPromptTuning(ModuleBase):
             min_new_tokens: int
                 The minimum numbers of tokens to generate.
                 Default: 0 - means no minimum
+            truncate_input_tokens: int
+                Truncate inputs to provided number of tokens. This can be
+                use to avoid failing due to input being longer than
+                configured limits.
+                Default: 0 - means don't truncate, thus throw error.
 
         Returns:
             GeneratedTextResult
                 Generated text result produced by PEFT / Transformers.
         """
+        # NOTE: below is to match TGIS API, where 0 identifies as no truncation
+        if truncate_input_tokens == 0:
+            # NOTE: below will make model throw error in case inputs are longer
+            # than allowed length
+            truncation = False
+
+        else:
+            truncation = True
+
         # Apply the verbalizer to our text string
         verbalized_text = render_verbalizer(self.verbalizer, {"input": text})
         # Apply the tokenizer to the sample text & move to correct device
-        tok_tensors = self.tokenizer(verbalized_text, return_tensors="pt")
+        tok_tensors = self.tokenizer(
+            verbalized_text,
+            truncation=truncation,
+            max_length=truncate_input_tokens,
+            return_tensors="pt")
 
         device = PeftPromptTuning._get_device(device)
         inputs = {k: v.to(device) for k, v in tok_tensors.items()}
