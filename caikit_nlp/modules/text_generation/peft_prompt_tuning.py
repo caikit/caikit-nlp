@@ -171,9 +171,16 @@ class PeftPromptTuning(ModuleBase):
         self,
         text: str,
         device: Optional[Union[str, int]] = _DETECT_DEVICE,
-        max_new_tokens=20,
-        min_new_tokens=0,
-        truncate_input_tokens,
+        max_new_tokens: int = 20,
+        min_new_tokens: int = 0,
+        truncate_input_tokens: int = 0,
+        decoding_method:str = "GREEDY",
+        top_k: int = 0,
+        top_p: float = 0.0,
+        typical_p: float = 0.0,
+        repetition_penalty: float = 0.0,
+        stop_sequences: List[str] = [],
+        temperature: float = 0.0,
     ) -> GeneratedTextResult:
         """Run the full text generation model.
 
@@ -193,7 +200,36 @@ class PeftPromptTuning(ModuleBase):
                 use to avoid failing due to input being longer than
                 configured limits.
                 Default: 0 - means don't truncate, thus throw error.
-
+            decoding_method: str
+               Parameters for conditionally penalizing / boosting
+               candidate tokens during decoding.
+               Options: "GREEDY" (default), "SAMPLING"
+            top_k: int
+                The number of highest probability vocabulary tokens to keep for
+                top-k-filtering. Only applicable when decoding_method is SAMPLING.
+                Default: 0 - means disabled
+            top_p: float
+                If set to float < 1, only the smallest set of most probable tokens
+                with probabilities that add up to top_p or higher are kept for
+                generation.
+                Default: 0.0 - means disabled - equivalent to 1.0
+            typical_p: float
+                Local typicality measures how similar the conditional probability of
+                predicting a target token next is to the expected conditional
+                probability of predicting a random token next, given the partial text
+                already generated. If set to float < 1, the smallest set of the most
+                locally typical tokens with probabilities that add up to typical_p
+                or higher are kept for generation.
+                Default: 0.0 - means disabled - equivalent to 1.0
+            repetition_penalty: float
+                The more a token is used within generation the more it is penalized
+                to not be picked in successive generation passes.
+                Default: 0.0 - means no penalty - equivalent to 1.0
+            stop_sequences: List(str)
+                Sequences to be considered for stopping generation.
+            temperature: float
+                The value used to modulate the next token probabilities.
+                Default: 0.0 - means disabled - equivalent to 1.0
         Returns:
             GeneratedTextResult
                 Generated text result produced by PEFT / Transformers.
@@ -215,6 +251,13 @@ class PeftPromptTuning(ModuleBase):
             truncation=truncation,
             max_length=truncate_input_tokens,
             return_tensors="pt")
+
+        gen_optional_params = {}
+
+        # TODO: Make decoding parameters enums
+        if decoding_method == "SAMPLING":
+            gen_optional_params["do_sample"] = True
+            gen_optional_params["top_k"] = 0
 
         device = PeftPromptTuning._get_device(device)
         inputs = {k: v.to(device) for k, v in tok_tensors.items()}
