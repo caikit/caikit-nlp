@@ -35,7 +35,7 @@ def test_bootstrap_and_run_causallm():
         CAUSAL_LM_MODEL, load_backend=StubTGISBackend()
     )
 
-    result = model.run(SAMPLE_TEXT, preserve_input_text=True)
+    result = model.run(SAMPLE_TEXT, preserve_input_text=True, repetition_penalty=50.0)
     StubTGISClient.validate_unary_generate_response(result)
 
 

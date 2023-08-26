@@ -30,6 +30,8 @@ import alog
 log = alog.use_channel("TGIS_UTILS")
 error = error_handler.get(log)
 
+VALID_DECODING_METHODS = ["GREEDY", "SAMPLING"]
+
 
 def get_params(
     preserve_input_text,
