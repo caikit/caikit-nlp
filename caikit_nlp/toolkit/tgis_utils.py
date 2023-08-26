@@ -33,10 +33,17 @@ error = error_handler.get(log)
 
 def get_params(
     preserve_input_text,
-    eos_token,
     max_new_tokens,
     min_new_tokens,
     truncate_input_tokens,
+    decoding_method,
+    temperature,
+    top_k,
+    top_p,
+    typical_p,
+    # seed,
+    repetition_penalty,
+    stop_sequences,
 ):
     """Get generation parameters
 
@@ -53,6 +60,22 @@ def get_params(
         truncate_input_tokens: int
             Truncate inputs to provided number of tokens.
     """
+
+    if decoding_method == "GREEDY":
+        decoding = generation_pb2.DecodingMethod.GREEDY
+    elif decoding_method == "SAMPLING":
+        decoding = generation_pb2.DecodingMethod.SAMPLE
+
+    # decoding = generation_pb2.DecodingMethod.__getattr__(decoding_method)
+
+    sampling_parameters = generation_pb2.SamplingParameters(
+        temperature=temperature,
+        top_k=top_k,
+        top_p=top_p,
+        typical_p=typical_p,
+        # seed=seed
+    )
+
     res_options = generation_pb2.ResponseOptions(
         input_text=preserve_input_text,
         generated_tokens=True,
@@ -61,13 +84,21 @@ def get_params(
         token_ranks=True,
     )
     stopping = generation_pb2.StoppingCriteria(
-        stop_sequences=[eos_token] if eos_token is not None else None,
+        stop_sequences=stop_sequences,
         max_new_tokens=max_new_tokens,
         min_new_tokens=min_new_tokens,
     )
+
+    decoding_parameters = generation_pb2.DecodingParameters(
+        repetition_penalty=repetition_penalty
+    )
+
     params = generation_pb2.Parameters(
+        method=decoding,
+        sampling=sampling_parameters,
         response=res_options,
         stopping=stopping,
+        decoding=decoding_parameters,
         truncate_input_tokens=truncate_input_tokens,
     )
     return params
@@ -92,6 +123,13 @@ class TGISGenerationClient:
         max_new_tokens,
         min_new_tokens,
         truncate_input_tokens,
+        decoding_method,
+        temperature,
+        top_k,
+        top_p,
+        typical_p,
+        repetition_penalty,
+        stop_sequences,
     ) -> GeneratedTextResult:
         """Generate unary output from model in TGIS
 
@@ -129,10 +167,16 @@ class TGISGenerationClient:
 
         params = get_params(
             preserve_input_text=preserve_input_text,
-            eos_token=self.eos_token,
             max_new_tokens=max_new_tokens,
             min_new_tokens=min_new_tokens,
             truncate_input_tokens=truncate_input_tokens,
+            decoding_method=decoding_method,
+            temperature=temperature,
+            top_k=top_k,
+            top_p=top_p,
+            typical_p=typical_p,
+            repetition_penalty=repetition_penalty,
+            stop_sequences=stop_sequences,
         )
 
         gen_reqs = [generation_pb2.GenerationRequest(text=text)]
@@ -175,6 +219,13 @@ class TGISGenerationClient:
         max_new_tokens,
         min_new_tokens,
         truncate_input_tokens,
+        decoding_method,
+        temperature,
+        top_k,
+        top_p,
+        typical_p,
+        repetition_penalty,
+        stop_sequences,
     ) -> Iterable[GeneratedTextStreamResult]:
         """Generate stream output from model in TGIS
 
@@ -209,10 +260,16 @@ class TGISGenerationClient:
 
         params = get_params(
             preserve_input_text=preserve_input_text,
-            eos_token=self.eos_token,
             max_new_tokens=max_new_tokens,
             min_new_tokens=min_new_tokens,
             truncate_input_tokens=truncate_input_tokens,
+            decoding_method=decoding_method,
+            temperature=temperature,
+            top_k=top_k,
+            top_p=top_p,
+            typical_p=typical_p,
+            repetition_penalty=repetition_penalty,
+            stop_sequences=stop_sequences,
         )
 
         gen_req = generation_pb2.GenerationRequest(text=text)
