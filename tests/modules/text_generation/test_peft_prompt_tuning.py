@@ -297,3 +297,33 @@ def test_model_can_only_have_one_or_two_transformer_modules(seq2seq_lm_dummy_mod
             TuningType.PROMPT_TUNING,
             seq2seq_lm_dummy_model.output_model_types,
         )
+
+######################## Test run with optional params #####################
+
+def test_run_repetition_penalty_0_works(causal_lm_dummy_model):
+    """Ensure repetition_penalty works with 0.0 as input"""
+    pred = causal_lm_dummy_model.run(
+        "This text doesn't matter",
+        repetition_penalty=0.0)
+    assert isinstance(pred, GeneratedTextResult)
+
+def test_run_truncate_tokens_0(causal_lm_dummy_model):
+    """Ensure run function accepts 0 for truncation value
+    and successfully turns off truncation"""
+    pred = causal_lm_dummy_model.run(
+        "This text doesn't matter",
+        truncate_input_tokens=0)
+    assert isinstance(pred, GeneratedTextResult)
+
+def test_run_sampling_param_ignored_greedy_decoding(causal_lm_dummy_model):
+    """Ensure sampling parameter gets ignored when decoding method
+    is set to GREEDY
+    """
+    pred = causal_lm_dummy_model.run(
+        "This text doesn't matter",
+        decoding_method="GREEDY",
+        top_k=2,
+        top_p=0.23,
+        typical_p=0.23,
+        temperature=0.77)
+    assert isinstance(pred, GeneratedTextResult)

@@ -171,15 +171,15 @@ class PeftPromptTuning(ModuleBase):
         self,
         text: str,
         device: Optional[Union[str, int]] = _DETECT_DEVICE,
-        max_new_tokens: int = 20,
-        min_new_tokens: int = 0,
-        truncate_input_tokens: int = 0,
-        decoding_method:str = "GREEDY",
-        top_k: int = 0,
-        top_p: float = 0.0,
-        typical_p: float = 0.0,
-        repetition_penalty: float = 0.0,
-        temperature: float = 0.0,
+        max_new_tokens: Optional[int] = 20,
+        min_new_tokens: Optional[int] = 0,
+        truncate_input_tokens: Optional[int] = 0,
+        decoding_method: Optional[str] = "GREEDY",
+        top_k: Optional[int] = 0,
+        top_p: Optional[float] = 0.0,
+        typical_p: Optional[float] = 0.0,
+        temperature: Optional[float] = 1.0,
+        repetition_penalty: Optional[float] = 0.0,
     ) -> GeneratedTextResult:
         """Run the full text generation model.
 
@@ -224,7 +224,7 @@ class PeftPromptTuning(ModuleBase):
             temperature: float
                 The value used to modulate the next token probabilities.
                 Only applicable when decoding_method is SAMPLING.
-                Default: 0.0 - means disabled - equivalent to 1.0
+                Default: 1.0 - means disabled - equivalent to 1.0
             repetition_penalty: float
                 The more a token is used within generation the more it is penalized
                 to not be picked in successive generation passes.
@@ -241,6 +241,9 @@ class PeftPromptTuning(ModuleBase):
 
         else:
             truncation = True
+
+        if repetition_penalty == 0.0:
+            repetition_penalty = 1.0
 
         # Apply the verbalizer to our text string
         verbalized_text = render_verbalizer(self.verbalizer, {"input": text})
