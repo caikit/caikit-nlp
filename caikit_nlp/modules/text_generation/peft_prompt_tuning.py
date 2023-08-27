@@ -179,7 +179,6 @@ class PeftPromptTuning(ModuleBase):
         top_p: float = 0.0,
         typical_p: float = 0.0,
         repetition_penalty: float = 0.0,
-        stop_sequences: List[str] = [],
         temperature: float = 0.0,
     ) -> GeneratedTextResult:
         """Run the full text generation model.
@@ -211,7 +210,7 @@ class PeftPromptTuning(ModuleBase):
             top_p: float
                 If set to float < 1, only the smallest set of most probable tokens
                 with probabilities that add up to top_p or higher are kept for
-                generation.
+                generation. Only applicable when decoding_method is SAMPLING.
                 Default: 0.0 - means disabled - equivalent to 1.0
             typical_p: float
                 Local typicality measures how similar the conditional probability of
@@ -219,17 +218,17 @@ class PeftPromptTuning(ModuleBase):
                 probability of predicting a random token next, given the partial text
                 already generated. If set to float < 1, the smallest set of the most
                 locally typical tokens with probabilities that add up to typical_p
-                or higher are kept for generation.
+                or higher are kept for generation. Only applicable when decoding_method
+                is SAMPLING.
+                Default: 0.0 - means disabled - equivalent to 1.0
+            temperature: float
+                The value used to modulate the next token probabilities.
+                Only applicable when decoding_method is SAMPLING.
                 Default: 0.0 - means disabled - equivalent to 1.0
             repetition_penalty: float
                 The more a token is used within generation the more it is penalized
                 to not be picked in successive generation passes.
                 Default: 0.0 - means no penalty - equivalent to 1.0
-            stop_sequences: List(str)
-                Sequences to be considered for stopping generation.
-            temperature: float
-                The value used to modulate the next token probabilities.
-                Default: 0.0 - means disabled - equivalent to 1.0
         Returns:
             GeneratedTextResult
                 Generated text result produced by PEFT / Transformers.
@@ -257,7 +256,10 @@ class PeftPromptTuning(ModuleBase):
         # TODO: Make decoding parameters enums
         if decoding_method == "SAMPLING":
             gen_optional_params["do_sample"] = True
-            gen_optional_params["top_k"] = 0
+            gen_optional_params["top_k"] = top_k
+            gen_optional_params["top_p"] = top_p
+            gen_optional_params["typical_p"] = typical_p
+            gen_optional_params["temperature"] = temperature
 
         device = PeftPromptTuning._get_device(device)
         inputs = {k: v.to(device) for k, v in tok_tensors.items()}
@@ -269,6 +271,8 @@ class PeftPromptTuning(ModuleBase):
                 max_new_tokens=max_new_tokens,
                 min_new_tokens=min_new_tokens,
                 eos_token_id=self.eos_token_id,
+                repetition_penalty=repetition_penalty,
+                **gen_optional_params
             )
             gen_text = self.tokenizer.batch_decode(
                 outputs.detach().cpu().numpy(), skip_special_tokens=True
