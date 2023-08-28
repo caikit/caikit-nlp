@@ -34,7 +34,7 @@ dummy_sampling_parameters = SamplingParameters(
 )
 
 dummy_stopping_criteria = StoppingCriteria(
-    max_tokens=200, min_tokens=50, time_limit_millis=0, stop_sequences=["Test"]
+    max_new_tokens=200, min_new_tokens=50, time_limit_millis=0, stop_sequences=["Test"]
 )
 
 ## Tests ########################################################################
@@ -91,23 +91,23 @@ def test_sampling_parameters_from_json_and_back():
 
 ### Stopping Criteria
 def test_stopping_criteria_all_fields_accessible():
-    assert dummy_stopping_criteria.max_tokens == 200
-    assert dummy_stopping_criteria.min_tokens == 50
+    assert dummy_stopping_criteria.max_new_tokens == 200
+    assert dummy_stopping_criteria.min_new_tokens == 50
     assert dummy_stopping_criteria.time_limit_millis == 0
     assert dummy_stopping_criteria.stop_sequences == ["Test"]
 
 
 def test_stopping_criteria_from_proto_and_back():
     new = StoppingCriteria.from_proto(dummy_stopping_criteria.to_proto())
-    assert new.max_tokens == 200
-    assert new.min_tokens == 50
+    assert new.max_new_tokens == 200
+    assert new.min_new_tokens == 50
     assert new.time_limit_millis == 0
     assert new.stop_sequences == ["Test"]
 
 
 def test_stopping_criteria_from_json_and_back():
     new = StoppingCriteria.from_json(dummy_stopping_criteria.to_json())
-    assert new.max_tokens == 200
-    assert new.min_tokens == 50
+    assert new.max_new_tokens == 200
+    assert new.min_new_tokens == 50
     assert new.time_limit_millis == 0
     assert new.stop_sequences == ["Test"]

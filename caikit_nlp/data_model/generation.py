@@ -97,7 +97,7 @@ class SamplingParameters(DataObjectBase):
 @caikit.core.dataobject(package="caikit_data_model.caikit_nlp")
 class StoppingCriteria(DataObjectBase):
 
-    max_tokens: int
-    min_tokens: int
+    max_new_tokens: int
+    min_new_tokens: int
     time_limit_millis: int
     stop_sequences: List[str]
