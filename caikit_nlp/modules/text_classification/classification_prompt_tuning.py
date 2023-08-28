@@ -158,16 +158,21 @@ class ClassificationPeftPromptTuning(ModuleBase):
     @wip_decorator.work_in_progress(
         category=wip_decorator.WipCategory.WIP, action=wip_decorator.Action.WARNING
     )
-    def save(self, model_path):
+    def save(self, model_path: str, save_base_model: bool = False):
         """Save classification model
 
         Args:
             model_path: str
                 Folder to save classification prompt tuning model
+            save_base_model: bool
+                Save base model along with the prompts in the model_path provided.
+                Default: False
         """
         saver = ModuleSaver(self, model_path=model_path)
         with saver:
-            saver.save_module(self.classifier, "artifacts")
+            saver.save_module(
+                self.classifier, "artifacts", save_base_model=save_base_model
+            )
             saver.update_config(
                 {
                     "unique_class_labels": self.unique_class_labels,
