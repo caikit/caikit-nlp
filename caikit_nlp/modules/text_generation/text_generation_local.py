@@ -380,13 +380,10 @@ class TextGeneration(ModuleBase):
     def run(
         self,
         text: str,
-        repetition_penalty: float = 2.5,
-        length_penalty: float = 1.0,
-        early_stopping: bool = True,
-        num_beams: int = 1,
         max_new_tokens: int = 20,
         min_new_tokens: int = 0,
         truncate_input_tokens: int = 0,
+        repetition_penalty: float = 2.5,
         **kwargs,
     ) -> "GeneratedTextResult":
         """Run inference against the model running in TGIS.
@@ -394,9 +391,6 @@ class TextGeneration(ModuleBase):
         Args:
             text: str
                 Source string to be encoded for generation.
-            repetition_penalty: float
-                The parameter for repetition penalty. 1.0 means no penalty.
-                Default: 2.5
             length_penalty: float
                 Exponential penalty to the length that is used with beam-based generation.
                 It is applied as an exponent to the sequence length, \
@@ -427,6 +421,9 @@ class TextGeneration(ModuleBase):
                 use to avoid failing due to input being longer than
                 configured limits.
                 Default: 0 - means don't truncate, thus throw error.
+            repetition_penalty: float
+                The parameter for repetition penalty. 1.0 means no penalty.
+                Default: 2.5
             kwargs:
                 Any other parameters to pass to generate as specified in GenerationConfig.
                 https://huggingface.co/docs/transformers/v4.30.0/en/main_classes/text_generation#transformers.GenerationConfig
@@ -434,6 +431,7 @@ class TextGeneration(ModuleBase):
             GeneratedTextResult
                 Generated text result produced by the model.
         """
+        # TODO: Beam search currently not supported
 
         # NOTE: below is to match TGIS API, where 0 identifies as no truncation
         if truncate_input_tokens == 0:
@@ -452,12 +450,10 @@ class TextGeneration(ModuleBase):
         )
         generate_ids = self.model.model.generate(
             input_ids=inputs["input_ids"],
-            num_beams=num_beams,
+
             max_new_tokens=max_new_tokens,
             min_new_tokens=min_new_tokens,
             repetition_penalty=repetition_penalty,
-            length_penalty=length_penalty,
-            early_stopping=early_stopping,
             use_cache=True,
             **kwargs,
         )
