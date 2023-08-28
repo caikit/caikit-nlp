@@ -15,10 +15,10 @@
 """
 # Standard
 from enum import Enum
-from typing import List
+from typing import List, Optional
 
 # First Party
-from caikit.core import DataObjectBase
+from caikit.core import DataObjectBase, dataobject
 
 # First party
 import alog
@@ -71,3 +71,33 @@ class TuningConfig(DataObjectBase):
     # num_layers: int # Optional - The number of layers in the base transformer model
     #
     # encoder_hidden_size: int # Optional -  The hidden size of the prompt encoder.
+
+
+@caikit.core.dataobject(package="caikit_data_model.caikit_nlp")
+class DecodingParameters(DataObjectBase):
+    @dataobject
+    class ExponentialDecayLengthPenalty(DataObjectBase):
+        start_index: int
+        decay_factor: float
+
+    repetition_penalty: float
+    exponential_decay_length_penalty: ExponentialDecayLengthPenalty
+
+
+@caikit.core.dataobject(package="caikit_data_model.caikit_nlp")
+class SamplingParameters(DataObjectBase):
+
+    temperature: float
+    top_k: int
+    top_p: int
+    typical_p: float
+    seed: Optional[int]
+
+
+@caikit.core.dataobject(package="caikit_data_model.caikit_nlp")
+class StoppingCriteria(DataObjectBase):
+
+    max_tokens: int
+    min_tokens: int
+    time_limit_millis: int
+    stop_sequences: List[str]
