@@ -98,7 +98,7 @@ def generate_text_func(
 ):
     __doc__ = """
         Args:
-            model: Any
+            model: PeftModel or transformers.AutoModel
                 Peft model or Transformers model
             tokenizer: AutoTokenizer
                 Tokenizer to be used with the model
