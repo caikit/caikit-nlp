@@ -224,6 +224,9 @@ def generate_text_func(
         return_tensors="pt",
     )
     inputs = {k: v.to(model.device) for k, v in tok_tensors.items()}
+
+    input_token_count = len(tok_tensors)
+
     with torch.no_grad():
         generate_ids = model.generate(
             input_ids=inputs["input_ids"],
@@ -255,4 +258,5 @@ def generate_text_func(
         generated_text=preds[0],
         finish_reason=finish_reason,
         producer_id=producer_id,
+        input_token_count=input_token_count,
     )
