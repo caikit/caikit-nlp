@@ -17,25 +17,29 @@ from caikit_nlp.data_model import ExponentialDecayLengthPenalty
 
 ## Setup #########################################################################
 
-dummy_exponential_decay_length_penalty = (
-    ExponentialDecayLengthPenalty(start_index=1, decay_factor=0.95)
+dummy_exponential_decay_length_penalty = ExponentialDecayLengthPenalty(
+    start_index=1, decay_factor=0.95
 )
 
 ## Tests ########################################################################
 
-### Exponential Decay Length Penalty 
+### Exponential Decay Length Penalty
 def test_exponential_decay_length_penalty_all_fields_accessible():
     assert dummy_exponential_decay_length_penalty.start_index == 1
     assert dummy_exponential_decay_length_penalty.decay_factor == 0.95
 
 
 def test_sampling_parameters_from_proto_and_back():
-    new = ExponentialDecayLengthPenalty.from_proto(dummy_exponential_decay_length_penalty.to_proto())
+    new = ExponentialDecayLengthPenalty.from_proto(
+        dummy_exponential_decay_length_penalty.to_proto()
+    )
     assert new.start_index == 1
     assert new.decay_factor == 0.95
 
 
 def test_sampling_parameters_from_json_and_back():
-    new = ExponentialDecayLengthPenalty.from_json(dummy_exponential_decay_length_penalty.to_json())
+    new = ExponentialDecayLengthPenalty.from_json(
+        dummy_exponential_decay_length_penalty.to_json()
+    )
     assert new.start_index == 1
     assert new.decay_factor == 0.95
