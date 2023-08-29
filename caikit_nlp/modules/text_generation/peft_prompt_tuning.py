@@ -59,7 +59,12 @@ from caikit.interfaces.nlp.tasks import TextGenerationTask
 import alog
 
 # Local
-from ...data_model import GenerationTrainRecord, PromptOutputModelType, TuningConfig
+from ...data_model import (
+    ExponentialDecayLengthPenalty,
+    GenerationTrainRecord,
+    PromptOutputModelType,
+    TuningConfig,
+)
 from ...resources.pretrained_model import (
     HFAutoCausalLM,
     HFAutoSeq2SeqLM,
@@ -185,7 +190,9 @@ class PeftPromptTuning(ModuleBase):
         seed: Optional[int] = None,
         repetition_penalty: Optional[float] = 0.0,
         max_time: Optional[float] = None,
-        exponential_decay_length_penalty: Optional[Tuple[int, float]] = None,
+        exponential_decay_length_penalty: Optional[
+            Union[Tuple[int, float], ExponentialDecayLengthPenalty]
+        ] = None,
         stop_sequences: Optional[str] = None,
     ) -> GeneratedTextResult:
         """

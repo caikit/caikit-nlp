@@ -24,6 +24,7 @@ from caikit.interfaces.nlp.data_model import (
 import caikit
 
 # Local
+from caikit_nlp.data_model import ExponentialDecayLengthPenalty
 from caikit_nlp.modules.text_generation import PeftPromptTuning
 from caikit_nlp.modules.text_generation.peft_prompt_tuning import TuningType
 from tests.fixtures import (
@@ -342,5 +343,18 @@ def test_run_with_custom_stop_criteria(causal_lm_dummy_model):
         "This text doesn't matter",
         decoding_method="GREEDY",
         stop_sequences=["Foo", "bar"],
+    )
+    assert isinstance(pred, GeneratedTextResult)
+
+def test_run_exponential_decay_len_penatly_object(causal_lm_dummy_model):
+    """Ensure sampling parameter gets ignored when decoding method
+    is set to GREEDY
+    """
+    penalty = ExponentialDecayLengthPenalty(1, 0.2)
+    pred = causal_lm_dummy_model.run(
+        "This text doesn't matter",
+        decoding_method="GREEDY",
+        stop_sequences=["Foo", "bar"],
+        exponential_decay_length_penalty=penalty
     )
     assert isinstance(pred, GeneratedTextResult)

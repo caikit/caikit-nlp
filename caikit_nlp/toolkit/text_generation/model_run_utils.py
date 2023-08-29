@@ -15,7 +15,7 @@
 """Utility functions used for executing run function for text_generation"""
 
 # Standard
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Union
 
 # Third Party
 from transformers import StoppingCriteria
@@ -29,6 +29,9 @@ from caikit.interfaces.nlp.data_model import (
     GeneratedTextStreamResult,
 )
 import alog
+
+# Local
+from ...data_model import ExponentialDecayLengthPenalty
 
 log = alog.use_channel("RUN_UTILS")
 error = error_handler.get(log)
@@ -131,7 +134,9 @@ def generate_text_func(
     seed: Optional[int] = None,
     repetition_penalty: Optional[float] = 0.0,
     max_time: Optional[float] = None,
-    exponential_decay_length_penalty: Optional[Tuple[int, float]] = None,
+    exponential_decay_length_penalty: Optional[
+        Union[Tuple[int, float], ExponentialDecayLengthPenalty]
+    ] = None,
     stop_sequences: Optional[str] = None,
     **kwargs
 ):
@@ -176,6 +181,12 @@ def generate_text_func(
         "<NLP41311583E>", str, allow_none=True, stop_sequences=stop_sequences
     )
     error.type_check("<NLP28185342E>", int, allow_none=True, seed=seed)
+
+    if isinstance(exponential_decay_length_penalty, ExponentialDecayLengthPenalty):
+        exponential_decay_length_penalty = (
+            exponential_decay_length_penalty.start_index,
+            exponential_decay_length_penalty.decay_factor,
+        )
 
     # NOTE: below is to match TGIS API, where 0 identifies as no truncation
     if truncate_input_tokens == 0:
