@@ -38,7 +38,9 @@ def test_load_and_run(causal_lm_dummy_model, stub_tgis_backend):
             model_prompt_dir = os.path.split(model_dir)[-1]
 
         # Run an inference request, which is wrapped around our mocked Generate call
-        result = mock_tgis_model.run(SAMPLE_TEXT, preserve_input_text=True)
+        result = mock_tgis_model.run(
+            SAMPLE_TEXT, preserve_input_text=True, max_new_tokens=200, min_new_tokens=50
+        )
         StubTGISClient.validate_unary_generate_response(result)
 
         stub_generation_request = mock_gen.call_args_list[0].args[0]
@@ -72,7 +74,7 @@ def test_load_and_run_stream_out(causal_lm_dummy_model, stub_tgis_backend):
 
         # Run an inference request, which is wrapped around our mocked GenerateStream call
         stream_result = mock_tgis_model.run_stream_out(
-            SAMPLE_TEXT, preserve_input_text=True
+            SAMPLE_TEXT, preserve_input_text=True, max_new_tokens=200, min_new_tokens=50
         )
         StubTGISClient.validate_stream_generate_response(stream_result)
 

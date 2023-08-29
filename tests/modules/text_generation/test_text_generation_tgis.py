@@ -35,7 +35,7 @@ def test_bootstrap_and_run_causallm():
         CAUSAL_LM_MODEL, load_backend=StubTGISBackend()
     )
 
-    result = model.run(SAMPLE_TEXT, preserve_input_text=True, repetition_penalty=50.0)
+    result = model.run(SAMPLE_TEXT, preserve_input_text=True)
     StubTGISClient.validate_unary_generate_response(result)
 
 
@@ -157,3 +157,56 @@ def test_run_stream_out_with_runtime_error():
             response = model.run_stream_out(SAMPLE_TEXT, preserve_input_text=True)
             # Need to iterate over stream for error
             next(response)
+
+
+######################## Test run with optional params #####################
+
+
+def test_bootstrap_and_run_causallm_with_optional_params():
+    """Check if we can bootstrap and run causallm models with optional dependencies"""
+
+    model = TextGenerationTGIS.bootstrap(
+        CAUSAL_LM_MODEL, load_backend=StubTGISBackend()
+    )
+
+    result = model.run(
+        SAMPLE_TEXT,
+        preserve_input_text=True,
+        max_new_tokens=200,
+        min_new_tokens=50,
+        truncate_input_tokens=10,
+        decoding_method="GREEDY",
+        top_k=0,
+        top_p=0.1,
+        typical_p=0.5,
+        temperature=0.75,
+        repetition_penalty=0.3,
+        max_time=1000,
+        exponential_decay_length_penalty=(),
+        stop_sequences=["This is a test"],
+    )
+    StubTGISClient.validate_unary_generate_response(result)
+
+
+def test_bootstrap_and_run_stream_out_with_optional_dependencies():
+    """Check if we can bootstrap and run_stream_out with optional dependencies"""
+    model = TextGenerationTGIS.bootstrap(
+        SEQ2SEQ_LM_MODEL, load_backend=StubTGISBackend()
+    )
+
+    stream_result = model.run_stream_out(
+        SAMPLE_TEXT,
+        max_new_tokens=200,
+        min_new_tokens=50,
+        truncate_input_tokens=10,
+        decoding_method="GREEDY",
+        top_k=0,
+        top_p=0.1,
+        typical_p=0.5,
+        temperature=0.75,
+        repetition_penalty=0.3,
+        max_time=1000,
+        exponential_decay_length_penalty=(),
+        stop_sequences=["This is a test"],
+    )
+    StubTGISClient.validate_stream_generate_response(stream_result)
