@@ -336,8 +336,7 @@ def test_run_sampling_param_ignored_greedy_decoding(causal_lm_dummy_model):
 
 
 def test_run_with_custom_stop_criteria(causal_lm_dummy_model):
-    """Ensure sampling parameter gets ignored when decoding method
-    is set to GREEDY
+    """Ensure custom stop sequences works with run
     """
     pred = causal_lm_dummy_model.run(
         "This text doesn't matter",
@@ -346,15 +345,16 @@ def test_run_with_custom_stop_criteria(causal_lm_dummy_model):
     )
     assert isinstance(pred, GeneratedTextResult)
 
+
 def test_run_exponential_decay_len_penatly_object(causal_lm_dummy_model):
-    """Ensure sampling parameter gets ignored when decoding method
-    is set to GREEDY
+    """Ensure exponential decay len penalty works with the data model
+    object
     """
     penalty = ExponentialDecayLengthPenalty(1, 0.2)
     pred = causal_lm_dummy_model.run(
         "This text doesn't matter",
         decoding_method="GREEDY",
         stop_sequences=["Foo", "bar"],
-        exponential_decay_length_penalty=penalty
+        exponential_decay_length_penalty=penalty,
     )
     assert isinstance(pred, GeneratedTextResult)
