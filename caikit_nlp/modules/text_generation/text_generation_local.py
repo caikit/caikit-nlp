@@ -397,7 +397,7 @@ class TextGeneration(ModuleBase):
         **kwargs,
     ) -> GeneratedTextResult:
 
-        self.run.__doc__ = """
+        """
             Run the full text generation model.
             Args:
                 {}

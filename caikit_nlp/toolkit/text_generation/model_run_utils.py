@@ -175,7 +175,7 @@ def generate_text_func(
     error.type_check_all(
         "<NLP41311583E>", str, allow_none=True, stop_sequences=stop_sequences
     )
-    error.type_check("<NLP28185342E>", int, seed=seed)
+    error.type_check("<NLP28185342E>", int, allow_none=True, seed=seed)
 
     # NOTE: below is to match TGIS API, where 0 identifies as no truncation
     if truncate_input_tokens == 0:
