@@ -40,7 +40,7 @@ def initialize_torch_distribution(world_size, rank=0, backend="gloo|nccl"):
             "Initializing process group - backend %s, rank %d, world size %d",
             backend,
             rank,
-            world_size
+            world_size,
         )
         dist.init_process_group(backend=backend, world_size=world_size, rank=rank)
 

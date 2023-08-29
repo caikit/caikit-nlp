@@ -29,6 +29,7 @@ from tests.fixtures import (
     temp_cache_dir,
 )
 
+
 def test_boostrap_causal_lm(models_cache_dir):
     """Ensure that we can bootstrap a causal LM if we have download access."""
     # If we have an empty cachedir & do allow downloads, we should be able to init happily
