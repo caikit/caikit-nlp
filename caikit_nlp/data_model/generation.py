@@ -71,3 +71,9 @@ class TuningConfig(DataObjectBase):
     # num_layers: int # Optional - The number of layers in the base transformer model
     #
     # encoder_hidden_size: int # Optional -  The hidden size of the prompt encoder.
+
+
+@caikit.core.dataobject(package="caikit_data_model.caikit_nlp")
+class ExponentialDecayLengthPenalty(DataObjectBase):
+    start_index: int
+    decay_factor: float
