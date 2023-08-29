@@ -390,6 +390,7 @@ class TextGeneration(ModuleBase):
         typical_p: Optional[float] = 0.0,
         temperature: Optional[float] = 1.0,
         repetition_penalty: Optional[float] = 0.0,
+        max_time: Optional[float] = None,
         **kwargs,
     ) -> GeneratedTextResult:
 
@@ -419,7 +420,9 @@ class TextGeneration(ModuleBase):
             top_p=top_p,
             typical_p=typical_p,
             temperature=temperature,
-            repetition_penalty=repetition_penalty
+            repetition_penalty=repetition_penalty,
+            max_time=max_time,
+            **kwargs
         )
 
     ################################## Private Functions ######################################

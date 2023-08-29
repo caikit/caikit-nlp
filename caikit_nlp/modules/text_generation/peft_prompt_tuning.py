@@ -180,6 +180,9 @@ class PeftPromptTuning(ModuleBase):
         typical_p: Optional[float] = 0.0,
         temperature: Optional[float] = 1.0,
         repetition_penalty: Optional[float] = 0.0,
+        max_time: Optional[float] = None,
+        exponential_decay_length_penalty: Optional[Tuple[int, float]] = None,
+        stop_sequences: Optional[str] = None,
     ) -> GeneratedTextResult:
         __doc__ = """
             Run the full text generation model.
@@ -206,7 +209,10 @@ class PeftPromptTuning(ModuleBase):
             top_p=top_p,
             typical_p=typical_p,
             temperature=temperature,
-            repetition_penalty=repetition_penalty
+            repetition_penalty=repetition_penalty,
+            max_time=max_time,
+            exponential_decay_length_penalty=exponential_decay_length_penalty,
+            stop_sequences=stop_sequences,
         )
 
 

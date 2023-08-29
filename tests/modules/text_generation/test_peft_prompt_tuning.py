@@ -329,3 +329,14 @@ def test_run_sampling_param_ignored_greedy_decoding(causal_lm_dummy_model):
         typical_p=0.23,
         temperature=0.77)
     assert isinstance(pred, GeneratedTextResult)
+
+
+def test_run_with_custom_stop_criteria(causal_lm_dummy_model):
+    """Ensure sampling parameter gets ignored when decoding method
+    is set to GREEDY
+    """
+    pred = causal_lm_dummy_model.run(
+        "This text doesn't matter",
+        decoding_method="GREEDY",
+        stop_sequences=["Foo", "bar"])
+    assert isinstance(pred, GeneratedTextResult)

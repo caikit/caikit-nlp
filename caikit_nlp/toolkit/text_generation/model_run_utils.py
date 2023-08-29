@@ -15,10 +15,10 @@
 """Utility functions used for executing run function for text_generation"""
 
 # Standard
-from typing import Optional
+from typing import Optional, Tuple
 
 # Third Party
-from transformers import AutoTokenizer
+from transformers import StoppingCriteria
 import torch
 
 # First Party
@@ -77,7 +77,38 @@ GENERATE_FUNCTION_ARGS = """
         The more a token is used within generation the more it is penalized
         to not be picked in successive generation passes.
         Default: 0.0 - means no penalty - equivalent to 1.0
+    max_time: float
+        Amount of time in seconds that the query should take maximum.
+        NOTE: this does not include network overhead.
+        Range: 0-120.0
+    exponential_decay_length_penalty: Tuple(int, float)
+        This Tuple adds an exponentially increasing length penalty, after
+        a certain amount of tokens have been generated. The tuple shall
+        consist of: (start_index, decay_factor) where start_index
+        indicates where penalty starts and decay_factor represents the factor
+        of exponential decay
+    stop_sequences: List[str]:
+        List of strings to be used as stopping criteria
 """
+
+class SequenceStoppingCriteria(StoppingCriteria):
+    def __init__(self, target_sequence_ids):
+        self.target_sequence_ids = target_sequence_ids
+
+    def __call__(self, input_ids, scores, **kwargs):
+        # Check if the target sequence appears in the generated text
+        for seq_id in self.target_sequence_ids:
+            if seq_id in input_ids:
+                return True  # Stop generation
+
+        return False  # Continue generation
+
+    def __len__(self):
+        return 1
+
+    def __iter__(self):
+        yield self
+
 
 def generate_text_func(
     model,
@@ -94,6 +125,9 @@ def generate_text_func(
     typical_p: Optional[float] = 0.0,
     temperature: Optional[float] = 1.0,
     repetition_penalty: Optional[float] = 0.0,
+    max_time: Optional[float] = None,
+    exponential_decay_length_penalty: Optional[Tuple[int, float]] = None,
+    stop_sequences: Optional[str] = None,
     **kwargs
 ):
     __doc__ = """
@@ -120,6 +154,7 @@ def generate_text_func(
     error.type_check("<NLP55267523E>", float, allow_none=True, top_p=top_p)
     error.type_check("<NLP13670202E>", float, allow_none=True, typical_p=typical_p)
     error.type_check("<NLP11929418E>", float, allow_none=True, repetition_penalty=repetition_penalty)
+    error.type_check_all("<NLP41311583E>", str, allow_none=True, stop_sequences=stop_sequences)
 
     # NOTE: below is to match TGIS API, where 0 identifies as no truncation
     if truncate_input_tokens == 0:
@@ -144,6 +179,12 @@ def generate_text_func(
         gen_optional_params["typical_p"] = typical_p
         gen_optional_params["temperature"] = temperature
 
+    if stop_sequences and len(stop_sequences) > 0:
+        # Tokenize sequences
+        stop_sequence_ids = tokenizer.encode(stop_sequences)
+        stopping_criteria = SequenceStoppingCriteria(stop_sequence_ids)
+        gen_optional_params["stopping_criteria"] = stopping_criteria
+
     tok_tensors = tokenizer(
             text,
             truncation=truncation,
@@ -158,6 +199,8 @@ def generate_text_func(
             min_new_tokens=min_new_tokens,
             repetition_penalty=repetition_penalty,
             use_cache=True,
+            max_time=max_time,
+            exponential_decay_length_penalty=exponential_decay_length_penalty,
             **gen_optional_params,
             **kwargs,
         )
