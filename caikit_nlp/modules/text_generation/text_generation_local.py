@@ -589,8 +589,13 @@ class TextGeneration(ModuleBase):
             data_len = 0
             for _ in training_dataset:
                 data_len += 1
-        # Figure out how many batches we'll have per epoch; we assume drop_last=True for now
+        # Figure out how many batches we'll have per epoch
         num_batches = data_len // batch_size
+        # Assume drop_last=False; in general, this doesn't really matter.
+        # We mostly do this to avoid strange behavior when the dataset
+        # size is smaller than the batch size.
+        if num_batches != (data_len * batch_size):
+            num_batches += 1
         num_steps = num_batches * num_epochs
         log.debug("Number of inferred steps: [%s]", num_steps)
         return num_steps
