@@ -14,7 +14,7 @@
 
 
 # Standard
-from typing import Iterable, List, Optional, Union
+from typing import Iterable, Optional, Tuple, Union
 import os
 
 # First Party
@@ -197,16 +197,18 @@ class TextGenerationTGIS(ModuleBase):
         self,
         text: str,
         preserve_input_text: bool = False,
-        max_new_tokens: int = 20,
-        min_new_tokens: int = 0,
-        truncate_input_tokens: int = 0,
-        decoding_method: str = "GREEDY",
-        temperature: float = 0.0,
-        top_k: int = 0,
-        top_p: float = 0.0,
-        typical_p: float = 0.0,
-        repetition_penalty: float = 0.0,
-        stop_sequences: List[str] = None,
+        max_new_tokens: Optional[int] = 20,
+        min_new_tokens: Optional[int] = 0,
+        truncate_input_tokens: Optional[int] = 0,
+        decoding_method: Optional[str] = "GREEDY",
+        top_k: Optional[int] = 0,
+        top_p: Optional[float] = 0.0,
+        typical_p: Optional[float] = 0.0,
+        temperature: Optional[float] = 1.0,
+        repetition_penalty: Optional[float] = 0.0,
+        max_time: Optional[float] = None,
+        exponential_decay_length_penalty: Optional[Tuple[int, float]] = None,
+        stop_sequences: Optional[str] = None,
     ) -> GeneratedTextResult:
         """Run inference against the model running in TGIS.
 
@@ -270,35 +272,40 @@ class TextGenerationTGIS(ModuleBase):
 
         if self._model_loaded:
             return self.tgis_generation_client.unary_generate(
-                text,
-                preserve_input_text,
-                max_new_tokens,
-                min_new_tokens,
-                truncate_input_tokens,
-                decoding_method,
-                temperature,
-                top_k,
-                top_p,
-                typical_p,
-                repetition_penalty,
-                stop_sequences,
+                text=text,
+                preserve_input_text=preserve_input_text,
+                max_new_tokens=max_new_tokens,
+                min_new_tokens=min_new_tokens,
+                truncate_input_tokens=truncate_input_tokens,
+                decoding_method=decoding_method,
+                top_k=top_k,
+                top_p=top_p,
+                typical_p=typical_p,
+                temperature=temperature,
+                repetition_penalty=repetition_penalty,
+                max_time=max_time,
+                exponential_decay_length_penalty=exponential_decay_length_penalty,
+                stop_sequences=stop_sequences,
             )
 
+    # pylint: disable=duplicate-code
     @TextGenerationTask.taskmethod(output_streaming=True)
     def run_stream_out(
         self,
         text: str,
         preserve_input_text: bool = False,
-        max_new_tokens: int = 20,
-        min_new_tokens: int = 0,
-        truncate_input_tokens: int = 0,
-        decoding_method: str = "GREEDY",
-        temperature: float = 0.0,
-        top_k: int = 0,
-        top_p: float = 0.0,
-        typical_p: float = 0.0,
-        repetition_penalty: float = 0.0,
-        stop_sequences: List[str] = None,
+        max_new_tokens: Optional[int] = 20,
+        min_new_tokens: Optional[int] = 0,
+        truncate_input_tokens: Optional[int] = 0,
+        decoding_method: Optional[str] = "GREEDY",
+        top_k: Optional[int] = 0,
+        top_p: Optional[float] = 0.0,
+        typical_p: Optional[float] = 0.0,
+        temperature: Optional[float] = 1.0,
+        repetition_penalty: Optional[float] = 0.0,
+        max_time: Optional[float] = None,
+        exponential_decay_length_penalty: Optional[Tuple[int, float]] = None,
+        stop_sequences: Optional[str] = None,
     ) -> Iterable[GeneratedTextStreamResult]:
         """Run output stream inferencing for text generation module.
 
@@ -358,16 +365,18 @@ class TextGenerationTGIS(ModuleBase):
         )
         if self._model_loaded:
             return self.tgis_generation_client.stream_generate(
-                text,
-                preserve_input_text,
-                max_new_tokens,
-                min_new_tokens,
-                truncate_input_tokens,
-                decoding_method,
-                temperature,
-                top_k,
-                top_p,
-                typical_p,
-                repetition_penalty,
-                stop_sequences,
+                text=text,
+                preserve_input_text=preserve_input_text,
+                max_new_tokens=max_new_tokens,
+                min_new_tokens=min_new_tokens,
+                truncate_input_tokens=truncate_input_tokens,
+                decoding_method=decoding_method,
+                top_k=top_k,
+                top_p=top_p,
+                typical_p=typical_p,
+                temperature=temperature,
+                repetition_penalty=repetition_penalty,
+                max_time=max_time,
+                exponential_decay_length_penalty=exponential_decay_length_penalty,
+                stop_sequences=stop_sequences,
             )

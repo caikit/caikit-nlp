@@ -15,7 +15,7 @@
 prompt vectors in TGIS generation requests.
 """
 # Standard
-from typing import Iterable, List, Optional
+from typing import Iterable, List, Optional, Tuple
 import os
 
 # First Party
@@ -164,16 +164,18 @@ class PeftPromptTuningTGIS(ModuleBase):
         self,
         text: str,
         preserve_input_text: bool = False,
-        max_new_tokens: int = 20,
-        min_new_tokens: int = 0,
-        truncate_input_tokens: int = 0,
-        decoding_method: str = "GREEDY",
-        temperature: float = 0.0,
-        top_k: int = 0,
-        top_p: float = 0.0,
-        typical_p: float = 0.0,
-        repetition_penalty: float = 0.0,
-        stop_sequences: List[str] = None,
+        max_new_tokens: Optional[int] = 20,
+        min_new_tokens: Optional[int] = 0,
+        truncate_input_tokens: Optional[int] = 0,
+        decoding_method: Optional[str] = "GREEDY",
+        top_k: Optional[int] = 0,
+        top_p: Optional[float] = 0.0,
+        typical_p: Optional[float] = 0.0,
+        temperature: Optional[float] = 1.0,
+        repetition_penalty: Optional[float] = 0.0,
+        max_time: Optional[float] = None,
+        exponential_decay_length_penalty: Optional[Tuple[int, float]] = None,
+        stop_sequences: Optional[str] = None,
     ) -> GeneratedTextResult:
         """Run inference against the model running in TGIS. Currently we leverage greedy decoding
         and apply the same verbalizer used for training the local model prior to sending the
@@ -243,18 +245,20 @@ class PeftPromptTuningTGIS(ModuleBase):
         )
         verbalized_text = render_verbalizer(self.verbalizer, {"input": text})
         return self.tgis_generation_client.unary_generate(
-            verbalized_text,
-            preserve_input_text,
-            max_new_tokens,
-            min_new_tokens,
-            truncate_input_tokens,
-            decoding_method,
-            temperature,
-            top_k,
-            top_p,
-            typical_p,
-            repetition_penalty,
-            stop_sequences,
+            text=verbalized_text,
+            preserve_input_text=preserve_input_text,
+            max_new_tokens=max_new_tokens,
+            min_new_tokens=min_new_tokens,
+            truncate_input_tokens=truncate_input_tokens,
+            decoding_method=decoding_method,
+            top_k=top_k,
+            top_p=top_p,
+            typical_p=typical_p,
+            temperature=temperature,
+            repetition_penalty=repetition_penalty,
+            max_time=max_time,
+            exponential_decay_length_penalty=exponential_decay_length_penalty,
+            stop_sequences=stop_sequences,
         )
 
     @TextGenerationTask.taskmethod(output_streaming=True)
@@ -262,16 +266,18 @@ class PeftPromptTuningTGIS(ModuleBase):
         self,
         text: str,
         preserve_input_text: bool = False,
-        max_new_tokens: int = 20,
-        min_new_tokens: int = 0,
-        truncate_input_tokens: int = 0,
-        decoding_method: str = "GREEDY",
-        temperature: float = 0.0,
-        top_k: int = 0,
-        top_p: float = 0.0,
-        typical_p: float = 0.0,
-        repetition_penalty: float = 0.0,
-        stop_sequences: List[str] = None,
+        max_new_tokens: Optional[int] = 20,
+        min_new_tokens: Optional[int] = 0,
+        truncate_input_tokens: Optional[int] = 0,
+        decoding_method: Optional[str] = "GREEDY",
+        top_k: Optional[int] = 0,
+        top_p: Optional[float] = 0.0,
+        typical_p: Optional[float] = 0.0,
+        temperature: Optional[float] = 1.0,
+        repetition_penalty: Optional[float] = 0.0,
+        max_time: Optional[float] = None,
+        exponential_decay_length_penalty: Optional[Tuple[int, float]] = None,
+        stop_sequences: Optional[str] = None,
     ) -> Iterable[GeneratedTextStreamResult]:
         """Run output stream inferencing against the model running in TGIS
 
@@ -339,16 +345,18 @@ class PeftPromptTuningTGIS(ModuleBase):
         )
         verbalized_text = render_verbalizer(self.verbalizer, {"input": text})
         return self.tgis_generation_client.stream_generate(
-            verbalized_text,
-            preserve_input_text,
-            max_new_tokens,
-            min_new_tokens,
-            truncate_input_tokens,
-            decoding_method,
-            temperature,
-            top_k,
-            top_p,
-            typical_p,
-            repetition_penalty,
-            stop_sequences,
+            text=verbalized_text,
+            preserve_input_text=preserve_input_text,
+            max_new_tokens=max_new_tokens,
+            min_new_tokens=min_new_tokens,
+            truncate_input_tokens=truncate_input_tokens,
+            decoding_method=decoding_method,
+            top_k=top_k,
+            top_p=top_p,
+            typical_p=typical_p,
+            temperature=temperature,
+            repetition_penalty=repetition_penalty,
+            max_time=max_time,
+            exponential_decay_length_penalty=exponential_decay_length_penalty,
+            stop_sequences=stop_sequences,
         )

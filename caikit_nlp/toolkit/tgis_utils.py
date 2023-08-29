@@ -32,6 +32,8 @@ error = error_handler.get(log)
 
 VALID_DECODING_METHODS = ["GREEDY", "SAMPLING"]
 
+# pylint: disable=duplicate-code
+
 
 def get_params(
     preserve_input_text,
@@ -39,12 +41,13 @@ def get_params(
     min_new_tokens,
     truncate_input_tokens,
     decoding_method,
-    temperature,
     top_k,
     top_p,
     typical_p,
-    # seed,
+    temperature,
     repetition_penalty,
+    max_time,
+    exponential_decay_length_penalty,
     stop_sequences,
 ):
     """Get generation parameters
@@ -89,10 +92,12 @@ def get_params(
         stop_sequences=stop_sequences,
         max_new_tokens=max_new_tokens,
         min_new_tokens=min_new_tokens,
+        time_limit_millis=max_time,
     )
 
     decoding_parameters = generation_pb2.DecodingParameters(
-        repetition_penalty=repetition_penalty
+        repetition_penalty=repetition_penalty,
+        length_penalty=exponential_decay_length_penalty,
     )
 
     params = generation_pb2.Parameters(
@@ -126,11 +131,13 @@ class TGISGenerationClient:
         min_new_tokens,
         truncate_input_tokens,
         decoding_method,
-        temperature,
         top_k,
         top_p,
         typical_p,
+        temperature,
         repetition_penalty,
+        max_time,
+        exponential_decay_length_penalty,
         stop_sequences,
     ) -> GeneratedTextResult:
         """Generate unary output from model in TGIS
@@ -173,11 +180,13 @@ class TGISGenerationClient:
             min_new_tokens=min_new_tokens,
             truncate_input_tokens=truncate_input_tokens,
             decoding_method=decoding_method,
-            temperature=temperature,
             top_k=top_k,
             top_p=top_p,
             typical_p=typical_p,
+            temperature=temperature,
             repetition_penalty=repetition_penalty,
+            max_time=max_time,
+            exponential_decay_length_penalty=exponential_decay_length_penalty,
             stop_sequences=stop_sequences,
         )
 
@@ -222,11 +231,13 @@ class TGISGenerationClient:
         min_new_tokens,
         truncate_input_tokens,
         decoding_method,
-        temperature,
         top_k,
         top_p,
         typical_p,
+        temperature,
         repetition_penalty,
+        max_time,
+        exponential_decay_length_penalty,
         stop_sequences,
     ) -> Iterable[GeneratedTextStreamResult]:
         """Generate stream output from model in TGIS
@@ -266,11 +277,13 @@ class TGISGenerationClient:
             min_new_tokens=min_new_tokens,
             truncate_input_tokens=truncate_input_tokens,
             decoding_method=decoding_method,
-            temperature=temperature,
             top_k=top_k,
             top_p=top_p,
             typical_p=typical_p,
+            temperature=temperature,
             repetition_penalty=repetition_penalty,
+            max_time=max_time,
+            exponential_decay_length_penalty=exponential_decay_length_penalty,
             stop_sequences=stop_sequences,
         )
 
