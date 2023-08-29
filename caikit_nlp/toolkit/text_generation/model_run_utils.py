@@ -73,6 +73,9 @@ GENERATE_FUNCTION_ARGS = """
         The value used to modulate the next token probabilities.
         Only applicable when decoding_method is SAMPLING.
         Default: 1.0 - means disabled - equivalent to 1.0
+    seed: int
+        Random seed to control sampling. Only applicable when decoding_method
+        is SAMPLING. Default: None
     repetition_penalty: float
         The more a token is used within generation the more it is penalized
         to not be picked in successive generation passes.
@@ -125,6 +128,7 @@ def generate_text_func(
     top_p: Optional[float] = 0.0,
     typical_p: Optional[float] = 0.0,
     temperature: Optional[float] = 1.0,
+    seed: Optional[int] = None,
     repetition_penalty: Optional[float] = 0.0,
     max_time: Optional[float] = None,
     exponential_decay_length_penalty: Optional[Tuple[int, float]] = None,
@@ -171,6 +175,7 @@ def generate_text_func(
     error.type_check_all(
         "<NLP41311583E>", str, allow_none=True, stop_sequences=stop_sequences
     )
+    error.type_check("<NLP28185342E>", int, seed=seed)
 
     # NOTE: below is to match TGIS API, where 0 identifies as no truncation
     if truncate_input_tokens == 0:
@@ -193,6 +198,7 @@ def generate_text_func(
         gen_optional_params["top_p"] = top_p
         gen_optional_params["typical_p"] = typical_p
         gen_optional_params["temperature"] = temperature
+        gen_optional_params["seed"] = seed
 
     if stop_sequences and len(stop_sequences) > 0:
         # Tokenize sequences
