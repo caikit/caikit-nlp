@@ -187,7 +187,7 @@ class PeftPromptTuning(ModuleBase):
         exponential_decay_length_penalty: Optional[Tuple[int, float]] = None,
         stop_sequences: Optional[str] = None,
     ) -> GeneratedTextResult:
-        __doc__ = """
+        self.run.__doc__ = """
             Run the full text generation model.
             Args:
                 {}
