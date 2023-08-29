@@ -23,11 +23,11 @@ import torch
 
 # First Party
 from caikit.core.data_model.producer import ProducerId
+from caikit.core.toolkit.errors import error_handler
 from caikit.interfaces.nlp.data_model import (
     GeneratedTextResult,
     GeneratedTextStreamResult,
 )
-from caikit.core.toolkit.errors import error_handler
 import alog
 
 log = alog.use_channel("RUN_UTILS")
@@ -91,6 +91,7 @@ GENERATE_FUNCTION_ARGS = """
         List of strings to be used as stopping criteria
 """
 
+
 class SequenceStoppingCriteria(StoppingCriteria):
     def __init__(self, target_sequence_ids):
         self.target_sequence_ids = target_sequence_ids
@@ -143,18 +144,33 @@ def generate_text_func(
             {}
         Returns:
             GeneratedTextResult
-    """.format(GENERATE_FUNCTION_ARGS)
+    """.format(
+        GENERATE_FUNCTION_ARGS
+    )
 
     error.type_check("<NLP85452187E>", str, eos_token=eos_token)
     error.type_check("<NLP65883534E>", str, text=text)
-    error.type_check("<NLP03860680E>", int, allow_none=True, max_new_tokens=max_new_tokens)
-    error.type_check("<NLP30091276E>", int, allow_none=True, min_new_tokens=min_new_tokens)
-    error.type_check("<NLP55411551E>", int, allow_none=True, truncate_input_tokens=truncate_input_tokens)
+    error.type_check(
+        "<NLP03860680E>", int, allow_none=True, max_new_tokens=max_new_tokens
+    )
+    error.type_check(
+        "<NLP30091276E>", int, allow_none=True, min_new_tokens=min_new_tokens
+    )
+    error.type_check(
+        "<NLP55411551E>",
+        int,
+        allow_none=True,
+        truncate_input_tokens=truncate_input_tokens,
+    )
     error.type_check("<NLP84635843E>", int, allow_none=True, top_k=top_k)
     error.type_check("<NLP55267523E>", float, allow_none=True, top_p=top_p)
     error.type_check("<NLP13670202E>", float, allow_none=True, typical_p=typical_p)
-    error.type_check("<NLP11929418E>", float, allow_none=True, repetition_penalty=repetition_penalty)
-    error.type_check_all("<NLP41311583E>", str, allow_none=True, stop_sequences=stop_sequences)
+    error.type_check(
+        "<NLP11929418E>", float, allow_none=True, repetition_penalty=repetition_penalty
+    )
+    error.type_check_all(
+        "<NLP41311583E>", str, allow_none=True, stop_sequences=stop_sequences
+    )
 
     # NOTE: below is to match TGIS API, where 0 identifies as no truncation
     if truncate_input_tokens == 0:
@@ -167,7 +183,6 @@ def generate_text_func(
 
     if repetition_penalty == 0.0:
         repetition_penalty = 1.0
-
 
     gen_optional_params = {}
 
@@ -186,11 +201,11 @@ def generate_text_func(
         gen_optional_params["stopping_criteria"] = stopping_criteria
 
     tok_tensors = tokenizer(
-            text,
-            truncation=truncation,
-            max_length=truncate_input_tokens,
-            return_tensors="pt",
-        )
+        text,
+        truncation=truncation,
+        max_length=truncate_input_tokens,
+        return_tensors="pt",
+    )
     inputs = {k: v.to(model.device) for k, v in tok_tensors.items()}
     with torch.no_grad():
         generate_ids = model.generate(
@@ -208,9 +223,7 @@ def generate_text_func(
     token_count = generate_ids.size(1) - 1
 
     preds = [
-        tokenizer.decode(
-            g, skip_special_tokens=True, clean_up_tokenization_spaces=True
-        )
+        tokenizer.decode(g, skip_special_tokens=True, clean_up_tokenization_spaces=True)
         for g in generate_ids
     ]
 

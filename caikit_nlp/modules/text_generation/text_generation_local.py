@@ -40,7 +40,10 @@ from ...resources.pretrained_model import (
 )
 from ...toolkit.data_stream_wrapper import SimpleIterableStreamWrapper
 from ...toolkit.data_type_utils import get_torch_dtype, str_to_torch_dtype
-from ...toolkit.text_generation.model_run_utils import GENERATE_FUNCTION_ARGS, generate_text_func
+from ...toolkit.text_generation.model_run_utils import (
+    GENERATE_FUNCTION_ARGS,
+    generate_text_func,
+)
 
 log = alog.use_channel("TXT_GEN")
 error = error_handler.get(log)
@@ -401,7 +404,9 @@ class TextGeneration(ModuleBase):
             Returns:
                 GeneratedTextResult
                     Generated text result produced by the model.
-        """.format(GENERATE_FUNCTION_ARGS)
+        """.format(
+            GENERATE_FUNCTION_ARGS
+        )
 
         # TODO: Beam search currently not supported
 
@@ -422,7 +427,7 @@ class TextGeneration(ModuleBase):
             temperature=temperature,
             repetition_penalty=repetition_penalty,
             max_time=max_time,
-            **kwargs
+            **kwargs,
         )
 
     ################################## Private Functions ######################################

@@ -65,10 +65,13 @@ from ...resources.pretrained_model import (
     HFAutoSeq2SeqLM,
     PretrainedModelBase,
 )
-from ...toolkit.text_generation.model_run_utils import GENERATE_FUNCTION_ARGS, generate_text_func
 from ...toolkit.data_stream_wrapper import SimpleIterableStreamWrapper
 from ...toolkit.data_type_utils import get_torch_dtype, str_to_torch_dtype
 from ...toolkit.task_specific_utils import convert_to_generation_record
+from ...toolkit.text_generation.model_run_utils import (
+    GENERATE_FUNCTION_ARGS,
+    generate_text_func,
+)
 from ...toolkit.verbalizer_utils import is_valid_verbalizer, render_verbalizer
 
 log = alog.use_channel("PEFT_PROMPT")
@@ -191,7 +194,9 @@ class PeftPromptTuning(ModuleBase):
             Returns:
                 GeneratedTextResult
                     Generated text result produced by PEFT / Transformers.
-        """.format(GENERATE_FUNCTION_ARGS)
+        """.format(
+            GENERATE_FUNCTION_ARGS
+        )
 
         verbalized_text = render_verbalizer(self.verbalizer, {"input": text})
 
@@ -214,7 +219,6 @@ class PeftPromptTuning(ModuleBase):
             exponential_decay_length_penalty=exponential_decay_length_penalty,
             stop_sequences=stop_sequences,
         )
-
 
     # NOTE: We need to disable wip decorator here otherwise we get issues in
     # proto generation for streaming. We are keeping it commented out for now,
