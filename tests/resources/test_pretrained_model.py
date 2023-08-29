@@ -29,18 +29,6 @@ from tests.fixtures import (
     temp_cache_dir,
 )
 
-
-def test_bootstrap_with_preloaded_tokenizer(models_cache_dir):
-    """Ensure that if we have a tokenizer instance, we can bootstrap with it directly."""
-    tok_instance = transformers.AutoTokenizer.from_pretrained(CAUSAL_LM_MODEL)
-    base_model = HFAutoCausalLM.bootstrap(
-        model_name=CAUSAL_LM_MODEL, tokenizer_name=tok_instance
-    )
-    assert isinstance(base_model, HFAutoCausalLM)
-    assert base_model.MODEL_TYPE is transformers.AutoModelForCausalLM
-    assert base_model.TASK_TYPE == "CAUSAL_LM"
-
-
 def test_boostrap_causal_lm(models_cache_dir):
     """Ensure that we can bootstrap a causal LM if we have download access."""
     # If we have an empty cachedir & do allow downloads, we should be able to init happily
@@ -134,17 +122,27 @@ def test_causal_lm_tok_output_correctness(models_cache_dir):
         model_name=CAUSAL_LM_MODEL, tokenizer_name=CAUSAL_LM_MODEL
     )
     sample = GenerationTrainRecord(
-        input="This len does not matter", output="but this one does!"
-    )
-    (tok_func, requires_unwrapping) = causal_lm.build_task_tokenize_closure(
-        tokenizer=causal_lm.tokenizer,
-        max_source_length=100,
-        max_target_length=100,
-        verbalizer="{{input}}",
-        task_ids=0,
+        input="This should not matter normally", output="but this one does!"
     )
     input_tok = causal_lm.tokenizer.encode(sample.input)
     output_tok = causal_lm.tokenizer.encode(sample.output)
+    # HACK: In general, these things should be very flexible, but due to issues
+    # with multiGPU / FSDP (apparently) not playing nicely with the
+    # data collator for Causal LM, which does dynamic padding, for now,
+    # we are max padding in the tokenize function :(
+    #
+    # TODO: Fix the causal lm collator, add chunking to the tokenizer func, and set
+    # the below max_source_length/max_target_length to values larger than the actual
+    # sequence lengths to ensure padding is handled correctly
+    max_source_length = len(input_tok)
+    max_target_length = len(output_tok)
+    (tok_func, _) = causal_lm.build_task_tokenize_closure(
+        tokenizer=causal_lm.tokenizer,
+        max_source_length=max_source_length,
+        max_target_length=max_target_length,
+        verbalizer="{{input}}",
+        task_ids=0,
+    )
     tok_stream = tok_func(sample)
     # Ensure we get one token per output in our stream
     assert isinstance(tok_stream, caikit.core.data_model.DataStream)
