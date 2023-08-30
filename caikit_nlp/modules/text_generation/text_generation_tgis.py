@@ -30,18 +30,26 @@ from caikit_tgis_backend import TGISBackend
 import alog
 
 # Local
+from ...data_model import ExponentialDecayLengthPenalty
 from ...resources.pretrained_model import (
     HFAutoCausalLM,
     HFAutoSeq2SeqLM,
     PretrainedModelBase,
 )
-from ...toolkit.tgis_utils import VALID_DECODING_METHODS, TGISGenerationClient
+from ...toolkit.tgis_utils import (
+    GENERATE_FUNCTION_ARGS,
+    VALID_DECODING_METHODS,
+    TGISGenerationClient,
+)
 from .text_generation_local import TextGeneration
 
 log = alog.use_channel("TXT_GEN")
 error = error_handler.get(log)
 
 # pylint: disable=too-many-instance-attributes
+# pylint: disable=duplicate-code
+
+
 @module(backend_type=TGISBackend.backend_type, base_module=TextGeneration)
 class TextGenerationTGIS(ModuleBase):
     """Module to provide text generation capabilities"""
@@ -205,64 +213,25 @@ class TextGenerationTGIS(ModuleBase):
         top_p: Optional[float] = 0.0,
         typical_p: Optional[float] = 0.0,
         temperature: Optional[float] = 1.0,
+        seed: Optional[int] = None,
         repetition_penalty: Optional[float] = 0.0,
         max_time: Optional[float] = None,
-        exponential_decay_length_penalty: Optional[Tuple[int, float]] = None,
+        exponential_decay_length_penalty: Optional[
+            Union[Tuple[int, float], ExponentialDecayLengthPenalty]
+        ] = None,
         stop_sequences: Optional[str] = None,
     ) -> GeneratedTextResult:
         """Run inference against the model running in TGIS.
 
         Args:
-            text: str
-                Source string to be encoded for generation.
-            preserve_input_text: bool
-                Whether or not the source string should be contained in the generated output,
-                e.g., as a prefix.
-            max_new_tokens: int
-                The maximum numbers of tokens to generate.
-                Default: 20
-            min_new_tokens: int
-                The minimum numbers of tokens to generate.
-                Default: 0 - means no minimum
-            truncate_input_tokens: int
-                Truncate inputs to provided number of tokens. This can be
-                use to avoid failing due to input being longer than
-                configured limits.
-                Default: 0 - means don't truncate, thus throw error.
-            decoding_method: str
-               Parameters for conditionally penalizing / boosting
-               candidate tokens during decoding.
-               Options: "GREEDY" (default), "SAMPLING"
-            temperature: float
-                The value used to modulate the next token probabilities.
-                Default: 0.0 - means disabled - equivalent to 1.0
-            top_k: int
-                The number of highest probability vocabulary tokens to keep for
-                top-k-filtering. Only applicable when decoding_method is SAMPLING.
-                Default: 0 - means disabled
-            top_p: float
-                If set to float < 1, only the smallest set of most probable tokens
-                with probabilities that add up to top_p or higher are kept for
-                generation.
-                Default: 0.0 - means disabled - equivalent to 1.0
-            typical_p: float
-                Local typicality measures how similar the conditional probability of
-                predicting a target token next is to the expected conditional
-                probability of predicting a random token next, given the partial text
-                already generated. If set to float < 1, the smallest set of the most
-                locally typical tokens with probabilities that add up to typical_p
-                or higher are kept for generation.
-                Default: 0.0 - means disabled - equivalent to 1.0
-            repetition_penalty: float
-                The more a token is used within generation the more it is penalized
-                to not be picked in successive generation passes.
-                Default: 0.0 - means no penalty - equivalent to 1.0
-            stop_sequences: List(str)
-                Sequences to be considered for stopping generation.
+           {}
         Returns:
             GeneratedTextResult
                 Generated text result produced by TGIS.
-        """
+        """.format(
+            GENERATE_FUNCTION_ARGS
+        )
+
         error.value_check(
             "<NLP03521360E>",
             decoding_method in VALID_DECODING_METHODS,
@@ -282,13 +251,13 @@ class TextGenerationTGIS(ModuleBase):
                 top_p=top_p,
                 typical_p=typical_p,
                 temperature=temperature,
+                seed=seed,
                 repetition_penalty=repetition_penalty,
                 max_time=max_time,
                 exponential_decay_length_penalty=exponential_decay_length_penalty,
                 stop_sequences=stop_sequences,
             )
 
-    # pylint: disable=duplicate-code
     @TextGenerationTask.taskmethod(output_streaming=True)
     def run_stream_out(
         self,
@@ -302,61 +271,24 @@ class TextGenerationTGIS(ModuleBase):
         top_p: Optional[float] = 0.0,
         typical_p: Optional[float] = 0.0,
         temperature: Optional[float] = 1.0,
+        seed: Optional[int] = None,
         repetition_penalty: Optional[float] = 0.0,
         max_time: Optional[float] = None,
-        exponential_decay_length_penalty: Optional[Tuple[int, float]] = None,
+        exponential_decay_length_penalty: Optional[
+            Union[Tuple[int, float], ExponentialDecayLengthPenalty]
+        ] = None,
         stop_sequences: Optional[str] = None,
     ) -> Iterable[GeneratedTextStreamResult]:
         """Run output stream inferencing for text generation module.
 
         Args:
-            text: str
-                Source string to be encoded for generation.
-            preserve_input_text: bool
-                Whether or not the source string should be contained in the generated output,
-                e.g., as a prefix.
-            max_new_tokens: int
-                Maximum tokens for the model to generate
-            min_new_tokens: int
-                Minimum tokens for the model to generate
-            truncate_input_tokens: int
-                Truncate inputs to provided number of tokens. This can be
-                use to avoid failing due to input being longer than
-                configured limits.
-                Default: 0 - means don't truncate, thus throw error.
-            decoding_method: str
-               Parameters for conditionally penalizing / boosting
-               candidate tokens during decoding.
-               Options: "GREEDY" (default), "SAMPLING"
-            temperature: float
-                The value used to modulate the next token probabilities.
-                Default: 0.0 - means disabled - equivalent to 1.0
-            top_k: int
-                The number of highest probability vocabulary tokens to keep for
-                top-k-filtering. Only applicable when decoding_method is SAMPLING.
-                Default: 0 - means disabled
-            top_p: float
-                If set to float < 1, only the smallest set of most probable tokens
-                with probabilities that add up to top_p or higher are kept for
-                generation.
-                Default: 0.0 - means disabled - equivalent to 1.0
-            typical_p: float
-                Local typicality measures how similar the conditional probability of
-                predicting a target token next is to the expected conditional
-                probability of predicting a random token next, given the partial text
-                already generated. If set to float < 1, the smallest set of the most
-                locally typical tokens with probabilities that add up to typical_p
-                or higher are kept for generation.
-                Default: 0.0 - means disabled - equivalent to 1.0
-            repetition_penalty: float
-                The more a token is used within generation the more it is penalized
-                to not be picked in successive generation passes.
-                Default: 0.0 - means no penalty - equivalent to 1.0
-            stop_sequences: List(str)
-                Sequences to be considered for stopping generation.
+            {}
         Returns:
             Iterable[GeneratedTextStreamResult]
-        """
+        """.format(
+            GENERATE_FUNCTION_ARGS
+        )
+
         error.value_check(
             "<NLP03521361E>",
             decoding_method in VALID_DECODING_METHODS,
@@ -375,6 +307,7 @@ class TextGenerationTGIS(ModuleBase):
                 top_p=top_p,
                 typical_p=typical_p,
                 temperature=temperature,
+                seed=seed,
                 repetition_penalty=repetition_penalty,
                 max_time=max_time,
                 exponential_decay_length_penalty=exponential_decay_length_penalty,

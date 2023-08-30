@@ -15,7 +15,7 @@ from caikit.interfaces.nlp.data_model import GeneratedTextResult
 import caikit
 
 # Local
-from caikit_nlp.data_model.generation import GenerationTrainRecord
+from caikit_nlp.data_model import ExponentialDecayLengthPenalty, GenerationTrainRecord
 from caikit_nlp.modules.text_generation import TextGeneration, TextGenerationTGIS
 from caikit_nlp.resources.pretrained_model.hf_auto_seq2seq_lm import HFAutoSeq2SeqLM
 from tests.fixtures import (
@@ -182,7 +182,7 @@ def test_bootstrap_and_run_causallm_with_optional_params():
         temperature=0.75,
         repetition_penalty=0.3,
         max_time=1000,
-        exponential_decay_length_penalty=(),
+        exponential_decay_length_penalty=(1, 0.95),
         stop_sequences=["This is a test"],
     )
     StubTGISClient.validate_unary_generate_response(result)
@@ -206,7 +206,9 @@ def test_bootstrap_and_run_stream_out_with_optional_dependencies():
         temperature=0.75,
         repetition_penalty=0.3,
         max_time=1000,
-        exponential_decay_length_penalty=(),
+        exponential_decay_length_penalty=ExponentialDecayLengthPenalty(
+            start_index=2, decay_factor=0.95
+        ),
         stop_sequences=["This is a test"],
     )
     StubTGISClient.validate_stream_generate_response(stream_result)
