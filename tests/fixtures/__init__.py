@@ -186,6 +186,7 @@ class StubTGISClient:
         fake_result.stop_reason = 5
         fake_result.generated_token_count = 1
         fake_result.text = "moose"
+        fake_result.input_token_count = 1
         fake_response.responses = [fake_result]
         return fake_response
 
@@ -195,6 +196,7 @@ class StubTGISClient:
         fake_stream.stop_reason = 5
         fake_stream.generated_token_count = 1
         fake_stream.seed = 10
+        fake_stream.input_token_count = 1
         token = mock.Mock()
         token.text = "moose"
         token.logprob = 0.2
@@ -209,6 +211,7 @@ class StubTGISClient:
         assert result.generated_text == "moose"
         assert result.generated_tokens == 1
         assert result.finish_reason == 5
+        assert result.input_token_count == 1
 
     @staticmethod
     def validate_stream_generate_response(stream_result):
@@ -223,6 +226,7 @@ class StubTGISClient:
         assert first_result.details.finish_reason == 5
         assert first_result.details.generated_tokens == 1
         assert first_result.details.seed == 10
+        assert first_result.details.input_token_count == 1
 
 
 class StubTGISBackend(TGISBackend):

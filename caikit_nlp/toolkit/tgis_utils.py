@@ -298,6 +298,7 @@ class TGISGenerationClient:
             generated_tokens=response.generated_token_count,
             finish_reason=response.stop_reason,
             producer_id=self.producer_id,
+            input_token_count=response.input_token_count,
         )
 
     def stream_generate(
@@ -385,6 +386,7 @@ class TGISGenerationClient:
                 finish_reason=stream_part.stop_reason,
                 generated_tokens=stream_part.generated_token_count,
                 seed=stream_part.seed,
+                input_token_count=stream_part.input_token_count,
             )
             token_list = []
             for token in stream_part.tokens:
