@@ -64,7 +64,7 @@ GENERATE_FUNCTION_ARGS = """
         If set to float < 1, only the smallest set of most probable tokens
         with probabilities that add up to top_p or higher are kept for
         generation. Only applicable when decoding_method is SAMPLING.
-        Default: 0.0 - means disabled - equivalent to 1.0
+        Default: 1.0 - means disabled - 0.0 equivalent to 1.0
     typical_p: float
         Local typicality measures how similar the conditional probability of
         predicting a target token next is to the expected conditional
@@ -73,7 +73,7 @@ GENERATE_FUNCTION_ARGS = """
         locally typical tokens with probabilities that add up to typical_p
         or higher are kept for generation. Only applicable when decoding_method
         is SAMPLING.
-        Default: 0.0 - means disabled - equivalent to 1.0
+        Default: 1.0 - means disabled - 0.0 equivalent to 1.0
     temperature: float
         The value used to modulate the next token probabilities.
         Only applicable when decoding_method is SAMPLING.
@@ -84,7 +84,7 @@ GENERATE_FUNCTION_ARGS = """
     repetition_penalty: float
         The more a token is used within generation the more it is penalized
         to not be picked in successive generation passes.
-        Default: 0.0 - means no penalty - equivalent to 1.0
+        Default: 1.0 - means no penalty - 0.0 equivalent to 1.0
     max_time: float
         Amount of time in seconds that the query should take maximum.
         NOTE: this does not include network overhead.
@@ -235,26 +235,22 @@ def get_params(
         time_limit_millis=int(max_time * 1000) if max_time else None,
     )
 
-    start_index = None
-    decay_factor = None
-
     if exponential_decay_length_penalty:
-        if isinstance(exponential_decay_length_penalty, tuple):
-            start_index = exponential_decay_length_penalty[0]
-            decay_factor = exponential_decay_length_penalty[1]
-        elif isinstance(
-            exponential_decay_length_penalty, ExponentialDecayLengthPenalty
-        ):
-            start_index = exponential_decay_length_penalty.start_index
-            decay_factor = exponential_decay_length_penalty.decay_factor
-
-    length_penalty = generation_pb2.DecodingParameters.LengthPenalty(
-        start_index=start_index, decay_factor=decay_factor
-    )
+        if isinstance(exponential_decay_length_penalty, ExponentialDecayLengthPenalty):
+            exponential_decay_length_penalty = (
+                exponential_decay_length_penalty.start_index,
+                exponential_decay_length_penalty.decay_factor,
+            )
+        exponential_decay_length_penalty = (
+            generation_pb2.DecodingParameters.LengthPenalty(
+                start_index=exponential_decay_length_penalty[0],
+                decay_factor=exponential_decay_length_penalty[1],
+            )
+        )
 
     decoding_parameters = generation_pb2.DecodingParameters(
         repetition_penalty=repetition_penalty,
-        length_penalty=length_penalty,
+        length_penalty=exponential_decay_length_penalty,
     )
 
     params = generation_pb2.Parameters(

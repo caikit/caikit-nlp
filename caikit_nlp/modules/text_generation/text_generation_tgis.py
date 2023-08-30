@@ -206,11 +206,11 @@ class TextGenerationTGIS(ModuleBase):
         truncate_input_tokens: Optional[int] = 0,
         decoding_method: Optional[str] = "GREEDY",
         top_k: Optional[int] = 0,
-        top_p: Optional[float] = 0.0,
-        typical_p: Optional[float] = 0.0,
+        top_p: Optional[float] = 1.0,
+        typical_p: Optional[float] = 1.0,
         temperature: Optional[float] = 1.0,
         seed: Optional[int] = None,
-        repetition_penalty: Optional[float] = 0.0,
+        repetition_penalty: Optional[float] = 1.0,
         max_time: Optional[float] = None,
         exponential_decay_length_penalty: Optional[
             Union[Tuple[int, float], ExponentialDecayLengthPenalty]
@@ -257,11 +257,11 @@ class TextGenerationTGIS(ModuleBase):
         truncate_input_tokens: Optional[int] = 0,
         decoding_method: Optional[str] = "GREEDY",
         top_k: Optional[int] = 0,
-        top_p: Optional[float] = 0.0,
-        typical_p: Optional[float] = 0.0,
+        top_p: Optional[float] = 1.0,
+        typical_p: Optional[float] = 1.0,
         temperature: Optional[float] = 1.0,
         seed: Optional[int] = None,
-        repetition_penalty: Optional[float] = 0.0,
+        repetition_penalty: Optional[float] = 1.0,
         max_time: Optional[float] = None,
         exponential_decay_length_penalty: Optional[
             Union[Tuple[int, float], ExponentialDecayLengthPenalty]
