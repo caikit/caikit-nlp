@@ -32,11 +32,7 @@ import alog
 
 # Local
 from ...data_model import ExponentialDecayLengthPenalty
-from ...toolkit.tgis_utils import (
-    GENERATE_FUNCTION_ARGS,
-    VALID_DECODING_METHODS,
-    TGISGenerationClient,
-)
+from ...toolkit.tgis_utils import GENERATE_FUNCTION_ARGS, TGISGenerationClient
 from ...toolkit.verbalizer_utils import render_verbalizer
 from . import PeftPromptTuning
 
@@ -202,12 +198,6 @@ class PeftPromptTuningTGIS(ModuleBase):
             self.enable_backend,
             "Backend must be configured and loaded with this module before executing `run` call.",
         )
-        error.value_check(
-            "<NLP03521362E>",
-            decoding_method in VALID_DECODING_METHODS,
-            f"Decoding method [{decoding_method}] not in valid decoding methods: "
-            f"[{VALID_DECODING_METHODS}]",
-        )
         verbalized_text = render_verbalizer(self.verbalizer, {"input": text})
         return self.tgis_generation_client.unary_generate(
             text=verbalized_text,
@@ -263,12 +253,6 @@ class PeftPromptTuningTGIS(ModuleBase):
             self.enable_backend,
             "Backend must be configured and loaded with this module \
             before executing `run_stream_out` call.",
-        )
-        error.value_check(
-            "<NLP03521363E>",
-            decoding_method in VALID_DECODING_METHODS,
-            f"Decoding method [{decoding_method}] not in valid decoding methods: "
-            f"[{VALID_DECODING_METHODS}]",
         )
         verbalized_text = render_verbalizer(self.verbalizer, {"input": text})
         return self.tgis_generation_client.stream_generate(

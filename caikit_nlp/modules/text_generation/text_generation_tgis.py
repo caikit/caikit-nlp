@@ -36,11 +36,7 @@ from ...resources.pretrained_model import (
     HFAutoSeq2SeqLM,
     PretrainedModelBase,
 )
-from ...toolkit.tgis_utils import (
-    GENERATE_FUNCTION_ARGS,
-    VALID_DECODING_METHODS,
-    TGISGenerationClient,
-)
+from ...toolkit.tgis_utils import GENERATE_FUNCTION_ARGS, TGISGenerationClient
 from .text_generation_local import TextGeneration
 
 log = alog.use_channel("TXT_GEN")
@@ -232,13 +228,6 @@ class TextGenerationTGIS(ModuleBase):
             GENERATE_FUNCTION_ARGS
         )
 
-        error.value_check(
-            "<NLP03521360E>",
-            decoding_method in VALID_DECODING_METHODS,
-            f"Decoding method [{decoding_method}] not in valid decoding methods: "
-            f"[{VALID_DECODING_METHODS}]",
-        )
-
         if self._model_loaded:
             return self.tgis_generation_client.unary_generate(
                 text=text,
@@ -289,12 +278,6 @@ class TextGenerationTGIS(ModuleBase):
             GENERATE_FUNCTION_ARGS
         )
 
-        error.value_check(
-            "<NLP03521361E>",
-            decoding_method in VALID_DECODING_METHODS,
-            f"Decoding method [{decoding_method}] not in valid decoding methods: "
-            f"[{VALID_DECODING_METHODS}]",
-        )
         if self._model_loaded:
             return self.tgis_generation_client.stream_generate(
                 text=text,

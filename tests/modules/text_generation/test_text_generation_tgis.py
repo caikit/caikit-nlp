@@ -181,8 +181,8 @@ def test_bootstrap_and_run_causallm_with_optional_params():
         typical_p=0.5,
         temperature=0.75,
         repetition_penalty=0.3,
-        max_time=1000,
-        exponential_decay_length_penalty=(1, 0.95),
+        max_time=10.5,
+        exponential_decay_length_penalty=(2, 0.95),
         stop_sequences=["This is a test"],
     )
     StubTGISClient.validate_unary_generate_response(result)
@@ -205,10 +205,29 @@ def test_bootstrap_and_run_stream_out_with_optional_dependencies():
         typical_p=0.5,
         temperature=0.75,
         repetition_penalty=0.3,
-        max_time=1000,
+        max_time=10.5,
         exponential_decay_length_penalty=ExponentialDecayLengthPenalty(
             start_index=2, decay_factor=0.95
         ),
         stop_sequences=["This is a test"],
     )
     StubTGISClient.validate_stream_generate_response(stream_result)
+
+
+def test_invalid_optional_params():
+    """Check if we an error is thrown when invalid inference params are used to run causallm models"""
+
+    model = TextGenerationTGIS.bootstrap(
+        CAUSAL_LM_MODEL, load_backend=StubTGISBackend()
+    )
+
+    with pytest.raises(ValueError):
+        _ = model.run(
+            SAMPLE_TEXT, preserve_input_text=True, max_new_tokens=20, min_new_tokens=50
+        )
+
+    with pytest.raises(TypeError):
+        _ = model.run(SAMPLE_TEXT, preserve_input_text=True, top_k=0.5)
+
+    with pytest.raises(TypeError):
+        _ = model.run(SAMPLE_TEXT, exponential_decay_length_penalty=[2, 0.95])

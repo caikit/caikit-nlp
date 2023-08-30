@@ -33,8 +33,6 @@ from ..data_model import ExponentialDecayLengthPenalty
 log = alog.use_channel("TGIS_UTILS")
 error = error_handler.get(log)
 
-VALID_DECODING_METHODS = ["GREEDY", "SAMPLING"]
-
 # pylint: disable=duplicate-code
 
 GENERATE_FUNCTION_ARGS = """
@@ -102,6 +100,87 @@ GENERATE_FUNCTION_ARGS = """
 """
 
 
+def validate_inf_params(
+    text,
+    preserve_input_text,
+    eos_token,
+    max_new_tokens,
+    min_new_tokens,
+    truncate_input_tokens,
+    decoding_method,
+    top_k,
+    top_p,
+    typical_p,
+    temperature,
+    seed,
+    repetition_penalty,
+    max_time,
+    exponential_decay_length_penalty,
+    stop_sequences,
+):
+    """Validate inference parameters
+
+    Args:
+        eos_token: str
+           A special token representing the end of a sentence.
+        {}
+    """.format(
+        GENERATE_FUNCTION_ARGS
+    )
+    error.type_check("<NLP65883534E>", str, text=text)
+    error.type_check("<NLP65883537E>", bool, preserve_input_text=preserve_input_text)
+    error.type_check("<NLP85452187E>", str, eos_token=eos_token)
+    error.type_check(
+        "<NLP03860680E>", int, allow_none=True, max_new_tokens=max_new_tokens
+    )
+    error.type_check(
+        "<NLP30091276E>", int, allow_none=True, min_new_tokens=min_new_tokens
+    )
+
+    error.value_check(
+        "<NLP03521352E>",
+        max_new_tokens >= min_new_tokens,
+        f"Maximum new tokens [{max_new_tokens}] has to be greater than minimum new tokens \
+        [{min_new_tokens}]",
+    )
+
+    error.type_check(
+        "<NLP55411551E>",
+        int,
+        allow_none=True,
+        truncate_input_tokens=truncate_input_tokens,
+    )
+
+    valid_decoding_methods = ["GREEDY", "SAMPLING"]
+
+    error.value_check(
+        "<NLP03521363E>",
+        decoding_method in valid_decoding_methods,
+        f"Decoding method [{decoding_method}] not in valid decoding methods: "
+        f"[{valid_decoding_methods}]",
+    )
+    error.type_check("<NLP84635843E>", int, allow_none=True, top_k=top_k)
+    error.type_check("<NLP55267523E>", float, allow_none=True, top_p=top_p)
+    error.type_check("<NLP13670202E>", float, allow_none=True, typical_p=typical_p)
+    error.type_check("<NLP13670201E>", float, allow_none=True, temperature=temperature)
+    error.type_check("<NLP28185342E>", int, allow_none=True, seed=seed)
+    error.type_check(
+        "<NLP11929418E>", float, allow_none=True, repetition_penalty=repetition_penalty
+    )
+    error.type_check("<NLP28185343E>", float, allow_none=True, max_time=max_time)
+    error.type_check(
+        "<NLP28185344E>",
+        ExponentialDecayLengthPenalty,
+        tuple,
+        allow_none=True,
+        exponential_decay_length_penalty=exponential_decay_length_penalty,
+    )
+
+    error.type_check_all(
+        "<NLP41311583E>", str, allow_none=True, stop_sequences=stop_sequences
+    )
+
+
 def get_params(
     preserve_input_text,
     eos_token,
@@ -122,9 +201,6 @@ def get_params(
     """Get generation parameters
 
     Args:
-        preserve_input_text: str
-           Whether or not the source string should be contained in the generated output,
-           e.g., as a prefix.
         eos_token: str
            A special token representing the end of a sentence.
         {}
@@ -156,7 +232,7 @@ def get_params(
         stop_sequences=stop_sequences or [eos_token] if eos_token else None,
         max_new_tokens=max_new_tokens,
         min_new_tokens=min_new_tokens,
-        time_limit_millis=max_time,
+        time_limit_millis=int(max_time * 1000) if max_time else None,
     )
 
     start_index = None
@@ -245,6 +321,25 @@ class TGISGenerationClient:
             "<NLP72700256E>",
             self.tgis_client is not None,
             "Backend must be configured and loaded for generate",
+        )
+
+        validate_inf_params(
+            text=text,
+            preserve_input_text=preserve_input_text,
+            eos_token=self.eos_token,
+            max_new_tokens=max_new_tokens,
+            min_new_tokens=min_new_tokens,
+            truncate_input_tokens=truncate_input_tokens,
+            decoding_method=decoding_method,
+            top_k=top_k,
+            top_p=top_p,
+            typical_p=typical_p,
+            temperature=temperature,
+            seed=seed,
+            repetition_penalty=repetition_penalty,
+            max_time=max_time,
+            exponential_decay_length_penalty=exponential_decay_length_penalty,
+            stop_sequences=stop_sequences,
         )
 
         log.debug("Building protobuf request to send to TGIS")
@@ -343,6 +438,25 @@ class TGISGenerationClient:
             "Backend must be configured and loaded for generate",
         )
         log.debug("Building protobuf request to send to TGIS")
+
+        validate_inf_params(
+            text=text,
+            preserve_input_text=preserve_input_text,
+            eos_token=self.eos_token,
+            max_new_tokens=max_new_tokens,
+            min_new_tokens=min_new_tokens,
+            truncate_input_tokens=truncate_input_tokens,
+            decoding_method=decoding_method,
+            top_k=top_k,
+            top_p=top_p,
+            typical_p=typical_p,
+            temperature=temperature,
+            seed=seed,
+            repetition_penalty=repetition_penalty,
+            max_time=max_time,
+            exponential_decay_length_penalty=exponential_decay_length_penalty,
+            stop_sequences=stop_sequences,
+        )
 
         params = get_params(
             preserve_input_text=preserve_input_text,
