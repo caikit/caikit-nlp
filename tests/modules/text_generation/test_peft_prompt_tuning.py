@@ -337,8 +337,7 @@ def test_run_sampling_param_ignored_greedy_decoding(causal_lm_dummy_model):
 
 
 def test_run_with_custom_stop_criteria(causal_lm_dummy_model):
-    """Ensure custom stop sequences works with run
-    """
+    """Ensure custom stop sequences works with run"""
     pred = causal_lm_dummy_model.run(
         "This text doesn't matter",
         decoding_method="GREEDY",

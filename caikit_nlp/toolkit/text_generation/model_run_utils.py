@@ -107,6 +107,7 @@ class Streamer(TextStreamer):
     def on_finalized_text(self, text: str, stream_end: bool = False):
         pass
 
+
 class SequenceStoppingCriteria(StoppingCriteria):
     def __init__(self, target_sequence_ids):
         self.target_sequence_ids = target_sequence_ids
@@ -147,7 +148,7 @@ def generate_text_func(
         Union[Tuple[int, float], ExponentialDecayLengthPenalty]
     ] = None,
     stop_sequences: Optional[str] = None,
-    **kwargs
+    **kwargs,
 ):
     """
         Args:
@@ -255,7 +256,7 @@ def generate_text_func_stream(
         Union[Tuple[int, float], ExponentialDecayLengthPenalty]
     ] = None,
     stop_sequences: Optional[str] = None,
-    **kwargs
+    **kwargs,
 ):
     """
         Args:
@@ -321,7 +322,7 @@ def generate_text_func_stream(
             attention_mask=inputs["attention_mask"],
             streamer=streamer,
             **gen_optional_params,
-            **kwargs
+            **kwargs,
         )
         details = TokenStreamDetails(
             input_token_count=input_token_count,
@@ -331,28 +332,26 @@ def generate_text_func_stream(
                 stream_part.detach().cpu().numpy(), skip_special_tokens=True
             )
             yield GeneratedTextStreamResult(
-                generated_text=gen_text,
-                details=details,
-                producer_id=producer_id)
+                generated_text=gen_text, details=details, producer_id=producer_id
+            )
 
 
 def __process_gen_args(
-        tokenizer,
-        max_new_tokens,
-        min_new_tokens,
-        decoding_method,
-        top_k,
-        top_p,
-        typical_p,
-        temperature,
-        seed,
-        repetition_penalty,
-        max_time,
-        exponential_decay_length_penalty,
-        stop_sequences,
+    tokenizer,
+    max_new_tokens,
+    min_new_tokens,
+    decoding_method,
+    top_k,
+    top_p,
+    typical_p,
+    temperature,
+    seed,
+    repetition_penalty,
+    max_time,
+    exponential_decay_length_penalty,
+    stop_sequences,
 ):
-    """Utility function to preprocess model generate arguments
-    """
+    """Utility function to preprocess model generate arguments"""
     error.type_check(
         "<NLP03860680E>", int, allow_none=True, max_new_tokens=max_new_tokens
     )
@@ -361,9 +360,19 @@ def __process_gen_args(
     )
     error.type_check("<NLP84635843E>", int, allow_none=True, top_k=top_k)
     error.type_check("<NLP55267523E>", float, allow_none=True, top_p=top_p)
-    error.type_check("<NLP13670202E>", float, allow_none=True, typical_p=typical_p, temperature=temperature)
     error.type_check(
-        "<NLP11929418E>", float, allow_none=True, repetition_penalty=repetition_penalty, max_time=max_time
+        "<NLP13670202E>",
+        float,
+        allow_none=True,
+        typical_p=typical_p,
+        temperature=temperature,
+    )
+    error.type_check(
+        "<NLP11929418E>",
+        float,
+        allow_none=True,
+        repetition_penalty=repetition_penalty,
+        max_time=max_time,
     )
     error.type_check_all(
         "<NLP41311583E>", str, allow_none=True, stop_sequences=stop_sequences
@@ -373,7 +382,8 @@ def __process_gen_args(
     error.value_check(
         "<NLP80772084E>",
         max_new_tokens >= min_new_tokens,
-        "Max new tokens needs to be bigger than min new tokens")
+        "Max new tokens needs to be bigger than min new tokens",
+    )
 
     if isinstance(exponential_decay_length_penalty, ExponentialDecayLengthPenalty):
         exponential_decay_length_penalty = (
@@ -381,14 +391,19 @@ def __process_gen_args(
             exponential_decay_length_penalty.decay_factor,
         )
 
-    error.type_check("<NLP81276841E>", tuple, allow_none=True, exponential_decay_length_penalty=exponential_decay_length_penalty)
+    error.type_check(
+        "<NLP81276841E>",
+        tuple,
+        allow_none=True,
+        exponential_decay_length_penalty=exponential_decay_length_penalty,
+    )
 
     error.value_check(
-            "<NLP03521360E>",
-            decoding_method in VALID_DECODING_METHODS,
-            f"Decoding method [{decoding_method}] not in valid decoding methods: "
-            f"[{VALID_DECODING_METHODS}]",
-        )
+        "<NLP03521360E>",
+        decoding_method in VALID_DECODING_METHODS,
+        f"Decoding method [{decoding_method}] not in valid decoding methods: "
+        f"[{VALID_DECODING_METHODS}]",
+    )
 
     if repetition_penalty == 0.0:
         repetition_penalty = 1.0
@@ -416,6 +431,5 @@ def __process_gen_args(
         stop_sequence_ids = tokenizer.encode(stop_sequences)
         stopping_criteria = SequenceStoppingCriteria(stop_sequence_ids)
         gen_optional_params["stopping_criteria"] = stopping_criteria
-
 
     return gen_optional_params
