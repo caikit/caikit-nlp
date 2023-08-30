@@ -184,11 +184,11 @@ class PeftPromptTuning(ModuleBase):
         truncate_input_tokens: Optional[int] = 0,
         decoding_method: Optional[str] = "GREEDY",
         top_k: Optional[int] = 0,
-        top_p: Optional[float] = 0.0,
-        typical_p: Optional[float] = 0.0,
+        top_p: Optional[float] = 1.0,
+        typical_p: Optional[float] = 1.0,
         temperature: Optional[float] = 1.0,
         seed: Optional[int] = None,
-        repetition_penalty: Optional[float] = 0.0,
+        repetition_penalty: Optional[float] = 1.0,
         max_time: Optional[float] = None,
         exponential_decay_length_penalty: Optional[
             Union[Tuple[int, float], ExponentialDecayLengthPenalty]
@@ -237,7 +237,23 @@ class PeftPromptTuning(ModuleBase):
     # )
     @TextGenerationTask.taskmethod(output_streaming=True)
     def run_stream_out(
-        self, text: str, max_new_tokens=20, min_new_tokens=0
+        self,
+        text: str,
+        max_new_tokens=20,
+        min_new_tokens=0,
+        truncate_input_tokens: Optional[int] = 0,
+        decoding_method: Optional[str] = "GREEDY",
+        top_k: Optional[int] = 0,
+        top_p: Optional[float] = 0.0,
+        typical_p: Optional[float] = 0.0,
+        temperature: Optional[float] = 1.0,
+        seed: Optional[int] = None,
+        repetition_penalty: Optional[float] = 0.0,
+        max_time: Optional[float] = None,
+        exponential_decay_length_penalty: Optional[
+            Union[Tuple[int, float], ExponentialDecayLengthPenalty]
+        ] = None,
+        stop_sequences: Optional[str] = None,
     ) -> Iterable[GeneratedTextStreamResult]:
         """Run the text generation model with output streaming
 
@@ -247,18 +263,14 @@ class PeftPromptTuning(ModuleBase):
         Ref. https://huggingface.co/docs/transformers/v4.30.0/generation_strategies#streaming
 
         Args:
-            text: str
-                Input string to be used to the generation model.
-            max_new_tokens: int
-                The maximum numbers of tokens to generate.
-                Default: 20
-            min_new_tokens: int
-                The minimum numbers of tokens to generate.
-                Default: 0 - means no minimum
+            {}
 
         Returns:
             Iterable[GeneratedTextStreamResult]
-        """
+        """.format(
+            GENERATE_FUNCTION_ARGS
+        )
+
         # Apply the verbalizer to our text string
         verbalized_text = render_verbalizer(self.verbalizer, {"input": text})
         # Apply the tokenizer to the sample text & move to correct device

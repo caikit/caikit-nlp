@@ -62,7 +62,7 @@ GENERATE_FUNCTION_ARGS = """
         If set to float < 1, only the smallest set of most probable tokens
         with probabilities that add up to top_p or higher are kept for
         generation. Only applicable when decoding_method is SAMPLING.
-        Default: 0.0 - means disabled - equivalent to 1.0
+        Default: 1.0 - means disabled - 0.0 equivalent to 1.0
     typical_p: float
         Local typicality measures how similar the conditional probability of
         predicting a target token next is to the expected conditional
@@ -71,7 +71,7 @@ GENERATE_FUNCTION_ARGS = """
         locally typical tokens with probabilities that add up to typical_p
         or higher are kept for generation. Only applicable when decoding_method
         is SAMPLING.
-        Default: 0.0 - means disabled - equivalent to 1.0
+        Default: 1.0 - means disabled - 0.0 equivalent to 1.0
     temperature: float
         The value used to modulate the next token probabilities.
         Only applicable when decoding_method is SAMPLING.
@@ -82,7 +82,7 @@ GENERATE_FUNCTION_ARGS = """
     repetition_penalty: float
         The more a token is used within generation the more it is penalized
         to not be picked in successive generation passes.
-        Default: 0.0 - means no penalty - equivalent to 1.0
+        Default: 1.0 - means no penalty - 0.0 equivalent to 1.0
     max_time: float
         Amount of time in seconds that the query should take maximum.
         NOTE: this does not include network overhead.
@@ -128,11 +128,11 @@ def generate_text_func(
     truncate_input_tokens: Optional[int] = 0,
     decoding_method: Optional[str] = "GREEDY",
     top_k: Optional[int] = 0,
-    top_p: Optional[float] = 0.0,
-    typical_p: Optional[float] = 0.0,
+    top_p: Optional[float] = 1.0,
+    typical_p: Optional[float] = 1.0,
     temperature: Optional[float] = 1.0,
     seed: Optional[int] = None,
-    repetition_penalty: Optional[float] = 0.0,
+    repetition_penalty: Optional[float] = 1.0,
     max_time: Optional[float] = None,
     exponential_decay_length_penalty: Optional[
         Union[Tuple[int, float], ExponentialDecayLengthPenalty]
@@ -140,7 +140,7 @@ def generate_text_func(
     stop_sequences: Optional[str] = None,
     **kwargs
 ):
-    __doc__ = """
+    """
         Args:
             model: PeftModel or transformers.AutoModel
                 Peft model or Transformers model
@@ -182,6 +182,11 @@ def generate_text_func(
     )
     error.type_check("<NLP28185342E>", int, allow_none=True, seed=seed)
 
+    error.value_check(
+        "<NLP80772084E>",
+        max_new_tokens >= min_new_tokens,
+        "Max new tokens needs to be bigger than min new tokens")
+
     if isinstance(exponential_decay_length_penalty, ExponentialDecayLengthPenalty):
         exponential_decay_length_penalty = (
             exponential_decay_length_penalty.start_index,
@@ -189,13 +194,7 @@ def generate_text_func(
         )
 
     # NOTE: below is to match TGIS API, where 0 identifies as no truncation
-    if truncate_input_tokens == 0:
-        # NOTE: below will make model throw error in case inputs are longer
-        # than allowed length
-        truncation = False
-
-    else:
-        truncation = True
+    truncation = truncate_input_tokens != 0
 
     if repetition_penalty == 0.0:
         repetition_penalty = 1.0
@@ -259,4 +258,45 @@ def generate_text_func(
         finish_reason=finish_reason,
         producer_id=producer_id,
         input_token_count=input_token_count,
+    )
+
+
+def generate_text_func_stream(
+    model,
+    tokenizer,
+    producer_id: ProducerId,
+    eos_token: str,
+    text: str,
+    max_new_tokens: Optional[int] = 20,
+    min_new_tokens: Optional[int] = 0,
+    truncate_input_tokens: Optional[int] = 0,
+    decoding_method: Optional[str] = "GREEDY",
+    top_k: Optional[int] = 0,
+    top_p: Optional[float] = 0.0,
+    typical_p: Optional[float] = 0.0,
+    temperature: Optional[float] = 1.0,
+    seed: Optional[int] = None,
+    repetition_penalty: Optional[float] = 0.0,
+    max_time: Optional[float] = None,
+    exponential_decay_length_penalty: Optional[
+        Union[Tuple[int, float], ExponentialDecayLengthPenalty]
+    ] = None,
+    stop_sequences: Optional[str] = None,
+    **kwargs
+):
+    """
+        Args:
+            model: PeftModel or transformers.AutoModel
+                Peft model or Transformers model
+            tokenizer: AutoTokenizer
+                Tokenizer to be used with the model
+            producer_id: ProducerId
+                Caikit producer id associated with the module
+            eos_token: str
+                End of sequence token to be used with generation
+            {}
+        Returns:
+            GeneratedTextResult
+    """.format(
+        GENERATE_FUNCTION_ARGS
     )
