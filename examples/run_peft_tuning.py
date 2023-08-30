@@ -26,8 +26,8 @@ from utils import (
     SUPPORTED_DATASETS,
     DatasetInfo,
     configure_random_seed_and_logging,
+    load_json_file_dataset,
     print_colored,
-    load_json_file_dataset
 )
 import datasets
 
@@ -167,7 +167,7 @@ def register_common_arguments(subparsers: Tuple[argparse.ArgumentParser]) -> Non
         subparser.add_argument(
             "--dataset",
             help="Dataset to use to train prompt vectors. Options: {}".format(
-                list(SUPPORTED_DATASETS.keys())+["json_file"]
+                list(SUPPORTED_DATASETS.keys()) + ["json_file"]
             ),
             default="twitter_complaints",
         )
@@ -315,7 +315,9 @@ def validate_common_args(args: argparse.Namespace):
             )
         )
     if args.dataset == "json_file" and args.json_file_path is None:
-        raise argparse.ArgumentError(None, "--json_file_path is required when dataset value is json_file.")
+        raise argparse.ArgumentError(
+            None, "--json_file_path is required when dataset value is json_file."
+        )
     # Purge our output directory if one already exists.
     if os.path.isdir(args.output_dir):
         print("Existing model directory found; purging it now.")
@@ -412,13 +414,19 @@ if __name__ == "__main__":
     # Unpack the dataset dictionary into a loaded dataset & verbalizer
     if args.dataset != "json_file":
         dataset_info = SUPPORTED_DATASETS[args.dataset]
-         # TODO - conditionally enable validation stream
+        # TODO - conditionally enable validation stream
         train_stream = dataset_info.dataset_loader()[0]
     else:
-        print(args.json_file_path, args.json_file_input_field, args.json_file_output_field)
+        print(
+            args.json_file_path, args.json_file_input_field, args.json_file_output_field
+        )
         dataset_info = DatasetInfo(
             verbalizer=args.json_file_verbalizer,
-            dataset_loader=load_json_file_dataset(str(args.json_file_path), str(args.json_file_input_field), str(args.json_file_output_field)),
+            dataset_loader=load_json_file_dataset(
+                str(args.json_file_path),
+                str(args.json_file_input_field),
+                str(args.json_file_output_field),
+            ),
             init_text=args.json_file_init_text,
         )
         train_stream = dataset_info.dataset_loader[0]
