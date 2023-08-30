@@ -18,7 +18,7 @@
 from typing import Optional, Tuple, Union
 
 # Third Party
-from transformers import StoppingCriteria
+from transformers import StoppingCriteria, TextStreamer
 import torch
 
 # First Party
@@ -27,6 +27,7 @@ from caikit.core.toolkit.errors import error_handler
 from caikit.interfaces.nlp.data_model import (
     GeneratedTextResult,
     GeneratedTextStreamResult,
+    TokenStreamDetails,
 )
 import alog
 
@@ -35,6 +36,8 @@ from ...data_model import ExponentialDecayLengthPenalty
 
 log = alog.use_channel("RUN_UTILS")
 error = error_handler.get(log)
+
+VALID_DECODING_METHODS = ["GREEDY", "SAMPLING"]
 
 GENERATE_FUNCTION_ARGS = """
     text: str
@@ -98,6 +101,12 @@ GENERATE_FUNCTION_ARGS = """
 """
 
 
+class Streamer(TextStreamer):
+    # The default TextStreamer currently prints to stdout
+    # so we override that here
+    def on_finalized_text(self, text: str, stream_end: bool = False):
+        pass
+
 class SequenceStoppingCriteria(StoppingCriteria):
     def __init__(self, target_sequence_ids):
         self.target_sequence_ids = target_sequence_ids
@@ -159,62 +168,16 @@ def generate_text_func(
 
     error.type_check("<NLP85452187E>", str, eos_token=eos_token)
     error.type_check("<NLP65883534E>", str, text=text)
-    error.type_check(
-        "<NLP03860680E>", int, allow_none=True, max_new_tokens=max_new_tokens
-    )
-    error.type_check(
-        "<NLP30091276E>", int, allow_none=True, min_new_tokens=min_new_tokens
-    )
+
     error.type_check(
         "<NLP55411551E>",
         int,
         allow_none=True,
         truncate_input_tokens=truncate_input_tokens,
     )
-    error.type_check("<NLP84635843E>", int, allow_none=True, top_k=top_k)
-    error.type_check("<NLP55267523E>", float, allow_none=True, top_p=top_p)
-    error.type_check("<NLP13670202E>", float, allow_none=True, typical_p=typical_p)
-    error.type_check(
-        "<NLP11929418E>", float, allow_none=True, repetition_penalty=repetition_penalty
-    )
-    error.type_check_all(
-        "<NLP41311583E>", str, allow_none=True, stop_sequences=stop_sequences
-    )
-    error.type_check("<NLP28185342E>", int, allow_none=True, seed=seed)
-
-    error.value_check(
-        "<NLP80772084E>",
-        max_new_tokens >= min_new_tokens,
-        "Max new tokens needs to be bigger than min new tokens")
-
-    if isinstance(exponential_decay_length_penalty, ExponentialDecayLengthPenalty):
-        exponential_decay_length_penalty = (
-            exponential_decay_length_penalty.start_index,
-            exponential_decay_length_penalty.decay_factor,
-        )
 
     # NOTE: below is to match TGIS API, where 0 identifies as no truncation
     truncation = truncate_input_tokens != 0
-
-    if repetition_penalty == 0.0:
-        repetition_penalty = 1.0
-
-    gen_optional_params = {}
-
-    # TODO: Make decoding parameters enums
-    if decoding_method == "SAMPLING":
-        gen_optional_params["do_sample"] = True
-        gen_optional_params["top_k"] = top_k
-        gen_optional_params["top_p"] = top_p
-        gen_optional_params["typical_p"] = typical_p
-        gen_optional_params["temperature"] = temperature
-        gen_optional_params["seed"] = seed
-
-    if stop_sequences and len(stop_sequences) > 0:
-        # Tokenize sequences
-        stop_sequence_ids = tokenizer.encode(stop_sequences)
-        stopping_criteria = SequenceStoppingCriteria(stop_sequence_ids)
-        gen_optional_params["stopping_criteria"] = stopping_criteria
 
     tok_tensors = tokenizer(
         text,
@@ -226,15 +189,25 @@ def generate_text_func(
 
     input_token_count = len(tok_tensors)
 
+    gen_optional_params = __process_gen_args(
+        tokenizer,
+        max_new_tokens,
+        min_new_tokens,
+        decoding_method,
+        top_k,
+        top_p,
+        typical_p,
+        temperature,
+        seed,
+        repetition_penalty,
+        max_time,
+        exponential_decay_length_penalty,
+        stop_sequences,
+    )
+
     with torch.no_grad():
         generate_ids = model.generate(
             input_ids=inputs["input_ids"],
-            max_new_tokens=max_new_tokens,
-            min_new_tokens=min_new_tokens,
-            repetition_penalty=repetition_penalty,
-            use_cache=True,
-            max_time=max_time,
-            exponential_decay_length_penalty=exponential_decay_length_penalty,
             **gen_optional_params,
             **kwargs,
         )
@@ -300,3 +273,149 @@ def generate_text_func_stream(
     """.format(
         GENERATE_FUNCTION_ARGS
     )
+    error.type_check("<NLP53933302E>", str, eos_token=eos_token)
+    error.type_check("<NLP61673437E>", str, text=text)
+
+    error.type_check(
+        "<NLP60192564E>",
+        int,
+        allow_none=True,
+        truncate_input_tokens=truncate_input_tokens,
+    )
+
+    # NOTE: below is to match TGIS API, where 0 identifies as no truncation
+    truncation = truncate_input_tokens != 0
+
+    tok_tensors = tokenizer(
+        text,
+        truncation=truncation,
+        max_length=truncate_input_tokens,
+        return_tensors="pt",
+    )
+    inputs = {k: v.to(model.device) for k, v in tok_tensors.items()}
+
+    input_token_count = len(tok_tensors)
+
+    streamer = Streamer(tokenizer)
+
+    gen_optional_params = __process_gen_args(
+        tokenizer,
+        max_new_tokens,
+        min_new_tokens,
+        decoding_method,
+        top_k,
+        top_p,
+        typical_p,
+        temperature,
+        seed,
+        repetition_penalty,
+        max_time,
+        exponential_decay_length_penalty,
+        stop_sequences,
+    )
+
+    with torch.no_grad():
+        # Run tokenized tensors through the rest of the PEFT model
+        stream_outputs = model.generate(
+            input_ids=inputs["input_ids"],
+            attention_mask=inputs["attention_mask"],
+            streamer=streamer,
+            **gen_optional_params,
+            **kwargs
+        )
+        details = TokenStreamDetails(
+            input_token_count=input_token_count,
+        )
+        for stream_part in stream_outputs:
+            gen_text = tokenizer.batch_decode(
+                stream_part.detach().cpu().numpy(), skip_special_tokens=True
+            )
+            yield GeneratedTextStreamResult(
+                generated_text=gen_text,
+                details=details,
+                producer_id=producer_id)
+
+
+def __process_gen_args(
+        tokenizer,
+        max_new_tokens,
+        min_new_tokens,
+        decoding_method,
+        top_k,
+        top_p,
+        typical_p,
+        temperature,
+        seed,
+        repetition_penalty,
+        max_time,
+        exponential_decay_length_penalty,
+        stop_sequences,
+):
+    """Utility function to preprocess model generate arguments
+    """
+    error.type_check(
+        "<NLP03860680E>", int, allow_none=True, max_new_tokens=max_new_tokens
+    )
+    error.type_check(
+        "<NLP30091276E>", int, allow_none=True, min_new_tokens=min_new_tokens
+    )
+    error.type_check("<NLP84635843E>", int, allow_none=True, top_k=top_k)
+    error.type_check("<NLP55267523E>", float, allow_none=True, top_p=top_p)
+    error.type_check("<NLP13670202E>", float, allow_none=True, typical_p=typical_p, temperature=temperature)
+    error.type_check(
+        "<NLP11929418E>", float, allow_none=True, repetition_penalty=repetition_penalty, max_time=max_time
+    )
+    error.type_check_all(
+        "<NLP41311583E>", str, allow_none=True, stop_sequences=stop_sequences
+    )
+    error.type_check("<NLP28185342E>", int, allow_none=True, seed=seed)
+
+    error.value_check(
+        "<NLP80772084E>",
+        max_new_tokens >= min_new_tokens,
+        "Max new tokens needs to be bigger than min new tokens")
+
+    if isinstance(exponential_decay_length_penalty, ExponentialDecayLengthPenalty):
+        exponential_decay_length_penalty = (
+            exponential_decay_length_penalty.start_index,
+            exponential_decay_length_penalty.decay_factor,
+        )
+
+    error.type_check("<NLP81276841E>", tuple, allow_none=True, exponential_decay_length_penalty=exponential_decay_length_penalty)
+
+    error.value_check(
+            "<NLP03521360E>",
+            decoding_method in VALID_DECODING_METHODS,
+            f"Decoding method [{decoding_method}] not in valid decoding methods: "
+            f"[{VALID_DECODING_METHODS}]",
+        )
+
+    if repetition_penalty == 0.0:
+        repetition_penalty = 1.0
+
+    gen_optional_params = {
+        "max_new_tokens": max_new_tokens,
+        "min_new_tokens": min_new_tokens,
+        "repetition_penalty": repetition_penalty,
+        "use_cache": True,
+        "max_time": max_time,
+        "exponential_decay_length_penalty": exponential_decay_length_penalty,
+    }
+
+    # TODO: Make decoding parameters enums
+    if decoding_method == "SAMPLING":
+        gen_optional_params["do_sample"] = True
+        gen_optional_params["top_k"] = top_k
+        gen_optional_params["top_p"] = top_p
+        gen_optional_params["typical_p"] = typical_p
+        gen_optional_params["temperature"] = temperature
+        gen_optional_params["seed"] = seed
+
+    if stop_sequences and len(stop_sequences) > 0:
+        # Tokenize sequences
+        stop_sequence_ids = tokenizer.encode(stop_sequences)
+        stopping_criteria = SequenceStoppingCriteria(stop_sequence_ids)
+        gen_optional_params["stopping_criteria"] = stopping_criteria
+
+
+    return gen_optional_params

@@ -38,7 +38,6 @@ from transformers import (
     AutoConfig,
     AutoModelForCausalLM,
     DataCollatorForLanguageModeling,
-    TextStreamer,
     default_data_collator,
 )
 from transformers.models.auto.tokenization_auto import AutoTokenizer
@@ -76,6 +75,7 @@ from ...toolkit.task_specific_utils import convert_to_generation_record
 from ...toolkit.text_generation.model_run_utils import (
     GENERATE_FUNCTION_ARGS,
     generate_text_func,
+    generate_text_func_stream,
 )
 from ...toolkit.verbalizer_utils import is_valid_verbalizer, render_verbalizer
 
@@ -101,13 +101,6 @@ class TuningType(str, Enum):
     # P_TUNING = "P_TUNING"
     # PREFIX_TUNING = "PREFIX_TUNING"
     # LORA = "LORA"
-
-
-class Streamer(TextStreamer):
-    # The default TextStreamer currently prints to stdout
-    # so we override that here
-    def on_finalized_text(self, text: str, stream_end: bool = False):
-        pass
 
 
 # TODO: try to refactor this into a smaller module
@@ -273,26 +266,27 @@ class PeftPromptTuning(ModuleBase):
 
         # Apply the verbalizer to our text string
         verbalized_text = render_verbalizer(self.verbalizer, {"input": text})
-        # Apply the tokenizer to the sample text & move to correct device
-        tok_tensors = self.tokenizer(verbalized_text, return_tensors="pt")
-        inputs = {k: v.to(self.model.device) for k, v in tok_tensors.items()}
 
-        streamer = Streamer(self.tokenizer)
-        with torch.no_grad():
-            # Run tokenized tensors through the rest of the PEFT model
-            stream_outputs = self.model.generate(
-                input_ids=inputs["input_ids"],
-                attention_mask=inputs["attention_mask"],
-                max_new_tokens=max_new_tokens,
-                min_new_tokens=min_new_tokens,
-                eos_token_id=self.eos_token_id,
-                streamer=streamer,
-            )
-            for stream_part in stream_outputs:
-                gen_text = self.tokenizer.batch_decode(
-                    stream_part.detach().cpu().numpy(), skip_special_tokens=True
-                )
-                yield GeneratedTextStreamResult(generated_text=gen_text)
+        return generate_text_func_stream(
+            self.model,
+            self.tokenizer,
+            self.PRODUCER_ID,
+            self.tokenizer.eos_token,
+            verbalized_text,
+            max_new_tokens=max_new_tokens,
+            min_new_tokens=min_new_tokens,
+            truncate_input_tokens=truncate_input_tokens,
+            decoding_method=decoding_method,
+            top_k=top_k,
+            top_p=top_p,
+            typical_p=typical_p,
+            temperature=temperature,
+            seed=seed,
+            repetition_penalty=repetition_penalty,
+            max_time=max_time,
+            exponential_decay_length_penalty=exponential_decay_length_penalty,
+            stop_sequences=stop_sequences,
+        )
 
     @classmethod
     def train(
