@@ -32,7 +32,10 @@ import alog
 
 # Local
 from ...data_model import ExponentialDecayLengthPenalty
-from ...toolkit.tgis_utils import GENERATE_FUNCTION_ARGS, TGISGenerationClient
+from ...toolkit.text_generation.tgis_utils import (
+    GENERATE_FUNCTION_TGIS_ARGS,
+    TGISGenerationClient,
+)
 from ...toolkit.verbalizer_utils import render_verbalizer
 from . import PeftPromptTuning
 
@@ -190,7 +193,7 @@ class PeftPromptTuningTGIS(ModuleBase):
             GeneratedTextResult
                 Generated text result produced by TGIS.
         """.format(
-            GENERATE_FUNCTION_ARGS
+            GENERATE_FUNCTION_TGIS_ARGS
         )
 
         error.value_check(
@@ -245,7 +248,7 @@ class PeftPromptTuningTGIS(ModuleBase):
         Returns:
             Iterable[GeneratedTextStreamResult]
         """.format(
-            GENERATE_FUNCTION_ARGS
+            GENERATE_FUNCTION_TGIS_ARGS
         )
 
         error.value_check(

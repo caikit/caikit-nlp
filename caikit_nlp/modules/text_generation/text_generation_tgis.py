@@ -36,14 +36,16 @@ from ...resources.pretrained_model import (
     HFAutoSeq2SeqLM,
     PretrainedModelBase,
 )
-from ...toolkit.tgis_utils import GENERATE_FUNCTION_ARGS, TGISGenerationClient
+from ...toolkit.text_generation.tgis_utils import (
+    GENERATE_FUNCTION_TGIS_ARGS,
+    TGISGenerationClient,
+)
 from .text_generation_local import TextGeneration
 
 log = alog.use_channel("TXT_GEN")
 error = error_handler.get(log)
 
 # pylint: disable=too-many-instance-attributes
-# pylint: disable=duplicate-code
 
 
 @module(backend_type=TGISBackend.backend_type, base_module=TextGeneration)
@@ -225,7 +227,7 @@ class TextGenerationTGIS(ModuleBase):
             GeneratedTextResult
                 Generated text result produced by TGIS.
         """.format(
-            GENERATE_FUNCTION_ARGS
+            GENERATE_FUNCTION_TGIS_ARGS
         )
 
         if self._model_loaded:
@@ -275,7 +277,7 @@ class TextGenerationTGIS(ModuleBase):
         Returns:
             Iterable[GeneratedTextStreamResult]
         """.format(
-            GENERATE_FUNCTION_ARGS
+            GENERATE_FUNCTION_TGIS_ARGS
         )
 
         if self._model_loaded:

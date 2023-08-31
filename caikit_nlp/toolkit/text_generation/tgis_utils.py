@@ -28,76 +28,18 @@ from caikit_tgis_backend.protobufs import generation_pb2
 import alog
 
 # Local
-from ..data_model import ExponentialDecayLengthPenalty
+from ...data_model import ExponentialDecayLengthPenalty
+from .model_run_utils import GENERATE_FUNCTION_ARGS
 
 log = alog.use_channel("TGIS_UTILS")
 error = error_handler.get(log)
 
-# pylint: disable=duplicate-code
-
-GENERATE_FUNCTION_ARGS = """
-    text: str
-        Input string to be used to the generation model.
+GENERATE_FUNCTION_TGIS_ARGS = """
+    {}
     preserve_input_text: str
         Whether or not the source string should be contained in the generated output,
         e.g., as a prefix.
-    max_new_tokens: int
-        The maximum numbers of tokens to generate.
-        Default: 20
-    min_new_tokens: int
-        The minimum numbers of tokens to generate.
-        Default: 0 - means no minimum
-    truncate_input_tokens: int
-        Truncate inputs to provided number of tokens. This can be
-        use to avoid failing due to input being longer than
-        configured limits.
-        Default: 0 - means don't truncate, thus throw error.
-    decoding_method: str
-        Parameters for conditionally penalizing / boosting
-        candidate tokens during decoding.
-        Options: "GREEDY" (default), "SAMPLING"
-    top_k: int
-        The number of highest probability vocabulary tokens to keep for
-        top-k-filtering. Only applicable when decoding_method is SAMPLING.
-        Default: 0 - means disabled
-    top_p: float
-        If set to float < 1, only the smallest set of most probable tokens
-        with probabilities that add up to top_p or higher are kept for
-        generation. Only applicable when decoding_method is SAMPLING.
-        Default: 1.0 - means disabled - 0.0 equivalent to 1.0
-    typical_p: float
-        Local typicality measures how similar the conditional probability of
-        predicting a target token next is to the expected conditional
-        probability of predicting a random token next, given the partial text
-        already generated. If set to float < 1, the smallest set of the most
-        locally typical tokens with probabilities that add up to typical_p
-        or higher are kept for generation. Only applicable when decoding_method
-        is SAMPLING.
-        Default: 1.0 - means disabled - 0.0 equivalent to 1.0
-    temperature: float
-        The value used to modulate the next token probabilities.
-        Only applicable when decoding_method is SAMPLING.
-        Default: 1.0 - means disabled - equivalent to 1.0
-    seed: int
-        Random seed to control sampling. Only applicable when decoding_method
-        is SAMPLING. Default: None
-    repetition_penalty: float
-        The more a token is used within generation the more it is penalized
-        to not be picked in successive generation passes.
-        Default: 1.0 - means no penalty - 0.0 equivalent to 1.0
-    max_time: float
-        Amount of time in seconds that the query should take maximum.
-        NOTE: this does not include network overhead.
-        Range: 0-120.0
-    exponential_decay_length_penalty: Tuple(int, float)
-        This Tuple adds an exponentially increasing length penalty, after
-        a certain amount of tokens have been generated. The tuple shall
-        consist of: (start_index, decay_factor) where start_index
-        indicates where penalty starts and decay_factor represents the factor
-        of exponential decay
-    stop_sequences: List[str]:
-        List of strings to be used as stopping criteria
-"""
+""".format(GENERATE_FUNCTION_ARGS)
 
 
 def validate_inf_params(
@@ -125,7 +67,7 @@ def validate_inf_params(
            A special token representing the end of a sentence.
         {}
     """.format(
-        GENERATE_FUNCTION_ARGS
+        GENERATE_FUNCTION_TGIS_ARGS
     )
     error.type_check("<NLP65883534E>", str, text=text)
     error.type_check("<NLP65883537E>", bool, preserve_input_text=preserve_input_text)
@@ -205,7 +147,7 @@ def get_params(
            A special token representing the end of a sentence.
         {}
     """.format(
-        GENERATE_FUNCTION_ARGS
+        GENERATE_FUNCTION_TGIS_ARGS
     )
 
     if decoding_method == "GREEDY":
@@ -297,17 +239,12 @@ class TGISGenerationClient:
         """Generate unary output from model in TGIS
 
         Args:
-            text: str
-                Source string to be encoded for generation.
-            preserve_input_text: bool
-                Whether or not the source string should be contained in the generated output,
-                e.g., as a prefix.
             {}
         Returns:
             GeneratedTextResult
                 Generated text result produced by TGIS.
         """.format(
-            GENERATE_FUNCTION_ARGS
+            GENERATE_FUNCTION_TGIS_ARGS
         )
 
         # In case internal client is not configured - generation
@@ -413,16 +350,11 @@ class TGISGenerationClient:
         """Generate stream output from model in TGIS
 
         Args:
-            text: str
-                Source string to be encoded for generation.
-            preserve_input_text: bool
-                Whether or not the source string should be contained in the generated output,
-                e.g., as a prefix.
             {}
         Returns:
             Iterable[GeneratedTextStreamResult]
         """.format(
-            GENERATE_FUNCTION_ARGS
+            GENERATE_FUNCTION_TGIS_ARGS
         )
 
         # In case internal client is not configured - generation
