@@ -29,7 +29,7 @@ import alog
 
 # Local
 from ...data_model import ExponentialDecayLengthPenalty
-from .model_run_utils import GENERATE_FUNCTION_ARGS
+from .model_run_utils import GENERATE_FUNCTION_ARGS, VALID_DECODING_METHODS
 
 log = alog.use_channel("TGIS_UTILS")
 error = error_handler.get(log)
@@ -39,7 +39,9 @@ GENERATE_FUNCTION_TGIS_ARGS = """
     preserve_input_text: str
         Whether or not the source string should be contained in the generated output,
         e.g., as a prefix.
-""".format(GENERATE_FUNCTION_ARGS)
+""".format(
+    GENERATE_FUNCTION_ARGS
+)
 
 
 def validate_inf_params(
@@ -69,14 +71,14 @@ def validate_inf_params(
     """.format(
         GENERATE_FUNCTION_TGIS_ARGS
     )
-    error.type_check("<NLP65883534E>", str, text=text)
+    error.type_check("<NLP65883535E>", str, text=text)
     error.type_check("<NLP65883537E>", bool, preserve_input_text=preserve_input_text)
-    error.type_check("<NLP85452187E>", str, eos_token=eos_token)
+    error.type_check("<NLP85452188E>", str, eos_token=eos_token)
     error.type_check(
-        "<NLP03860680E>", int, allow_none=True, max_new_tokens=max_new_tokens
+        "<NLP03860681E>", int, allow_none=True, max_new_tokens=max_new_tokens
     )
     error.type_check(
-        "<NLP30091276E>", int, allow_none=True, min_new_tokens=min_new_tokens
+        "<NLP30091277E>", int, allow_none=True, min_new_tokens=min_new_tokens
     )
 
     error.value_check(
@@ -87,31 +89,29 @@ def validate_inf_params(
     )
 
     error.type_check(
-        "<NLP55411551E>",
+        "<NLP55411552E>",
         int,
         allow_none=True,
         truncate_input_tokens=truncate_input_tokens,
     )
 
-    valid_decoding_methods = ["GREEDY", "SAMPLING"]
-
     error.value_check(
         "<NLP03521363E>",
-        decoding_method in valid_decoding_methods,
+        decoding_method in VALID_DECODING_METHODS,
         f"Decoding method [{decoding_method}] not in valid decoding methods: "
-        f"[{valid_decoding_methods}]",
+        f"[{VALID_DECODING_METHODS}]",
     )
-    error.type_check("<NLP84635843E>", int, allow_none=True, top_k=top_k)
-    error.type_check("<NLP55267523E>", float, allow_none=True, top_p=top_p)
-    error.type_check("<NLP13670202E>", float, allow_none=True, typical_p=typical_p)
-    error.type_check("<NLP13670201E>", float, allow_none=True, temperature=temperature)
-    error.type_check("<NLP28185342E>", int, allow_none=True, seed=seed)
+    error.type_check("<NLP84635844E>", int, allow_none=True, top_k=top_k)
+    error.type_check("<NLP55267524E>", float, allow_none=True, top_p=top_p)
+    error.type_check("<NLP13670203E>", float, allow_none=True, typical_p=typical_p)
+    error.type_check("<NLP13670205E>", float, allow_none=True, temperature=temperature)
+    error.type_check("<NLP28185343E>", int, allow_none=True, seed=seed)
     error.type_check(
-        "<NLP11929418E>", float, allow_none=True, repetition_penalty=repetition_penalty
+        "<NLP11929419E>", float, allow_none=True, repetition_penalty=repetition_penalty
     )
-    error.type_check("<NLP28185343E>", float, allow_none=True, max_time=max_time)
+    error.type_check("<NLP28185344E>", float, allow_none=True, max_time=max_time)
     error.type_check(
-        "<NLP28185344E>",
+        "<NLP28185345E>",
         ExponentialDecayLengthPenalty,
         tuple,
         allow_none=True,
@@ -119,7 +119,7 @@ def validate_inf_params(
     )
 
     error.type_check_all(
-        "<NLP41311583E>", str, allow_none=True, stop_sequences=stop_sequences
+        "<NLP41311584E>", str, allow_none=True, stop_sequences=stop_sequences
     )
 
 
