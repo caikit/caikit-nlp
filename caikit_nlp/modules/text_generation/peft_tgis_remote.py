@@ -183,12 +183,10 @@ class PeftPromptTuningTGIS(ModuleBase):
         ] = None,
         stop_sequences: Optional[str] = None,
     ) -> GeneratedTextResult:
-        """Run inference against the model running in TGIS. Currently we leverage greedy decoding
-        and apply the same verbalizer used for training the local model prior to sending the
-        request to TGIS.
+        """Run inference against the model running in TGIS.
 
         Args:
-            {}
+           {}
         Returns:
             GeneratedTextResult
                 Generated text result produced by TGIS.
