@@ -38,7 +38,6 @@ from transformers import (
     AutoConfig,
     AutoModelForCausalLM,
     DataCollatorForLanguageModeling,
-    TextStreamer,
     default_data_collator,
 )
 from transformers.models.auto.tokenization_auto import AutoTokenizer
@@ -59,7 +58,12 @@ from caikit.interfaces.nlp.tasks import TextGenerationTask
 import alog
 
 # Local
-from ...data_model import GenerationTrainRecord, PromptOutputModelType, TuningConfig
+from ...data_model import (
+    ExponentialDecayLengthPenalty,
+    GenerationTrainRecord,
+    PromptOutputModelType,
+    TuningConfig,
+)
 from ...resources.pretrained_model import (
     HFAutoCausalLM,
     HFAutoSeq2SeqLM,
@@ -68,6 +72,11 @@ from ...resources.pretrained_model import (
 from ...toolkit.data_stream_wrapper import SimpleIterableStreamWrapper
 from ...toolkit.data_type_utils import get_torch_dtype, str_to_torch_dtype
 from ...toolkit.task_specific_utils import convert_to_generation_record
+from ...toolkit.text_generation.model_run_utils import (
+    GENERATE_FUNCTION_ARGS,
+    generate_text_func,
+    generate_text_func_stream,
+)
 from ...toolkit.verbalizer_utils import is_valid_verbalizer, render_verbalizer
 
 log = alog.use_channel("PEFT_PROMPT")
@@ -92,13 +101,6 @@ class TuningType(str, Enum):
     # P_TUNING = "P_TUNING"
     # PREFIX_TUNING = "PREFIX_TUNING"
     # LORA = "LORA"
-
-
-class Streamer(TextStreamer):
-    # The default TextStreamer currently prints to stdout
-    # so we override that here
-    def on_finalized_text(self, text: str, stream_end: bool = False):
-        pass
 
 
 # TODO: try to refactor this into a smaller module
@@ -170,53 +172,55 @@ class PeftPromptTuning(ModuleBase):
     def run(
         self,
         text: str,
-        device: Optional[Union[str, int]] = None,
-        max_new_tokens=20,
-        min_new_tokens=0,
+        max_new_tokens: Optional[int] = 20,
+        min_new_tokens: Optional[int] = 0,
+        truncate_input_tokens: Optional[int] = 0,
+        decoding_method: Optional[str] = "GREEDY",
+        top_k: Optional[int] = 0,
+        top_p: Optional[float] = 1.0,
+        typical_p: Optional[float] = 1.0,
+        temperature: Optional[float] = 1.0,
+        seed: Optional[int] = None,
+        repetition_penalty: Optional[float] = 1.0,
+        max_time: Optional[float] = None,
+        exponential_decay_length_penalty: Optional[
+            Union[Tuple[int, float], ExponentialDecayLengthPenalty]
+        ] = None,
+        stop_sequences: Optional[str] = None,
     ) -> GeneratedTextResult:
-        """Run the full text generation model.
-
-        Args:
-            text: str
-                Input string to be used to the generation model.
-            device: Optional[Union[str, int]]
-                Deprecated. By default, we use the detected device.
-            max_new_tokens: int
-                The maximum numbers of tokens to generate.
-                Default: 20
-            min_new_tokens: int
-                The minimum numbers of tokens to generate.
-                Default: 0 - means no minimum
-
-        Returns:
-            GeneratedTextResult
-                Generated text result produced by PEFT / Transformers.
         """
-        if device is not None:
-            log.warning(
-                "Specifying device is deprecated and ignored, please update your calling argument"
-            )
-        device = self._DETECT_DEVICE
-        # Apply the verbalizer to our text string
-        verbalized_text = render_verbalizer(self.verbalizer, {"input": text})
-        # Apply the tokenizer to the sample text & move to correct device
-        tok_tensors = self.tokenizer(verbalized_text, return_tensors="pt")
+            Run the full text generation model.
+            Args:
+                {}
+            Returns:
+                GeneratedTextResult
+                    Generated text result produced by PEFT / Transformers.
+        """.format(
+            GENERATE_FUNCTION_ARGS
+        )
 
-        device = PeftPromptTuning._get_device(device)
-        inputs = {k: v.to(device) for k, v in tok_tensors.items()}
-        with torch.no_grad():
-            # Run tokenized tensors through the rest of the PEFT model
-            outputs = self.model.generate(
-                input_ids=inputs["input_ids"],
-                attention_mask=inputs["attention_mask"],
-                max_new_tokens=max_new_tokens,
-                min_new_tokens=min_new_tokens,
-                eos_token_id=self.eos_token_id,
-            )
-            gen_text = self.tokenizer.batch_decode(
-                outputs.detach().cpu().numpy(), skip_special_tokens=True
-            )
-        return GeneratedTextResult(generated_text=gen_text[0])
+        verbalized_text = render_verbalizer(self.verbalizer, {"input": text})
+
+        return generate_text_func(
+            self.model,
+            self.tokenizer,
+            self.PRODUCER_ID,
+            self.tokenizer.eos_token,
+            verbalized_text,
+            max_new_tokens=max_new_tokens,
+            min_new_tokens=min_new_tokens,
+            truncate_input_tokens=truncate_input_tokens,
+            decoding_method=decoding_method,
+            top_k=top_k,
+            top_p=top_p,
+            typical_p=typical_p,
+            temperature=temperature,
+            seed=seed,
+            repetition_penalty=repetition_penalty,
+            max_time=max_time,
+            exponential_decay_length_penalty=exponential_decay_length_penalty,
+            stop_sequences=stop_sequences,
+        )
 
     # NOTE: We need to disable wip decorator here otherwise we get issues in
     # proto generation for streaming. We are keeping it commented out for now,
@@ -226,7 +230,23 @@ class PeftPromptTuning(ModuleBase):
     # )
     @TextGenerationTask.taskmethod(output_streaming=True)
     def run_stream_out(
-        self, text: str, max_new_tokens=20, min_new_tokens=0
+        self,
+        text: str,
+        max_new_tokens=20,
+        min_new_tokens=0,
+        truncate_input_tokens: Optional[int] = 0,
+        decoding_method: Optional[str] = "GREEDY",
+        top_k: Optional[int] = 0,
+        top_p: Optional[float] = 0.0,
+        typical_p: Optional[float] = 0.0,
+        temperature: Optional[float] = 1.0,
+        seed: Optional[int] = None,
+        repetition_penalty: Optional[float] = 0.0,
+        max_time: Optional[float] = None,
+        exponential_decay_length_penalty: Optional[
+            Union[Tuple[int, float], ExponentialDecayLengthPenalty]
+        ] = None,
+        stop_sequences: Optional[str] = None,
     ) -> Iterable[GeneratedTextStreamResult]:
         """Run the text generation model with output streaming
 
@@ -236,40 +256,37 @@ class PeftPromptTuning(ModuleBase):
         Ref. https://huggingface.co/docs/transformers/v4.30.0/generation_strategies#streaming
 
         Args:
-            text: str
-                Input string to be used to the generation model.
-            max_new_tokens: int
-                The maximum numbers of tokens to generate.
-                Default: 20
-            min_new_tokens: int
-                The minimum numbers of tokens to generate.
-                Default: 0 - means no minimum
+            {}
 
         Returns:
             Iterable[GeneratedTextStreamResult]
-        """
+        """.format(
+            GENERATE_FUNCTION_ARGS
+        )
+
         # Apply the verbalizer to our text string
         verbalized_text = render_verbalizer(self.verbalizer, {"input": text})
-        # Apply the tokenizer to the sample text & move to correct device
-        tok_tensors = self.tokenizer(verbalized_text, return_tensors="pt")
-        inputs = {k: v.to(self.model.device) for k, v in tok_tensors.items()}
 
-        streamer = Streamer(self.tokenizer)
-        with torch.no_grad():
-            # Run tokenized tensors through the rest of the PEFT model
-            stream_outputs = self.model.generate(
-                input_ids=inputs["input_ids"],
-                attention_mask=inputs["attention_mask"],
-                max_new_tokens=max_new_tokens,
-                min_new_tokens=min_new_tokens,
-                eos_token_id=self.eos_token_id,
-                streamer=streamer,
-            )
-            for stream_part in stream_outputs:
-                gen_text = self.tokenizer.batch_decode(
-                    stream_part.detach().cpu().numpy(), skip_special_tokens=True
-                )
-                yield GeneratedTextStreamResult(generated_text=gen_text)
+        return generate_text_func_stream(
+            self.model,
+            self.tokenizer,
+            self.PRODUCER_ID,
+            self.tokenizer.eos_token,
+            verbalized_text,
+            max_new_tokens=max_new_tokens,
+            min_new_tokens=min_new_tokens,
+            truncate_input_tokens=truncate_input_tokens,
+            decoding_method=decoding_method,
+            top_k=top_k,
+            top_p=top_p,
+            typical_p=typical_p,
+            temperature=temperature,
+            seed=seed,
+            repetition_penalty=repetition_penalty,
+            max_time=max_time,
+            exponential_decay_length_penalty=exponential_decay_length_penalty,
+            stop_sequences=stop_sequences,
+        )
 
     @classmethod
     def train(
