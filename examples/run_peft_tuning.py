@@ -262,7 +262,18 @@ def register_common_arguments(subparsers: Tuple[argparse.ArgumentParser]) -> Non
             help="The custom verbalizer to be used by the JSON file dataset",
             default="{{input}}",
         )
-
+        subparser.add_argument(
+            "--json_file_test_size",
+            help="The percentage of the dataset that will be extracted as test set",
+            default=0.1,
+            type=float
+        )
+        subparser.add_argument(
+            "--json_file_validation_size",
+            help="The percentage of the dataset that will be extracted as validation set",
+            default=0.1,
+            type=float
+        )
 
 def register_multitask_prompt_tuning_args(subparser: argparse.ArgumentParser):
     """Register additional configuration options for MP(rompt)T subtask.
@@ -426,6 +437,8 @@ if __name__ == "__main__":
                 str(args.json_file_path),
                 str(args.json_file_input_field),
                 str(args.json_file_output_field),
+                test_size=args.json_file_test_size,
+                validation_size=args.json_file_validation_size
             ),
             init_text=args.json_file_init_text,
         )
