@@ -167,7 +167,7 @@ def generate_text_func(
         GENERATE_FUNCTION_ARGS
     )
 
-    error.type_check("<NLP85452187E>", str, eos_token=eos_token)
+    error.type_check("<NLP85452187E>", str, allow_none=True, eos_token=eos_token)
     error.type_check("<NLP65883534E>", str, text=text)
 
     error.type_check(
