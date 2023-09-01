@@ -73,7 +73,7 @@ def validate_inf_params(
     )
     error.type_check("<NLP65883535E>", str, text=text)
     error.type_check("<NLP65883537E>", bool, preserve_input_text=preserve_input_text)
-    error.type_check("<NLP85452188E>", str, eos_token=eos_token)
+    error.type_check("<NLP85452188E>", str, allow_none=True, eos_token=eos_token)
     error.type_check(
         "<NLP03860681E>", int, allow_none=True, max_new_tokens=max_new_tokens
     )
