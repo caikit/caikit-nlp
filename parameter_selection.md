@@ -10,35 +10,39 @@
     - **Accepted values**: `PROMPT_TUNING` and `MULTITASK_PROMPT_TUNING`
     - **Default**: `PROMPT_TUNING`
 - `num_epochs`: (int)
+    - The number of epochs is the number of complete passes through the training dataset.
     - quality depends a lot on number of epochs.
     - **Expose to end user recommendation**: True
     - Accepted values: any positive int
-    - **Default**: 50
-    - NOTE: defaults might also differ based on `base_model`
+    - **Default**: 20
 - `verbalizer`
-    - Verbalizer template to be used for formatting data at train and inference time. This template may use brackets to indicate which fields from the data model `TrainGenerationRecord` should be rendered.
+    - Verbalizer template to be used for formatting data at train and inference time. This template may use brackets to indicate where fields from the data model TrainGenerationRecord must be rendered. Default: "{{input}}", i.e., the raw text.
     - **Default**: "{{input}}", i.e., the raw text.
     - **Expose to end user recommendation**: True
 - `batch_size`:
+    - The batch size is a number of samples processed before the model is updated. 
     - **Default**: 8
-    - **Expose to end user recommendation**: False
-- `max_length`:
-    - Max length of sequences being considered. Currently this limit is used for both the input sequence and the output sequence.
+    - **Expose to end user recommendation**: True
+- `max_source_length`:
+    - Max length of input sequences being considered.
     - **Default**: 256.
-    - **Expose to end user recommendation**: False
-    - Could be configurable per model.
-
+    - **Expose to end user recommendation**: True
+- `max_target_length`:
+    - Max length of target sequences being predicted. Default: 128.
+    - **Default**: 128
+    - **Expose to end user recommendation**: True
 - `tuning_config.num_virtual_tokens`:
-    - Number of virtual tokens to be used for training.
-    - **Default**: 20 (might depend on `base_model` and `tuning_type`)
-    - This should correspond to available source prompt, if source prompt exists, i.e a user need to select number of virtual token as per the source prompt available, in case they want to use MPT source prompts.
+    - Number of virtual tokens to be used for training. In prompt tuning we are essentially learning the embedded representations for soft prompts, which are known as virtual tokens, via back propagation for a specific task(s) while keeping the rest of the model is fixed. `num_virtual_tokens` is the number of dimensions for these virtual tokens.
+    - **Expose to end user recommendation**: True (default to be set by application layer end)
+    - This should also correspond to available source prompt, if source prompt exists, i.e a user need to select number of virtual token as per the source prompt available, in case they want to use MPT source prompts.
 
 - `tuning_config.prompt_tuning_init_method`:
     - Could be: `RANDOM`, `TEXT`, `ONLY_SOURCE_SHARED` and `AVERAGE_SOURCE`
     - `TEXT` requires `tuning_config.prompt_tuning_init_text` to be set
     - `ONLY_SOURCE_SHARED` and `AVERAGE_SOURCE` requires `tuning_config.prompt_tuning_init_source_model` to be set and source prompt model to be available for the given `base_model`
     - **Default**: `RANDOM`
-    - **Expose to end user recommendation**: False (TBD)
+    - **Expose to end user recommendation**: True
+        - Only `RANDOM`, `TEXT` and `AVERAGE_SOURCE` to be exposed where `AVERAGE_SOURCE` is only applicable for tuning method is `MULTITASK_PROMPT_TUNING`      
 - `tuning_config.prompt_tuning_init_text`:
     - Initialization text to be used **IF**  `tuning_config.prompt_tuning_init_method` is set to `TEXT` otherwise this will be ignored.
     - **Default**: NO Default.
