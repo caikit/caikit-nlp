@@ -42,6 +42,7 @@ from transformers import (
 )
 from transformers.models.auto.tokenization_auto import AutoTokenizer
 from transformers.optimization import get_linear_schedule_with_warmup
+import numpy as np
 import torch
 
 # First Party
@@ -180,7 +181,7 @@ class PeftPromptTuning(ModuleBase):
         top_p: Optional[float] = 1.0,
         typical_p: Optional[float] = 1.0,
         temperature: Optional[float] = 1.0,
-        seed: Optional[int] = None,
+        seed: Optional[np.uint64] = None,
         repetition_penalty: Optional[float] = 1.0,
         max_time: Optional[float] = None,
         exponential_decay_length_penalty: Optional[
@@ -240,7 +241,7 @@ class PeftPromptTuning(ModuleBase):
         top_p: Optional[float] = 0.0,
         typical_p: Optional[float] = 0.0,
         temperature: Optional[float] = 1.0,
-        seed: Optional[int] = None,
+        seed: Optional[np.uint64] = None,
         repetition_penalty: Optional[float] = 0.0,
         max_time: Optional[float] = None,
         exponential_decay_length_penalty: Optional[

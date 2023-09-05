@@ -17,6 +17,9 @@
 from typing import Iterable, Optional, Tuple, Union
 import os
 
+# Third Party
+import numpy as np
+
 # First Party
 from caikit.core.module_backends import BackendBase, backend_types
 from caikit.core.modules import ModuleBase, ModuleConfig, ModuleSaver, module
@@ -211,7 +214,7 @@ class TextGenerationTGIS(ModuleBase):
         top_p: Optional[float] = 1.0,
         typical_p: Optional[float] = 1.0,
         temperature: Optional[float] = 1.0,
-        seed: Optional[int] = None,
+        seed: Optional[np.uint64] = None,
         repetition_penalty: Optional[float] = 1.0,
         max_time: Optional[float] = None,
         exponential_decay_length_penalty: Optional[
@@ -262,7 +265,7 @@ class TextGenerationTGIS(ModuleBase):
         top_p: Optional[float] = 1.0,
         typical_p: Optional[float] = 1.0,
         temperature: Optional[float] = 1.0,
-        seed: Optional[int] = None,
+        seed: Optional[np.uint64] = None,
         repetition_penalty: Optional[float] = 1.0,
         max_time: Optional[float] = None,
         exponential_decay_length_penalty: Optional[
