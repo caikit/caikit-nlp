@@ -186,7 +186,7 @@ class PeftPromptTuning(ModuleBase):
         exponential_decay_length_penalty: Optional[
             Union[Tuple[int, float], ExponentialDecayLengthPenalty]
         ] = None,
-        stop_sequences: Optional[str] = None,
+        stop_sequences: Optional[List[str]] = None,
     ) -> GeneratedTextResult:
         """
             Run the full text generation model.
@@ -246,7 +246,7 @@ class PeftPromptTuning(ModuleBase):
         exponential_decay_length_penalty: Optional[
             Union[Tuple[int, float], ExponentialDecayLengthPenalty]
         ] = None,
-        stop_sequences: Optional[str] = None,
+        stop_sequences: Optional[List[str]] = None,
     ) -> Iterable[GeneratedTextStreamResult]:
         """Run the text generation model with output streaming
 

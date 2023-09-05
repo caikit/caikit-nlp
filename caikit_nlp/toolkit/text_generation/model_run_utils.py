@@ -15,7 +15,7 @@
 """Utility functions used for executing run function for text_generation"""
 
 # Standard
-from typing import Optional, Tuple, Union
+from typing import List, Optional, Tuple, Union
 
 # Third Party
 from transformers import StoppingCriteria, TextStreamer
@@ -96,7 +96,7 @@ GENERATE_FUNCTION_ARGS = """
         consist of: (start_index, decay_factor) where start_index
         indicates where penalty starts and decay_factor represents the factor
         of exponential decay
-    stop_sequences: List[str]:
+    stop_sequences: List[str]
         List of strings to be used as stopping criteria
 """
 
@@ -147,7 +147,7 @@ def generate_text_func(
     exponential_decay_length_penalty: Optional[
         Union[Tuple[int, float], ExponentialDecayLengthPenalty]
     ] = None,
-    stop_sequences: Optional[str] = None,
+    stop_sequences: Optional[List[str]] = None,
     **kwargs,
 ):
     """
@@ -255,7 +255,7 @@ def generate_text_func_stream(
     exponential_decay_length_penalty: Optional[
         Union[Tuple[int, float], ExponentialDecayLengthPenalty]
     ] = None,
-    stop_sequences: Optional[str] = None,
+    stop_sequences: Optional[List[str]] = None,
     **kwargs,
 ):
     """
