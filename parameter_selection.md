@@ -15,6 +15,15 @@
     - **Expose to end user recommendation**: True
     - Accepted values: any positive int
     - **Default**: 20
+- `device`: (str)
+    - Training device to be used, could be `cpu`, `cuda`, cuda specific device name
+    - **Expose to end user recommendation**: False
+- `lr` / `learning_rate` - (float) The name of the parameter soon to be changed to make it more intuitive.
+    - Learning rate to be used for training
+    - **Expose to end user recommendation**: True
+- `accumulate_steps`: 
+    - Number of steps to be used for gradient accumulation. Gradient accumulation refers to a method of collecting gradient for configured number of steps instead of updating the model variables at every step and then applying the update to model variables. This can be used as a tool to overcome smaller batch size limitation. Often also referred in conjuction with "effective batch size".
+    - **Expose to end user recommendation**: True
 - `verbalizer`
     - Verbalizer template to be used for formatting data at train and inference time. This template may use brackets to indicate where fields from the data model TrainGenerationRecord must be rendered. Default: "{{input}}", i.e., the raw text.
     - **Default**: "{{input}}", i.e., the raw text.
@@ -60,4 +69,12 @@
     - **Default**:
         - CausalLM: `[DECODER]`
         - Seq2Seq: `[ENCODER]`
+    - **Expose to end user recommendation**: False
+ 
+- `torch_dtype`: (str)
+    - Datatype to use for training of the underlying text generation model. If no value is provided, we pull from torch_dtype in config. If an in memory resource is provided which does not match the specified data type, the model underpinning the resource will be converted in place to the correct torch dtype.
+    - **Expose to end user recommendation**: False
+    - Recommended to be configured at environment or server configuration level.
+- `silence_progress_bars` (bool)
+    - Toggle to control progress bar for training. This is relevant to only "python user experience" and doesn't apply training via caikit runtime.
     - **Expose to end user recommendation**: False
