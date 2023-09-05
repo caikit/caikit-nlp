@@ -298,10 +298,10 @@ class PeftPromptTuning(ModuleBase):
             DataStream[ClassificationTrainRecord],
         ],
         tuning_config: TuningConfig,
-        val_stream: Union[
+        val_stream: Optional[Union[
             DataStream[GenerationTrainRecord],
             DataStream[ClassificationTrainRecord],
-        ] = None,  # TODO: Optional[DataStream[GenerationTrainRecord]]
+        ]] = None,  # TODO: Optional[DataStream[GenerationTrainRecord]]
         device: Optional[str] = _DETECT_DEVICE,  # TODO: Union[int, str]
         tuning_type: Optional[str] = "PROMPT_TUNING",  # TODO: Union[str, TuningType]
         num_epochs: Optional[int] = 20,
