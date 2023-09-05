@@ -184,7 +184,7 @@ class PeftPromptTuningTGIS(ModuleBase):
         exponential_decay_length_penalty: Optional[
             Union[Tuple[int, float], ExponentialDecayLengthPenalty]
         ] = None,
-        stop_sequences: Optional[str] = None,
+        stop_sequences: Optional[List[str]] = None,
     ) -> GeneratedTextResult:
         """Run inference against the model running in TGIS.
 
@@ -240,7 +240,7 @@ class PeftPromptTuningTGIS(ModuleBase):
         exponential_decay_length_penalty: Optional[
             Union[Tuple[int, float], ExponentialDecayLengthPenalty]
         ] = None,
-        stop_sequences: Optional[str] = None,
+        stop_sequences: Optional[List[str]] = None,
     ) -> Iterable[GeneratedTextStreamResult]:
         """Run output stream inferencing against the model running in TGIS
 
