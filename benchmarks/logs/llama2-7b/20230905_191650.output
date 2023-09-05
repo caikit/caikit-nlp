@@ -1,0 +1,67 @@
+(tuning) [gpu_user@gpu6120 caikit-nlp]$ ./ft_job.sh 
+The cache for model files in Transformers v4.22.0 has been updated. Migrating your old cache. This is a one-time only operation. You can interrupt this and resume the migration later on by calling `transformers.utils.move_cache()`.
+0it [00:00, ?it/s]
+/u/gpu_user/.conda/envs/tuning/lib/python3.9/site-packages/caikit/core/toolkit/errors/__init__.py:29: DeprecationWarning: The caikit.toolkit.errors package has moved to caikit.core.exceptions
+  _warnings.warn(
+<function register_backend_type at 0x14dc9cc7f940> is still in the BETA phase and subject to change!
+/u/gpu_user/.conda/envs/tuning/lib/python3.9/site-packages/caikit/core/toolkit/error_handler.py:29: DeprecationWarning: The caikit.toolkit.error_handler package has moved to caikit.core.exceptions
+  _warnings.warn(
+Downloading builder script: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 4.20k/4.20k [00:00<00:00, 4.16MB/s]
+Downloading builder script: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 6.60k/6.60k [00:00<00:00, 5.36MB/s]
+Downloading builder script: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 6.27k/6.27k [00:00<00:00, 5.52MB/s]
+Existing model directory found; purging it now.
+Experiment Configuration
+- Model Name: [/tmp/tu/huggingface/hub/models--llama-2-7b]
+ |- Inferred Model Resource Type: [<class 'caikit_nlp.resources.pretrained_model.hf_auto_causal_lm.HFAutoCausalLM'>]
+- Dataset: [glue/rte]
+- Number of Epochs: [1]
+- Learning Rate: [2e-05]
+- Batch Size: [19]
+- Output Directory: [/tmp/tu/output/tuning/llama27b]
+- Maximum source sequence length: [128]
+- Maximum target sequence length: [1024]
+- Gradient accumulation steps: [16]
+- Enable evaluation: [False]
+- Evaluation metrics: [['rouge']]
+- Torch dtype to use for training: [bfloat16]
+[Loading the dataset...]
+Downloading builder script: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 28.8k/28.8k [00:00<00:00, 15.9MB/s]
+Downloading metadata: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 28.7k/28.7k [00:00<00:00, 26.9MB/s]
+Downloading readme: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 27.9k/27.9k [00:00<00:00, 22.1MB/s]
+Downloading data: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 697k/697k [00:00<00:00, 12.0MB/s]
+Generating train split:   0%|                                                                                                                             | 0/2490 [00:00<?, ? examples/s]2023-09-05T19:16:00.306639 [fsspe:DBUG] open file: /u/gpu_user/.cache/huggingface/datasets/glue/rte/1.0.0/dacbe3125aa31d7f70367a07a8a9e72a5a0bfeb5fc42e75c9db75b96da6053ad.incomplete/glue-train-00000-00000-of-NNNNN.arrow
+Generating train split: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 2490/2490 [00:00<00:00, 5375.17 examples/s]
+Generating validation split:   0%|                                                                                                                         | 0/277 [00:00<?, ? examples/s]2023-09-05T19:16:00.770379 [fsspe:DBUG] open file: /u/gpu_user/.cache/huggingface/datasets/glue/rte/1.0.0/dacbe3125aa31d7f70367a07a8a9e72a5a0bfeb5fc42e75c9db75b96da6053ad.incomplete/glue-validation-00000-00000-of-NNNNN.arrow
+Generating validation split: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████| 277/277 [00:00<00:00, 28629.00 examples/s]
+Generating test split:   0%|                                                                                                                              | 0/3000 [00:00<?, ? examples/s]2023-09-05T19:16:00.780343 [fsspe:DBUG] open file: /u/gpu_user/.cache/huggingface/datasets/glue/rte/1.0.0/dacbe3125aa31d7f70367a07a8a9e72a5a0bfeb5fc42e75c9db75b96da6053ad.incomplete/glue-test-00000-00000-of-NNNNN.arrow
+Generating test split: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 3000/3000 [00:00<00:00, 35352.71 examples/s]
+2023-09-05T19:16:00.866002 [fsspe:DBUG] open file: /u/gpu_user/.cache/huggingface/datasets/glue/rte/1.0.0/dacbe3125aa31d7f70367a07a8a9e72a5a0bfeb5fc42e75c9db75b96da6053ad.incomplete/dataset_info.json
+[Loading the base model resource...]
+Loading checkpoint shards: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 2/2 [00:05<00:00,  2.75s/it]
+[Starting the training...]
+2023-09-05T19:16:50.992041 [PEFT_:DBUG] Shuffling enabled? True
+2023-09-05T19:16:50.992203 [PEFT_:DBUG] Shuffling buffer size: 7470
+TRAINING ARGS: {
+    "output_dir": "/tmp",
+    "per_device_train_batch_size": 19,
+    "per_device_eval_batch_size": 19,
+    "num_train_epochs": 1,
+    "seed": 73,
+    "do_eval": false,
+    "learning_rate": 2e-05,
+    "weight_decay": 0.01,
+    "save_total_limit": 3,
+    "push_to_hub": false,
+    "no_cuda": false,
+    "remove_unused_columns": false,
+    "dataloader_pin_memory": false,
+    "gradient_accumulation_steps": 16,
+    "eval_accumulation_steps": 16,
+    "bf16": true
+}
+  0%|                                                                                                                                                              | 0/24 [00:00<?, ?it/s]You're using a LlamaTokenizerFast tokenizer. Please note that with a fast tokenizer, using the `__call__` method is faster than using a method to encode the text followed by a call to the `pad` method to get a padded encoding.
+{'train_runtime': 254.6707, 'train_samples_per_second': 29.332, 'train_steps_per_second': 0.094, 'train_loss': 1.93836243947347, 'epoch': 0.97}                                           
+100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 24/24 [04:14<00:00, 10.61s/it]
+Loading checkpoint shards: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 2/2 [00:03<00:00,  1.60s/it]
+Using sep_token, but it is not set yet.
+[Training Complete]
