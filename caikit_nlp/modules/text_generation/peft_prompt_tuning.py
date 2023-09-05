@@ -302,17 +302,17 @@ class PeftPromptTuning(ModuleBase):
             DataStream[GenerationTrainRecord],
             DataStream[ClassificationTrainRecord],
         ] = None,  # TODO: Optional[DataStream[GenerationTrainRecord]]
-        device: str = _DETECT_DEVICE,  # TODO: Union[int, str]
-        tuning_type: str = "PROMPT_TUNING",  # TODO: Union[str, TuningType]
-        num_epochs: int = 20,
-        lr: float = 0.3,
-        verbalizer: str = "{{input}}",
-        batch_size: int = 8,
-        max_source_length: int = 256,
-        max_target_length: int = 128,
-        accumulate_steps: int = 32,
-        torch_dtype: str = None,  # TODO: Optional[Union[torch.dtype, str]]
-        silence_progress_bars: bool = True,
+        device: Optional[str] = _DETECT_DEVICE,  # TODO: Union[int, str]
+        tuning_type: Optional[str] = "PROMPT_TUNING",  # TODO: Union[str, TuningType]
+        num_epochs: Optional[int] = 20,
+        learning_rate: Optional[float] = 0.3,
+        verbalizer: Optional[str] = "{{input}}",
+        batch_size: Optional[int] = 8,
+        max_source_length: Optional[int] = 256,
+        max_target_length: Optional[int] = 128,
+        accumulate_steps: Optional[int] = 32,
+        torch_dtype: Optional[str] = None,  # TODO: Optional[Union[torch.dtype, str]]
+        silence_progress_bars: Optional[bool] = True,
         **kwargs,
     ) -> "PeftPromptTuning":
         """Run prompt tuning (vanilla or MPT) through PEFT on a CausalLM or Seq2seq model
@@ -336,7 +336,7 @@ class PeftPromptTuning(ModuleBase):
                 Type of Peft Tuning config which we would like to build.
             num_epochs: int
                 Number of epochs to tune the prompt vectors. Default: 20.
-            lr: float
+            learning_rate: float
                 Learning rate to be used while tuning prompt vectors. Default: 1e-3.
             verbalizer: str
                 Verbalizer template to be used for formatting data at train and inference time.
@@ -543,7 +543,7 @@ class PeftPromptTuning(ModuleBase):
             device,
             eval_dataloader=val_dataloader,
             metric=metric,
-            lr=lr,
+            learning_rate=learning_rate,
             tokenizer=base_model.tokenizer,
             accumulate_steps=accumulate_steps,
             silence_progress_bars=silence_progress_bars,
@@ -1082,7 +1082,7 @@ class PeftPromptTuning(ModuleBase):
         device: str,
         eval_dataloader: Union[DataLoader, None] = None,
         metric: Optional[Callable] = None,
-        lr: int = 1e-3,
+        learning_rate: int = 1e-3,
         tokenizer: Union[AutoTokenizer, None] = None,
         accumulate_steps: int = 1,
         silence_progress_bars: bool = True,
@@ -1104,7 +1104,7 @@ class PeftPromptTuning(ModuleBase):
             metric: Union[Callable, None]
                 Function to be used for evaluating data if an eval data loader is provided.
                 Default: None.
-            lr: float
+            learning_rate: float
                 Learning rate to be used while tuning prompt vectors. Default: 1e-3.
             tokenizer: Union[AutoTokenizer, None]
                 Tokenizer for default evaluation; only used if no metric is provided and we have
@@ -1115,7 +1115,7 @@ class PeftPromptTuning(ModuleBase):
             silence_progress_bars: bool
                 Silences TQDM progress bars. Default: True
         """
-        optimizer = AdamW(params=model.parameters(), lr=lr)
+        optimizer = AdamW(params=model.parameters(), lr=learning_rate)
         lr_scheduler = get_linear_schedule_with_warmup(
             optimizer=optimizer,
             num_warmup_steps=0,
