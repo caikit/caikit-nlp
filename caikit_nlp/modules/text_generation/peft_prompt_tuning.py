@@ -78,7 +78,7 @@ from ...toolkit.text_generation.model_run_utils import (
 )
 from ...toolkit.verbalizer_utils import is_valid_verbalizer, render_verbalizer
 
-from peft_config import TuningType, allowed_tuning_init_methods, validate_peft_config
+from .peft_config import TuningType, allowed_tuning_init_methods, validate_peft_config
 
 log = alog.use_channel("PEFT_PROMPT")
 error = error_handler.get(log)
@@ -343,9 +343,24 @@ class PeftPromptTuning(ModuleBase):
         """
 
         # HACK - These things can't be passed through the train API currently
-        metric = kwargs.get("metric")
-        task_type, output_model_types = validate_peft_config(tuning_type, tuning_config, error, log, base_model, cls, torch_dtype, verbalizer)
 
+
+        metric = kwargs.get("metric")
+
+        base_model_name = base_model._model_name
+        task_type, output_model_types, peft_config, tuning_type = validate_peft_config(tuning_type,
+                                                                          tuning_config,
+                                                                          error,
+                                                                          log,
+                                                                          base_model,
+                                                                          cls,
+                                                                          torch_dtype,
+                                                                          verbalizer)
+
+        # Coerce the passed model into a resource; if we have one, this is a noop
+        # TODO: When splitting up this mono-module, use the configured resource
+        #   type of the concrete class to bootstrap
+        torch_dtype = get_torch_dtype(torch_dtype)
 
         train_stream = train_stream.map(convert_to_generation_record)
         if val_stream:
@@ -363,24 +378,6 @@ class PeftPromptTuning(ModuleBase):
             max_target_length=max_target_length,
         )
 
-        base_model_name = base_model._model_name
-
-        # Take tokenizer name/path from the model
-        tokenizer_name_or_path = base_model.model.config._name_or_path
-
-        # Build the peft config; this is how we determine that we want a sequence classifier.
-        # If we want more types, we will likely need to map this to data model outputs etc.
-
-        # NOTE: We currently only support TEXT as init type, this is to later only easily
-        # switch to MPT
-        peft_config = cls.create_hf_tuning_config(
-            base_model=base_model,
-            tuning_type=tuning_type,
-            task_type=task_type,
-            tokenizer_name_or_path=tokenizer_name_or_path,
-            tuning_config=tuning_config,
-            output_model_types=output_model_types,
-        )
         log.debug("Peft config [%s]", peft_config)
         # FIXME: Should only do following line for causal LM (and bloomz?) - check that is the case
         if isinstance(base_model, HFAutoCausalLM):

@@ -193,5 +193,22 @@ def validate_peft_config(tuning_type,
     #   type of the concrete class to bootstrap
     torch_dtype = get_torch_dtype(torch_dtype)
 
-    return task_type, output_model_types
+    # Take tokenizer name/path from the model
+    tokenizer_name_or_path = base_model.model.config._name_or_path
+
+    # Build the peft config; this is how we determine that we want a sequence classifier.
+    # If we want more types, we will likely need to map this to data model outputs etc.
+
+    # NOTE: We currently only support TEXT as init type, this is to later only easily
+    # switch to MPT
+    peft_config = cls.create_hf_tuning_config(
+        base_model=base_model,
+        tuning_type=tuning_type,
+        task_type=task_type,
+        tokenizer_name_or_path=tokenizer_name_or_path,
+        tuning_config=tuning_config,
+        output_model_types=output_model_types,
+    )
+
+    return task_type, output_model_types, peft_config, tuning_type
 
