@@ -14,6 +14,7 @@
 """This module contains prompt tuning through PEFT"""
 # Standard
 
+# Standard
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
 import gc
 import json
@@ -44,7 +45,6 @@ from transformers.optimization import get_linear_schedule_with_warmup
 import torch
 
 # First Party
-
 from caikit.core.data_model import DataStream
 from caikit.core.modules import ModuleBase, ModuleConfig, ModuleSaver, module
 from caikit.core.toolkit import error_handler
@@ -77,7 +77,6 @@ from ...toolkit.text_generation.model_run_utils import (
     generate_text_func_stream,
 )
 from ...toolkit.verbalizer_utils import is_valid_verbalizer, render_verbalizer
-
 from .peft_config import TuningType, allowed_tuning_init_methods, validate_peft_config
 
 log = alog.use_channel("PEFT_PROMPT")
@@ -344,18 +343,19 @@ class PeftPromptTuning(ModuleBase):
 
         # HACK - These things can't be passed through the train API currently
 
-
         metric = kwargs.get("metric")
 
         base_model_name = base_model._model_name
-        task_type, output_model_types, peft_config, tuning_type = validate_peft_config(tuning_type,
-                                                                          tuning_config,
-                                                                          error,
-                                                                          log,
-                                                                          base_model,
-                                                                          cls,
-                                                                          torch_dtype,
-                                                                          verbalizer)
+        task_type, output_model_types, peft_config, tuning_type = validate_peft_config(
+            tuning_type,
+            tuning_config,
+            error,
+            log,
+            base_model,
+            cls,
+            torch_dtype,
+            verbalizer,
+        )
 
         # Coerce the passed model into a resource; if we have one, this is a noop
         # TODO: When splitting up this mono-module, use the configured resource

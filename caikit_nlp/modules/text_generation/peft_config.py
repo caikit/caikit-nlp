@@ -12,30 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Standard
 from enum import Enum
-
 import os
 
+# Third Party
+from peft import MultitaskPromptTuningConfig, MultitaskPromptTuningInit
+from transformers import AutoConfig
+
+# First Party
 from caikit import get_config
 
-from ...resources.pretrained_model import (
-    PretrainedModelBase,
-)
-
-from ...toolkit.verbalizer_utils import is_valid_verbalizer, render_verbalizer
+# Local
+from ...data_model import PromptOutputModelType
+from ...resources.pretrained_model import PretrainedModelBase
 from ...toolkit.data_type_utils import get_torch_dtype, str_to_torch_dtype
-
-from peft import (
-    MultitaskPromptTuningConfig,
-    MultitaskPromptTuningInit,
-)
-
-from ...data_model import (
-    PromptOutputModelType,
-)
-from transformers import (
-    AutoConfig
-)
+from ...toolkit.verbalizer_utils import is_valid_verbalizer, render_verbalizer
 
 # NOTE: We do not allow all the methods exposed by MPT / PT, such as `EXACT_SOURCE_TASK`
 # since those are for experimental use and would not be useful / applicable
@@ -57,20 +49,13 @@ class TuningType(str, Enum):
     # LORA = "LORA"
 
 
-def validate_peft_config(tuning_type,
-                         tuning_config,
-                         error,
-                         log,
-                         base_model,
-                         cls,
-                         torch_dtype,
-                         verbalizer):
+def validate_peft_config(
+    tuning_type, tuning_config, error, log, base_model, cls, torch_dtype, verbalizer
+):
     # TODO: Move all of the validation into a separate function
 
     if tuning_type not in TuningType._member_names_:
-        raise NotImplementedError(
-            "{} tuning type not supported!".format(tuning_type)
-        )
+        raise NotImplementedError("{} tuning type not supported!".format(tuning_type))
 
     if tuning_config.prompt_tuning_init_method:
         # NOTE: GK-APR-5-2023
@@ -142,9 +127,7 @@ def validate_peft_config(tuning_type,
     else:
         # If the first element is not PromptOutputModelType, assume the entire list
         # isn't and convert
-        if not isinstance(
-                tuning_config.output_model_types[0], PromptOutputModelType
-        ):
+        if not isinstance(tuning_config.output_model_types[0], PromptOutputModelType):
             output_model_types = []
             for output_type in tuning_config.output_model_types:
                 output_model_types.append(PromptOutputModelType(output_type))
@@ -166,7 +149,7 @@ def validate_peft_config(tuning_type,
         len(output_model_types) <= base_model.MAX_NUM_TRANSFORMERS,
         f"Too many output model types. Got {len(output_model_types)}, "
         f"maximum {base_model.MAX_NUM_TRANSFORMERS}",
-        )
+    )
     # Ensure that our verbalizer is a string and will not render to a hardcoded string
     error.value_check(
         "<NLP83837412E>",
@@ -177,14 +160,13 @@ def validate_peft_config(tuning_type,
     # NOTE: Base model is a resource at this point
     task_type = base_model.TASK_TYPE
 
-
     if isinstance(tuning_type, str):
         error.value_check(
             "<NLP65714994E>",
             tuning_type in TuningType._member_names_,
             f"Invalid tuning type [{tuning_type}]. Allowed types: "
             f"[{TuningType._member_names_}]",
-            )
+        )
         tuning_type = TuningType(tuning_type)
     error.type_check("<NLP65714993E>", TuningType, tuning_type=tuning_type)
 
@@ -211,4 +193,3 @@ def validate_peft_config(tuning_type,
     )
 
     return task_type, output_model_types, peft_config, tuning_type
-
