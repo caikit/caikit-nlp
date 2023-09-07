@@ -13,6 +13,7 @@
 # limitations under the License.
 """This module contains prompt tuning through PEFT"""
 # Standard
+from datetime import datetime
 from enum import Enum
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
 import gc
@@ -94,6 +95,8 @@ allowed_tuning_init_methods = [
     "AVERAGE_SOURCE_TASKS",
 ]
 
+TRAINING_LOSS_LOG_FILENAME = "training_logs.jsonl"
+
 
 class TuningType(str, Enum):
     PROMPT_TUNING = "PROMPT_TUNING"
@@ -142,6 +145,7 @@ class PeftPromptTuning(ModuleBase):
         task_type: str,
         tuning_type: TuningType,
         output_model_types: List[PromptOutputModelType],
+        training_metadata: Union[Dict[str, Any], None] = None,
     ):
         super().__init__()
         # Put the PEFT model into evaluation mode for all future calls
@@ -156,6 +160,7 @@ class PeftPromptTuning(ModuleBase):
         self.task_type = task_type
         self.tuning_type = tuning_type
         self.output_model_types = output_model_types
+        self.training_metadata = training_metadata if training_metadata is not None else {}
 
     # pylint: disable=duplicate-code
     def __del__(self):
@@ -538,7 +543,7 @@ class PeftPromptTuning(ModuleBase):
         device = cls._get_device(device)
         cls.convert_peft_model_to_type(device, peft_model, torch_dtype)
 
-        cls._execute_train_loop(
+        training_loss_tracker = cls._execute_train_loop(
             peft_model,
             num_epochs,
             train_dataloader,
@@ -573,6 +578,7 @@ class PeftPromptTuning(ModuleBase):
             task_type=task_type,
             tuning_type=tuning_type,
             output_model_types=output_model_types,
+            training_metadata=training_loss_tracker,
             # TODO: Export other training params to model as well
         )
 
@@ -646,6 +652,26 @@ class PeftPromptTuning(ModuleBase):
 
                 config_options["full_model_path"] = b_model_rel_path
                 config_options["tokenizer_path"] = b_model_rel_path
+
+
+            training_loss_filename = TRAINING_LOSS_LOG_FILENAME
+
+            config_options.update(
+                {"training_logs": training_loss_filename}
+            )
+            # We are currently only saving logs containing loss in jsonl format
+            if "loss" in self.training_metadata:
+                loss_log_lines = self.training_metadata.get("loss")
+                error.type_check("<NLP60269855E>", list, loss_log_lines=loss_log_lines)
+                with open(
+                    os.path.join(model_path, training_loss_filename),
+                    "w",
+                    encoding="utf-8",
+                ) as f:
+                    for loss_log in loss_log_lines:
+                        loss_log = {"name": "loss", "data": loss_log}
+                        json.dump(loss_log, f)
+                        f.write("\n")
 
             module_saver.update_config(config_options)
 
@@ -1116,6 +1142,10 @@ class PeftPromptTuning(ModuleBase):
                 Number of steps to use for gradient accumulation. Default: 1.
             silence_progress_bars: bool
                 Silences TQDM progress bars. Default: True
+
+        Returns:
+            training_metadata: Dict
+                Metadata computed during training
         """
         optimizer = AdamW(params=model.parameters(), lr=learning_rate)
         lr_scheduler = get_linear_schedule_with_warmup(
@@ -1127,6 +1157,8 @@ class PeftPromptTuning(ModuleBase):
         accelerator = Accelerator(
             gradient_accumulation_steps=accumulate_steps, device_placement=True
         )
+
+        training_loss_tracker = []
 
         for epoch in range(num_epochs):
             model.train()
@@ -1146,7 +1178,16 @@ class PeftPromptTuning(ModuleBase):
                     lr_scheduler.step()
                     optimizer.zero_grad()
 
-            log.info("epoch %s: %s", epoch, loss)
+            log.info("<NLP46114010I>", {"loss": float(loss), "epoch": epoch})
+            # Below is added to be propagated and stored as training_metadata
+            training_loss_tracker.append(
+                {
+                    "epoch": epoch,
+                    "value": float(loss),
+                    "timestamp": datetime.isoformat(datetime.now()),
+                }
+            )
+
             if eval_dataloader is not None:
                 model.eval()
 
@@ -1202,6 +1243,9 @@ class PeftPromptTuning(ModuleBase):
                         eval_ppl,
                         eval_epoch_loss,
                     )
+
+        error.value_check("<NLP66129758E>", len(training_loss_tracker) == num_epochs)
+        return {"loss": training_loss_tracker}
 
     @classmethod
     def _filter_params_for_prompt_config(cls, prompt_config, params):
