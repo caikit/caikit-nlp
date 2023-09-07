@@ -25,7 +25,6 @@ import os
 from accelerate import Accelerator
 from peft import (
     MultitaskPromptTuningConfig,
-    MultitaskPromptTuningInit,
     PeftConfig,
     PeftModel,
     PeftType,
@@ -78,8 +77,8 @@ from ...toolkit.text_generation.model_run_utils import (
     generate_text_func,
     generate_text_func_stream,
 )
-from ...toolkit.verbalizer_utils import is_valid_verbalizer, render_verbalizer
-from .peft_config import TuningType, allowed_tuning_init_methods, validate_peft_config
+from ...toolkit.verbalizer_utils import render_verbalizer
+from .peft_config import TuningType, validate_peft_config
 
 log = alog.use_channel("PEFT_PROMPT")
 error = error_handler.get(log)

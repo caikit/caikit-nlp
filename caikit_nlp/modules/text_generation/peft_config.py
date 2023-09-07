@@ -17,7 +17,7 @@ from enum import Enum
 import os
 
 # Third Party
-from peft import MultitaskPromptTuningConfig, MultitaskPromptTuningInit
+from peft import MultitaskPromptTuningInit
 from transformers import AutoConfig
 
 # First Party
@@ -26,8 +26,8 @@ from caikit import get_config
 # Local
 from ...data_model import PromptOutputModelType
 from ...resources.pretrained_model import PretrainedModelBase
-from ...toolkit.data_type_utils import get_torch_dtype, str_to_torch_dtype
-from ...toolkit.verbalizer_utils import is_valid_verbalizer, render_verbalizer
+from ...toolkit.data_type_utils import get_torch_dtype
+from ...toolkit.verbalizer_utils import is_valid_verbalizer
 
 # NOTE: We do not allow all the methods exposed by MPT / PT, such as `EXACT_SOURCE_TASK`
 # since those are for experimental use and would not be useful / applicable
