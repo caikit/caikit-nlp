@@ -160,7 +160,9 @@ class PeftPromptTuning(ModuleBase):
         self.task_type = task_type
         self.tuning_type = tuning_type
         self.output_model_types = output_model_types
-        self.training_metadata = training_metadata if training_metadata is not None else {}
+        self.training_metadata = (
+            training_metadata if training_metadata is not None else {}
+        )
 
     # pylint: disable=duplicate-code
     def __del__(self):
@@ -653,12 +655,9 @@ class PeftPromptTuning(ModuleBase):
                 config_options["full_model_path"] = b_model_rel_path
                 config_options["tokenizer_path"] = b_model_rel_path
 
-
             training_loss_filename = TRAINING_LOSS_LOG_FILENAME
 
-            config_options.update(
-                {"training_logs": training_loss_filename}
-            )
+            config_options.update({"training_logs": training_loss_filename})
             # We are currently only saving logs containing loss in jsonl format
             if "loss" in self.training_metadata:
                 loss_log_lines = self.training_metadata.get("loss")
