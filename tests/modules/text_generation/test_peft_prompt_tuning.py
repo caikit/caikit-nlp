@@ -24,7 +24,7 @@ from caikit.interfaces.nlp.data_model import (
 import caikit
 
 # Local
-from caikit_nlp.data_model import ExponentialDecayLengthPenalty
+from caikit_nlp.data_model import ExponentialDecayLengthPenalty, TuningConfig
 from caikit_nlp.modules.text_generation import PeftPromptTuning
 from caikit_nlp.modules.text_generation.peft_prompt_tuning import TuningType
 from tests.fixtures import (
@@ -144,6 +144,38 @@ def test_train_model(causal_lm_train_kwargs, set_cpu_device):
     pred = model.run("@bar what a cute cat!")
     assert isinstance(pred, GeneratedTextResult)
 
+
+def test_train_random_init_model(causal_lm_train_kwargs, set_cpu_device):
+    """Ensure that we can train a model with random init method"""
+    patch_kwargs = {
+        "num_epochs": 1,
+        "verbalizer": "Tweet text : {{input}} Label : ",
+        "train_stream": caikit.core.data_model.DataStream.from_iterable(
+            [
+                caikit_nlp.data_model.GenerationTrainRecord(
+                    input="@foo what a cute dog!", output="no complaint"
+                ),
+                caikit_nlp.data_model.GenerationTrainRecord(
+                    input="@bar this is the worst idea ever.", output="complaint"
+                ),
+            ]
+        ),
+        "torch_dtype": torch.bfloat16,
+        "device": "cpu",
+        "tuning_config": TuningConfig(
+            prompt_tuning_init_method="RANDOM",
+            num_virtual_tokens=10
+        )
+    }
+    causal_lm_train_kwargs.update(patch_kwargs)
+    model = caikit_nlp.modules.text_generation.PeftPromptTuning.train(
+        **causal_lm_train_kwargs
+    )
+    # Test fallback to float32 behavior if this machine doesn't support bfloat16
+    assert model.model.dtype is torch.float32
+    # Ensure that we can get something out of it
+    pred = model.run("@bar what a cute cat!")
+    assert isinstance(pred, GeneratedTextResult)
 
 def test_train_model_classification_record(causal_lm_train_kwargs, set_cpu_device):
     """Ensure that we can train a model on some toy data for 1+ steps & run inference."""
