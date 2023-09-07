@@ -1,8 +1,10 @@
 """Helpful fixtures for configuring individual unit tests.
 """
 # Standard
+from contextlib import contextmanager
 from typing import Iterable, Optional
 from unittest import mock
+import json
 import os
 import random
 import tempfile
@@ -15,9 +17,11 @@ import torch
 import transformers
 
 # First Party
+from caikit.config.config import merge_configs
 from caikit.interfaces.nlp.data_model import GeneratedTextResult
 from caikit_tgis_backend import TGISBackend
 from caikit_tgis_backend.tgis_connection import TGISConnection
+import aconfig
 import caikit
 
 # Local
@@ -126,6 +130,15 @@ def causal_lm_dummy_model(causal_lm_train_kwargs):
     return caikit_nlp.modules.text_generation.PeftPromptTuning.train(
         **causal_lm_train_kwargs
     )
+
+
+@pytest.fixture
+def saved_causal_lm_dummy_model(causal_lm_dummy_model):
+    """Give a path to a saved dummy model that can be loaded"""
+    with tempfile.TemporaryDirectory() as workdir:
+        model_dir = os.path.join(workdir, "dummy-model")
+        causal_lm_dummy_model.save(model_dir)
+        yield model_dir
 
 
 ## Seq2seq
@@ -242,6 +255,7 @@ class StubTGISBackend(TGISBackend):
             config.update({"connection": {"hostname": "foo.{model_id}:123"}})
         super().__init__(config)
         self.load_prompt_artifacts = mock.MagicMock()
+        self.unload_prompt_artifacts = mock.MagicMock()
 
     def get_client(self, base_model_name):
         self._model_connections[base_model_name] = TGISConnection(
@@ -262,3 +276,15 @@ def stub_tgis_backend():
 TWITTER_DATA_DOWNLOAD_ARGS = [
     {"dataset_path": "ought/raft", "dataset_name": "twitter_complaints"}
 ]
+
+
+@contextmanager
+def temp_config(**overrides):
+    local_config = aconfig.Config(
+        json.loads(json.dumps(caikit.config.get_config())),
+        override_env_vars=False,
+    )
+    merge_configs(local_config, overrides)
+
+    with mock.patch.object(caikit.config.config, "_IMMUTABLE_CONFIG", local_config):
+        yield local_config
