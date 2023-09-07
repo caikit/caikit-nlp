@@ -52,8 +52,6 @@ class TuningType(str, Enum):
 def validate_peft_config(
     tuning_type, tuning_config, error, log, base_model, cls, torch_dtype, verbalizer
 ):
-    # TODO: Move all of the validation into a separate function
-
     if tuning_type not in TuningType._member_names_:
         raise NotImplementedError("{} tuning type not supported!".format(tuning_type))
 
