@@ -48,7 +48,7 @@ error = error_handler.get(log)
 
 
 @modules.module(backend_type=TGISBackend.backend_type, base_module=PeftPromptTuning)
-class PeftPromptTuningTGIS(ModuleBase):
+class PeftPromptTuningTGIS(ModuleBase):  # pylint: disable=too-many-instance-attributes
     SUPPORTED_LOAD_BACKENDS = [TGISBackend.backend_type, backend_types.LOCAL]
     ## Module Interface ##
 
