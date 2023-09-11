@@ -207,6 +207,9 @@ def generate_text_func(
         stop_sequences,
     )
 
+    if "attention_mask" in inputs:
+        gen_optional_params["attention_mask"] = inputs["attention_mask"]
+
     with torch.no_grad():
         generate_ids = model.generate(
             input_ids=inputs["input_ids"],
