@@ -40,6 +40,8 @@ allowed_tuning_init_methods = [
     "AVERAGE_SOURCE_TASKS",
 ]
 
+log = alog.use_channel("PFT_CNFG_TLKT")
+
 
 class TuningType(str, Enum):
     PROMPT_TUNING = "PROMPT_TUNING"
@@ -50,10 +52,34 @@ class TuningType(str, Enum):
     # LORA = "LORA"
 
 
+def resolve_base_model(base_model, cls, error, torch_dtype):
+    if isinstance(base_model, str):
+        model_config = AutoConfig.from_pretrained(
+            base_model, local_files_only=not get_config().allow_downloads
+        )
+
+        resource_type = None
+        for resource in cls.supported_resources:
+            if model_config.model_type in resource.SUPPORTED_MODEL_TYPES:
+                resource_type = resource
+                break
+
+        if not resource_type:
+            error(
+                "<NLP61784225E>",
+                "{} model type is not supported currently!".format(
+                    model_config.model_type
+                ),
+            )
+        log.debug("Bootstrapping base resource [%s]", base_model)
+        base_model = resource_type.bootstrap(base_model, torch_dtype=torch_dtype)
+    return base_model
+
+
 def get_peft_config(
     tuning_type, tuning_config, error, base_model, cls, torch_dtype, verbalizer
 ):
-    log = alog.use_channel("PFT_CNFG_TLKT")
+
     if tuning_type not in TuningType._member_names_:
         raise NotImplementedError("{} tuning type not supported!".format(tuning_type))
 
@@ -99,26 +125,6 @@ def get_peft_config(
                 tuning_config.prompt_tuning_init_source_model,
             )
 
-    if isinstance(base_model, str):
-        model_config = AutoConfig.from_pretrained(
-            base_model, local_files_only=not get_config().allow_downloads
-        )
-
-        resource_type = None
-        for resource in cls.supported_resources:
-            if model_config.model_type in resource.SUPPORTED_MODEL_TYPES:
-                resource_type = resource
-                break
-
-        if not resource_type:
-            error(
-                "<NLP61784225E>",
-                "{} model type is not supported currently!".format(
-                    model_config.model_type
-                ),
-            )
-        log.debug("Bootstrapping base resource [%s]", base_model)
-        base_model = resource_type.bootstrap(base_model, torch_dtype=torch_dtype)
     error.type_check("<NLP65714919E>", PretrainedModelBase, base_model=base_model)
 
     # Validate if tuned output model type is compatible with base model or not

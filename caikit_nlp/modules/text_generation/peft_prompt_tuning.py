@@ -78,7 +78,7 @@ from ...toolkit.text_generation.model_run_utils import (
     generate_text_func_stream,
 )
 from ...toolkit.verbalizer_utils import render_verbalizer
-from .peft_config import TuningType, get_peft_config
+from .peft_config import TuningType, get_peft_config, resolve_base_model
 
 log = alog.use_channel("PEFT_PROMPT")
 error = error_handler.get(log)
@@ -354,6 +354,7 @@ class PeftPromptTuning(ModuleBase):
 
         metric = kwargs.get("metric")
 
+        base_model = resolve_base_model(base_model, cls, error, torch_dtype)
         base_model_name = base_model._model_name
         task_type, output_model_types, peft_config, tuning_type = get_peft_config(
             tuning_type,
