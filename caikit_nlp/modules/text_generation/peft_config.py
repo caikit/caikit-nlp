@@ -22,6 +22,7 @@ from transformers import AutoConfig
 
 # First Party
 from caikit import get_config
+import alog
 
 # Local
 from ...data_model import PromptOutputModelType
@@ -49,9 +50,10 @@ class TuningType(str, Enum):
     # LORA = "LORA"
 
 
-def validate_peft_config(
-    tuning_type, tuning_config, error, log, base_model, cls, torch_dtype, verbalizer
+def get_peft_config(
+    tuning_type, tuning_config, error, base_model, cls, torch_dtype, verbalizer
 ):
+    log = alog.use_channel("PFT_CNFG_TLKT")
     if tuning_type not in TuningType._member_names_:
         raise NotImplementedError("{} tuning type not supported!".format(tuning_type))
 
