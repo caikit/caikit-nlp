@@ -22,6 +22,7 @@ import os
 import numpy as np
 
 # First Party
+from caikit.config import get_config
 from caikit.core import ModuleBase, ModuleConfig, ModuleSaver, modules
 from caikit.core.module_backends import BackendBase, backend_types
 from caikit.core.toolkit import error_handler
@@ -47,7 +48,7 @@ error = error_handler.get(log)
 
 
 @modules.module(backend_type=TGISBackend.backend_type, base_module=PeftPromptTuning)
-class PeftPromptTuningTGIS(ModuleBase):
+class PeftPromptTuningTGIS(ModuleBase):  # pylint: disable=too-many-instance-attributes
     SUPPORTED_LOAD_BACKENDS = [TGISBackend.backend_type, backend_types.LOCAL]
     ## Module Interface ##
 
@@ -66,6 +67,7 @@ class PeftPromptTuningTGIS(ModuleBase):
         # NOTE: This is made optional for the cases where we do not need to execute `.run` function
         # for example, bootstrapping a model to caikit format and saving.
         self._client = None
+        self._tgis_backend = tgis_backend
         if enable_backend:
             # get_client will also launch a local TGIS process and get the model
             # loaded when using the local TGIS backend
@@ -90,6 +92,14 @@ class PeftPromptTuningTGIS(ModuleBase):
             self.PRODUCER_ID,
             self._prompt_cache_id,
         )
+
+    def __del__(self):
+        """Attempt to clean up the prompt cache on deletion"""
+        if get_config().unload_tgis_prompt_artifacts:
+            tgis_backend = getattr(self, "_tgis_backend", None)
+            prompt_cache_id = getattr(self, "_prompt_cache_id", None)
+            if tgis_backend and prompt_cache_id:
+                tgis_backend.unload_prompt_artifacts(prompt_cache_id)
 
     @classmethod
     def load(cls, model_path: str, load_backend: BackendBase) -> "PeftPromptTuningTGIS":
