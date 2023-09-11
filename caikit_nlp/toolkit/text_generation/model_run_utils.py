@@ -18,8 +18,8 @@
 from typing import List, Optional, Tuple, Union
 
 # Third Party
-from transformers import StoppingCriteria, TextStreamer
 from peft.peft_model import PeftModel
+from transformers import StoppingCriteria, TextStreamer
 import numpy as np
 import torch
 
@@ -212,7 +212,9 @@ def generate_text_func(
         gen_optional_params["attention_mask"] = inputs["attention_mask"]
 
     if isinstance(model, PeftModel):
-        gen_optional_params["task_ids"] = torch.zeros(inputs["input_ids"].shape[0], dtype=inputs["input_ids"].dtype).to(model.device)
+        gen_optional_params["task_ids"] = torch.zeros(
+            inputs["input_ids"].shape[0], dtype=inputs["input_ids"].dtype
+        ).to(model.device)
 
     with torch.no_grad():
         generate_ids = model.generate(
