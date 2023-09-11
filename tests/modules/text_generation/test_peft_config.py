@@ -6,10 +6,7 @@ import pytest
 
 # Local
 from caikit_nlp.data_model import PromptOutputModelType
-from caikit_nlp.modules.text_generation.peft_config import (
-    TuningType,
-    validate_peft_config,
-)
+from caikit_nlp.modules.text_generation.peft_config import TuningType, get_peft_config
 
 
 @pytest.fixture
@@ -20,11 +17,6 @@ def mock_error():
         lambda code, condition, message: None if condition else error(code, message)
     )
     return error
-
-
-@pytest.fixture
-def mock_log():
-    return Mock()
 
 
 @pytest.fixture
@@ -67,9 +59,8 @@ def mock_tuning_config():
     return tuning_config
 
 
-def test_validate_peft_config(
+def test_get_peft_config(
     mock_error,
-    mock_log,
     mock_base_model,
     mock_cls,
     mock_torch_dtype,
@@ -82,11 +73,10 @@ def test_validate_peft_config(
     output_model_types = [PromptOutputModelType.DECODER]
 
     # Call the function being tested
-    task_type, output_model_types, peft_config, tuning_type = validate_peft_config(
+    task_type, output_model_types, peft_config, tuning_type = get_peft_config(
         tuning_type,
         mock_tuning_config,
         mock_error,
-        mock_log,
         mock_base_model,
         mock_cls,
         "float32",
