@@ -19,6 +19,7 @@ from typing import List, Optional, Tuple, Union
 
 # Third Party
 from transformers import StoppingCriteria, TextStreamer
+import numpy as np
 import torch
 
 # First Party
@@ -79,7 +80,7 @@ GENERATE_FUNCTION_ARGS = """
         The value used to modulate the next token probabilities.
         Only applicable when decoding_method is SAMPLING.
         Default: 1.0 - means disabled - equivalent to 1.0
-    seed: int
+    seed: numpy.uint64
         Random seed to control sampling. Only applicable when decoding_method
         is SAMPLING. Default: None
     repetition_penalty: float
@@ -141,7 +142,7 @@ def generate_text_func(
     top_p: Optional[float] = 1.0,
     typical_p: Optional[float] = 1.0,
     temperature: Optional[float] = 1.0,
-    seed: Optional[int] = None,
+    seed: Optional[np.uint64] = None,
     repetition_penalty: Optional[float] = 1.0,
     max_time: Optional[float] = None,
     exponential_decay_length_penalty: Optional[
@@ -249,7 +250,7 @@ def generate_text_func_stream(
     top_p: Optional[float] = 0.0,
     typical_p: Optional[float] = 0.0,
     temperature: Optional[float] = 1.0,
-    seed: Optional[int] = None,
+    seed: Optional[np.uint64] = None,
     repetition_penalty: Optional[float] = 0.0,
     max_time: Optional[float] = None,
     exponential_decay_length_penalty: Optional[
