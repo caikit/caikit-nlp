@@ -103,7 +103,6 @@ def test_causal_lm_tokenize_func_contains_wrapped_stream(models_cache_dir):
         max_target_length=100,
         verbalizer="{{input}}",
     )
-    tok_res = tok_func(GenerationTrainRecord(input="hello", output="world"))
     map_stream = SAMPLE_TRAINING_DATA.map(tok_func)
     # Since tok_func for causal lm creates a datastream, we should get a stream
     # back; make sure that it's a stream of streams before proceeding
@@ -123,27 +122,17 @@ def test_causal_lm_tok_output_correctness(models_cache_dir):
         model_name=CAUSAL_LM_MODEL, tokenizer_name=CAUSAL_LM_MODEL
     )
     sample = GenerationTrainRecord(
-        input="This should not matter normally", output="but this one does!"
+        input="This len does not matter", output="but this one does!"
     )
-    input_tok = causal_lm.tokenizer.encode(sample.input)
-    output_tok = causal_lm.tokenizer.encode(sample.output)
-    # HACK: In general, these things should be very flexible, but due to issues
-    # with multiGPU / FSDP (apparently) not playing nicely with the
-    # data collator for Causal LM, which does dynamic padding, for now,
-    # we are max padding in the tokenize function :(
-    #
-    # TODO: Fix the causal lm collator, add chunking to the tokenizer func, and set
-    # the below max_source_length/max_target_length to values larger than the actual
-    # sequence lengths to ensure padding is handled correctly
-    max_source_length = len(input_tok)
-    max_target_length = len(output_tok)
     (tok_func, _) = causal_lm.build_task_tokenize_closure(
         tokenizer=causal_lm.tokenizer,
-        max_source_length=max_source_length,
-        max_target_length=max_target_length,
+        max_source_length=100,
+        max_target_length=100,
         verbalizer="{{input}}",
         task_ids=0,
     )
+    input_tok = causal_lm.tokenizer.encode(sample.input)
+    output_tok = causal_lm.tokenizer.encode(sample.output)
     tok_stream = tok_func(sample)
     # Ensure we get one token per output in our stream
     assert isinstance(tok_stream, caikit.core.data_model.DataStream)
@@ -185,7 +174,6 @@ def test_seq2seq_tokenize_func_contains_unwrapped_stream(models_cache_dir):
         verbalizer="{{input}}",
         task_ids=0,
     )
-    tok_res = tok_func(GenerationTrainRecord(input="hello", output="world"))
     map_stream = SAMPLE_TRAINING_DATA.map(tok_func)
     # Since we don't require unwrapping, i.e., each input sample just produces 1,
     # result, we should just get a stream of batch encodings we can use directly.
@@ -204,7 +192,7 @@ def test_seq2seq_tok_output_correctness(models_cache_dir):
     sample = GenerationTrainRecord(
         input="This len does not matter", output="and this one doesn't either!"
     )
-    (tok_func, requires_unwrapping) = seq2seq.build_task_tokenize_closure(
+    (tok_func, _) = seq2seq.build_task_tokenize_closure(
         tokenizer=seq2seq.tokenizer,
         max_source_length=20,
         max_target_length=20,
@@ -212,7 +200,6 @@ def test_seq2seq_tok_output_correctness(models_cache_dir):
         task_ids=0,
     )
     input_tok = seq2seq.tokenizer.encode(sample.input)
-    output_tok = seq2seq.tokenizer.encode(sample.output)
 
     tok_sample = tok_func(sample)
     # Ensure we get one seq2seq; i.e., the result should NOT be a stream,

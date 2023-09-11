@@ -93,16 +93,10 @@ class HFAutoCausalLM(PretrainedModelBase):
         # HACK: We shouldn't have to pad here, but the causal LM data collator dynamic padding
         # does not appear to be playing nicely with the Huggingface trainer / torch fsdp...
         source_ids = tokenizer(
-            source,
-            max_length=max_source_length,
-            truncation=True,
-            padding="max_length",
+                source, max_length=max_source_length, truncation=True
         )
         target_ids = tokenizer(
-            target,
-            max_length=max_target_length,
-            truncation=True,
-            padding="max_length",
+                target, max_length=max_target_length, truncation=True
         )
         if batched_mode:
             num_target_samples = []
