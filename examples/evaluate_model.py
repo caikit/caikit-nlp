@@ -18,6 +18,8 @@ from utils import (
     load_model,
     print_colored,
     string_to_float,
+    DatasetInfo,
+    load_json_file_dataset,
 )
 
 # Local
@@ -49,7 +51,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--dataset",
         help="Dataset to use to train prompt vectors. Options: {}".format(
-            list(SUPPORTED_DATASETS.keys())
+            list(SUPPORTED_DATASETS.keys()) + ["json_file"]
         ),
         default="twitter_complaints",
     )
@@ -64,6 +66,46 @@ def parse_args() -> argparse.Namespace:
         help="JSON file to dump raw source / target texts to.",
         default="model_preds.json",
     )
+
+    parser.add_argument(
+        "--json_file_path",
+        help="File path of the local JSON file to be loaded as dataset. It should be a JSON array or JSONL format.",
+        default=None,
+        type=pathlib.Path,
+    )
+    parser.add_argument(
+        "--json_file_input_field",
+        help="The input field to be used at the JSON file dataset",
+        default="input",
+    )
+    parser.add_argument(
+        "--json_file_output_field",
+        help="The output field to be used at the JSON file dataset",
+        default="output",
+    )
+    parser.add_argument(
+        "--json_file_init_text",
+        help="The init text to be used by the JSON file dataset",
+        default="",
+    )
+    parser.add_argument(
+        "--json_file_verbalizer",
+        help="The custom verbalizer to be used by the JSON file dataset",
+        default="{{input}}",
+    )
+    parser.add_argument(
+        "--json_file_test_size",
+        help="The percentage of the dataset that will be extracted as test set",
+        default=0.1,
+        type=float
+    )
+    parser.add_argument(
+        "--json_file_validation_size",
+        help="The percentage of the dataset that will be extracted as validation set",
+        default=0.1,
+        type=float
+    )
+
     args = parser.parse_args()
     return args
 
@@ -89,10 +131,11 @@ def get_model_preds_and_references(model, validation_stream):
     for datum in tqdm(validation_stream):
         # Local .run() currently prepends the input text to the generated string;
         # Ensure that we're just splitting the first predicted token & beyond.
-        raw_model_text = model.run(datum.input).text
-        parse_pred_text = raw_model_text.split(datum.input)[-1].strip()
-        model_preds.append(parse_pred_text)
-        targets.append(datum.output)
+        if len(datum.input) > 0:
+            raw_model_text = model.run(datum.input).text
+            parse_pred_text = raw_model_text.split(datum.input)[-1].strip()
+            model_preds.append(parse_pred_text)
+            targets.append(datum.output)
     return (
         model_preds,
         targets,
@@ -148,8 +191,23 @@ if __name__ == "__main__":
     model = load_model(args.tgis, str(args.model_path))
     # Load the validation stream with marked target sequences
     print_colored("Grabbing validation data...")
-    dataset_info = SUPPORTED_DATASETS[args.dataset]
-    validation_stream = dataset_info.dataset_loader()[1]
+    if args.dataset != "json_file":
+        dataset_info = SUPPORTED_DATASETS[args.dataset]
+        validation_stream = dataset_info.dataset_loader()[1]
+    else:
+        dataset_info = DatasetInfo(
+            verbalizer=args.json_file_verbalizer,
+            dataset_loader=load_json_file_dataset(
+                str(args.json_file_path),
+                str(args.json_file_input_field),
+                str(args.json_file_output_field),
+                test_size=args.json_file_test_size,
+                validation_size=args.json_file_validation_size
+            ),
+            init_text=args.json_file_init_text,
+        )
+        validation_stream = dataset_info.dataset_loader[1]
+
     if validation_stream is None:
         raise ValueError(
             "Selected dataset does not have a validation dataset available!"

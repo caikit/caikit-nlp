@@ -290,13 +290,13 @@ def load_json_file_dataset(
 
     dataset = datasets.load_dataset("json", data_files=file_path)
     if test_size > 0:
-        train_test_dataset = dataset["train"].train_test_split(test_size=test_size)
+        train_test_dataset = dataset["train"].train_test_split(test_size=test_size, shuffle=False)
     else:
         train_test_dataset = dataset
         train_test_dataset["test"] = []
     # # # Split the 10% test + valid into half test, half valid
     if validation_size > 0:
-        test_valid = train_test_dataset["train"].train_test_split(test_size=validation_size)
+        test_valid = train_test_dataset["train"].train_test_split(test_size=validation_size, shuffle=False)
         train_test_dataset["train"] = test_valid["train"]
         train_test_dataset["validation"] = test_valid["test"]
     else:
