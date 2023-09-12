@@ -1,8 +1,10 @@
 """Helpful fixtures for configuring individual unit tests.
 """
 # Standard
+from contextlib import contextmanager
 from typing import Iterable, Optional
 from unittest import mock
+import json
 import os
 import random
 import tempfile
@@ -15,9 +17,11 @@ import torch
 import transformers
 
 # First Party
+from caikit.config.config import merge_configs
 from caikit.interfaces.nlp.data_model import GeneratedTextResult
 from caikit_tgis_backend import TGISBackend
 from caikit_tgis_backend.tgis_connection import TGISConnection
+import aconfig
 import caikit
 
 # Local
@@ -128,6 +132,15 @@ def causal_lm_dummy_model(causal_lm_train_kwargs):
     )
 
 
+@pytest.fixture
+def saved_causal_lm_dummy_model(causal_lm_dummy_model):
+    """Give a path to a saved dummy model that can be loaded"""
+    with tempfile.TemporaryDirectory() as workdir:
+        model_dir = os.path.join(workdir, "dummy-model")
+        causal_lm_dummy_model.save(model_dir)
+        yield model_dir
+
+
 ## Seq2seq
 @pytest.fixture
 def seq2seq_lm_train_kwargs():
@@ -186,6 +199,7 @@ class StubTGISClient:
         fake_result.stop_reason = 5
         fake_result.generated_token_count = 1
         fake_result.text = "moose"
+        fake_result.input_token_count = 1
         fake_response.responses = [fake_result]
         return fake_response
 
@@ -195,6 +209,7 @@ class StubTGISClient:
         fake_stream.stop_reason = 5
         fake_stream.generated_token_count = 1
         fake_stream.seed = 10
+        fake_stream.input_token_count = 1
         token = mock.Mock()
         token.text = "moose"
         token.logprob = 0.2
@@ -209,6 +224,7 @@ class StubTGISClient:
         assert result.generated_text == "moose"
         assert result.generated_tokens == 1
         assert result.finish_reason == 5
+        assert result.input_token_count == 1
 
     @staticmethod
     def validate_stream_generate_response(stream_result):
@@ -223,6 +239,7 @@ class StubTGISClient:
         assert first_result.details.finish_reason == 5
         assert first_result.details.generated_tokens == 1
         assert first_result.details.seed == 10
+        assert first_result.details.input_token_count == 1
 
 
 class StubTGISBackend(TGISBackend):
@@ -238,6 +255,7 @@ class StubTGISBackend(TGISBackend):
             config.update({"connection": {"hostname": "foo.{model_id}:123"}})
         super().__init__(config)
         self.load_prompt_artifacts = mock.MagicMock()
+        self.unload_prompt_artifacts = mock.MagicMock()
 
     def get_client(self, base_model_name):
         self._model_connections[base_model_name] = TGISConnection(
@@ -258,3 +276,15 @@ def stub_tgis_backend():
 TWITTER_DATA_DOWNLOAD_ARGS = [
     {"dataset_path": "ought/raft", "dataset_name": "twitter_complaints"}
 ]
+
+
+@contextmanager
+def temp_config(**overrides):
+    local_config = aconfig.Config(
+        json.loads(json.dumps(caikit.config.get_config())),
+        override_env_vars=False,
+    )
+    merge_configs(local_config, overrides)
+
+    with mock.patch.object(caikit.config.config, "_IMMUTABLE_CONFIG", local_config):
+        yield local_config

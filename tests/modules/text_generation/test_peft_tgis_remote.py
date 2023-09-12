@@ -16,7 +16,9 @@ from tests.fixtures import (
     StubTGISClient,
     causal_lm_dummy_model,
     causal_lm_train_kwargs,
+    saved_causal_lm_dummy_model,
     stub_tgis_backend,
+    temp_config,
 )
 
 SAMPLE_TEXT = "Hello stub"
@@ -38,7 +40,9 @@ def test_load_and_run(causal_lm_dummy_model, stub_tgis_backend):
             model_prompt_dir = os.path.split(model_dir)[-1]
 
         # Run an inference request, which is wrapped around our mocked Generate call
-        result = mock_tgis_model.run(SAMPLE_TEXT, preserve_input_text=True)
+        result = mock_tgis_model.run(
+            SAMPLE_TEXT, preserve_input_text=True, max_new_tokens=200, min_new_tokens=50
+        )
         StubTGISClient.validate_unary_generate_response(result)
 
         stub_generation_request = mock_gen.call_args_list[0].args[0]
@@ -68,11 +72,11 @@ def test_load_and_run_stream_out(causal_lm_dummy_model, stub_tgis_backend):
             causal_lm_dummy_model.save(model_dir)
             mock_tgis_model = PeftPromptTuningTGIS.load(model_dir, stub_tgis_backend)
             model_prompt_dir = os.path.split(model_dir)[-1]
-            assert stub_tgis_backend.load_prompt_artifacts.called_once()
+            stub_tgis_backend.load_prompt_artifacts.assert_called_once()
 
         # Run an inference request, which is wrapped around our mocked GenerateStream call
         stream_result = mock_tgis_model.run_stream_out(
-            SAMPLE_TEXT, preserve_input_text=True
+            SAMPLE_TEXT, preserve_input_text=True, max_new_tokens=200, min_new_tokens=50
         )
         StubTGISClient.validate_stream_generate_response(stream_result)
 
@@ -86,3 +90,33 @@ def test_load_and_run_stream_out(causal_lm_dummy_model, stub_tgis_backend):
 
         # Ensure that our prefix ID matches the expected path based on our tmpdir and config
         assert model_prompt_dir == stub_generation_request.prefix_id
+
+
+def test_purge_prompt_on_del(saved_causal_lm_dummy_model, stub_tgis_backend):
+    """Test that the prompt artifacts get purged when a model is deleted"""
+
+    # Load the model and make sure the prompt got copied over
+    mock_tgis_model = PeftPromptTuningTGIS.load(
+        saved_causal_lm_dummy_model, stub_tgis_backend
+    )
+    stub_tgis_backend.load_prompt_artifacts.assert_called_once()
+
+    # Delete the model and make sure the prompt got "removed"
+    with temp_config(unload_tgis_prompt_artifacts=True):
+        mock_tgis_model.__del__()
+        stub_tgis_backend.unload_prompt_artifacts.assert_called_once()
+
+
+def test_purge_prompt_disabled_on_del(saved_causal_lm_dummy_model, stub_tgis_backend):
+    """Test that the prompt artifacts are not purged if disabled"""
+
+    # Load the model and make sure the prompt got copied over
+    mock_tgis_model = PeftPromptTuningTGIS.load(
+        saved_causal_lm_dummy_model, stub_tgis_backend
+    )
+    stub_tgis_backend.load_prompt_artifacts.assert_called_once()
+
+    # Delete the model and make sure the prompt got "removed"
+    with temp_config(unload_tgis_prompt_artifacts=False):
+        mock_tgis_model.__del__()
+        assert not stub_tgis_backend.unload_prompt_artifacts.called

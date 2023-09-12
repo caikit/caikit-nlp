@@ -14,8 +14,11 @@
 
 
 # Standard
-from typing import Iterable, Optional, Union
+from typing import Iterable, List, Optional, Tuple, Union
 import os
+
+# Third Party
+import numpy as np
 
 # First Party
 from caikit.core.module_backends import BackendBase, backend_types
@@ -30,18 +33,24 @@ from caikit_tgis_backend import TGISBackend
 import alog
 
 # Local
+from ...data_model import ExponentialDecayLengthPenalty
 from ...resources.pretrained_model import (
     HFAutoCausalLM,
     HFAutoSeq2SeqLM,
     PretrainedModelBase,
 )
-from ...toolkit.tgis_utils import TGISGenerationClient
+from ...toolkit.text_generation.tgis_utils import (
+    GENERATE_FUNCTION_TGIS_ARGS,
+    TGISGenerationClient,
+)
 from .text_generation_local import TextGeneration
 
 log = alog.use_channel("TXT_GEN")
 error = error_handler.get(log)
 
 # pylint: disable=too-many-instance-attributes
+
+
 @module(backend_type=TGISBackend.backend_type, base_module=TextGeneration)
 class TextGenerationTGIS(ModuleBase):
     """Module to provide text generation capabilities"""
@@ -197,76 +206,98 @@ class TextGenerationTGIS(ModuleBase):
         self,
         text: str,
         preserve_input_text: bool = False,
-        max_new_tokens: int = 20,
-        min_new_tokens: int = 0,
-        truncate_input_tokens: int = 0,
+        max_new_tokens: Optional[int] = 20,
+        min_new_tokens: Optional[int] = 0,
+        truncate_input_tokens: Optional[int] = 0,
+        decoding_method: Optional[str] = "GREEDY",
+        top_k: Optional[int] = 0,
+        top_p: Optional[float] = 1.0,
+        typical_p: Optional[float] = 1.0,
+        temperature: Optional[float] = 1.0,
+        seed: Optional[np.uint64] = None,
+        repetition_penalty: Optional[float] = 1.0,
+        max_time: Optional[float] = None,
+        exponential_decay_length_penalty: Optional[
+            Union[Tuple[int, float], ExponentialDecayLengthPenalty]
+        ] = None,
+        stop_sequences: Optional[List[str]] = None,
     ) -> GeneratedTextResult:
         """Run inference against the model running in TGIS.
 
         Args:
-            text: str
-                Source string to be encoded for generation.
-            preserve_input_text: bool
-                Whether or not the source string should be contained in the generated output,
-                e.g., as a prefix.
-            max_new_tokens: int
-                The maximum numbers of tokens to generate.
-                Default: 20
-            min_new_tokens: int
-                The minimum numbers of tokens to generate.
-                Default: 0 - means no minimum
-            truncate_input_tokens: int
-                Truncate inputs to provided number of tokens. This can be
-                use to avoid failing due to input being longer than
-                configured limits.
-                Default: 0 - means don't truncate, thus throw error.
+           {}
         Returns:
             GeneratedTextResult
                 Generated text result produced by TGIS.
-        """
+        """.format(
+            GENERATE_FUNCTION_TGIS_ARGS
+        )
+
         if self._model_loaded:
             return self.tgis_generation_client.unary_generate(
-                text,
-                preserve_input_text,
-                max_new_tokens,
-                min_new_tokens,
-                truncate_input_tokens,
+                text=text,
+                preserve_input_text=preserve_input_text,
+                max_new_tokens=max_new_tokens,
+                min_new_tokens=min_new_tokens,
+                truncate_input_tokens=truncate_input_tokens,
+                decoding_method=decoding_method,
+                top_k=top_k,
+                top_p=top_p,
+                typical_p=typical_p,
+                temperature=temperature,
+                seed=seed,
+                repetition_penalty=repetition_penalty,
+                max_time=max_time,
+                exponential_decay_length_penalty=exponential_decay_length_penalty,
+                stop_sequences=stop_sequences,
             )
 
     @TextGenerationTask.taskmethod(output_streaming=True)
     def run_stream_out(
         self,
         text: str,
-        preserve_input_text=False,
-        max_new_tokens=20,
-        min_new_tokens=0,
-        truncate_input_tokens=0,
+        preserve_input_text: bool = False,
+        max_new_tokens: Optional[int] = 20,
+        min_new_tokens: Optional[int] = 0,
+        truncate_input_tokens: Optional[int] = 0,
+        decoding_method: Optional[str] = "GREEDY",
+        top_k: Optional[int] = 0,
+        top_p: Optional[float] = 1.0,
+        typical_p: Optional[float] = 1.0,
+        temperature: Optional[float] = 1.0,
+        seed: Optional[np.uint64] = None,
+        repetition_penalty: Optional[float] = 1.0,
+        max_time: Optional[float] = None,
+        exponential_decay_length_penalty: Optional[
+            Union[Tuple[int, float], ExponentialDecayLengthPenalty]
+        ] = None,
+        stop_sequences: Optional[List[str]] = None,
     ) -> Iterable[GeneratedTextStreamResult]:
         """Run output stream inferencing for text generation module.
 
         Args:
-            text: str
-                Source string to be encoded for generation.
-            preserve_input_text: bool
-                Whether or not the source string should be contained in the generated output,
-                e.g., as a prefix.
-            max_new_tokens: int
-                Maximum tokens for the model to generate
-            min_new_tokens: int
-                Minimum tokens for the model to generate
-            truncate_input_tokens: int
-                Truncate inputs to provided number of tokens. This can be
-                use to avoid failing due to input being longer than
-                configured limits.
-                Default: 0 - means don't truncate, thus throw error.
+            {}
         Returns:
             Iterable[GeneratedTextStreamResult]
-        """
+        """.format(
+            GENERATE_FUNCTION_TGIS_ARGS
+        )
+
         if self._model_loaded:
             return self.tgis_generation_client.stream_generate(
-                text,
-                preserve_input_text,
-                max_new_tokens,
-                min_new_tokens,
-                truncate_input_tokens,
+                text=text,
+                preserve_input_text=preserve_input_text,
+                max_new_tokens=max_new_tokens,
+                min_new_tokens=min_new_tokens,
+                truncate_input_tokens=truncate_input_tokens,
+                decoding_method=decoding_method,
+                top_k=top_k,
+                top_p=top_p,
+                typical_p=typical_p,
+                temperature=temperature,
+                seed=seed,
+                repetition_penalty=repetition_penalty,
+                max_time=max_time,
+                exponential_decay_length_penalty=exponential_decay_length_penalty,
+                stop_sequences=stop_sequences,
             )
