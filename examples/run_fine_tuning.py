@@ -182,6 +182,7 @@ def register_common_arguments(subparser: argparse.ArgumentParser) -> None:
         action="store_true",
     )
 
+
 def validate_common_args(args: argparse.Namespace):
     """Validates common arguments to ensure values make sense; here, we only validate things that
     are not (or should not) be handled within the module.

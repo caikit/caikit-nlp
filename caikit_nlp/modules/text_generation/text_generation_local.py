@@ -254,6 +254,26 @@ class TextGeneration(ModuleBase):
             resource_type = type(base_model)
 
         error.type_check("<NLP03221895E>", PretrainedModelBase, base_model=base_model)
+
+        # TODO; For now, we don't support iterable datasets for causal LM, the reason
+        # being that the dynamically padded collator breaks with FSDP/torch run when
+        # multiple devices are used. This appears to be because each process fetches
+        # part of the batch from the main iterator directly (which does dynamic padding
+        # independently per process), which the accelerator data loader wrapper gathers
+        # and concatenates to form the batch. I.e., we get concatenation dimension errors.
+        #
+        # This is a short term workaround, but a more sustainable path forward would be
+        # to either force the dataloader workers to 1 without modifying the torchrun config
+        # (probably through trainer args), or find a way to form the whole batch on one
+        # process and broadcast, although the former is probably better for performance
+        # here since things are collected anyway.
+        if use_iterable_dataset and isinstance(base_model, HFAutoCausalLM):
+            log.warning(
+                "<NLP24452569W>",
+                "Iterable dataset not supported for CausalLMs; Falling back to normal dataset",
+            )
+            use_iterable_dataset = False
+
         ## Generate data loader from stream
         training_dataset: Union[
             Dataset, TransformersIterableDataset
