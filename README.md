@@ -41,9 +41,9 @@ Prompt tuning - learning soft prompts. This is different from prompt engineering
 
 The important difference between fine tuning and capabilities like prompt tuning/multi-taskprompt tuning is that the latter doesn't change the base model's weights at all. So when you run inference for prompt tuned models, you can have n prompts to 1 base model, and just inject the prompt tensors you need when they're requested instead of having _n_ separate fine-tuned models.
 
-### Benchmarking
+### Runtime Performance Benchmarking 
 
-[Benchmarks](./benchmarks/README.md) for tuning various models.
+[Runtime Performance Benchmarking](./benchmarks/README.md) for tuning various models.
 
 #### Notes
 

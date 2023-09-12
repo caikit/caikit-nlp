@@ -1,6 +1,6 @@
-# Caikit NLP Tuning Benchmarks
+# Caikit NLP Runtime Performance Benchmarks
 
-Benchmark results for various model on various hardware configurations.
+Runtime performance benchmarking results for various model on various hardware configurations.
 
 ## Llama2-7b
 
