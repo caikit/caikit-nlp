@@ -145,6 +145,35 @@ def test_train_model(causal_lm_train_kwargs, set_cpu_device):
     assert isinstance(pred, GeneratedTextResult)
 
 
+def test_gen_trained_mpt(causal_lm_train_kwargs, set_cpu_device):
+    """Ensure that we are able to do generation on causal-lm model trained
+    using MPT."""
+    patch_kwargs = {
+        "num_epochs": 1,
+        "verbalizer": "Tweet text : {{input}} Label : ",
+        "train_stream": caikit.core.data_model.DataStream.from_iterable(
+            [
+                caikit_nlp.data_model.GenerationTrainRecord(
+                    input="@foo what a cute dog!", output="no complaint"
+                ),
+                caikit_nlp.data_model.GenerationTrainRecord(
+                    input="@bar this is the worst idea ever.", output="complaint"
+                ),
+            ]
+        ),
+        "torch_dtype": torch.float32,
+        "tuning_type": "MULTITASK_PROMPT_TUNING",
+        "device": "cpu",
+    }
+    causal_lm_train_kwargs.update(patch_kwargs)
+    model = caikit_nlp.modules.text_generation.PeftPromptTuning.train(
+        **causal_lm_train_kwargs
+    )
+    # Ensure that we can get something out of it
+    pred = model.run("@bar what a cute cat!")
+    assert isinstance(pred, GeneratedTextResult)
+
+
 def test_train_model_classification_record(causal_lm_train_kwargs, set_cpu_device):
     """Ensure that we can train a model on some toy data for 1+ steps & run inference."""
     patch_kwargs = {
