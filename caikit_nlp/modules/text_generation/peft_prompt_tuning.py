@@ -1087,7 +1087,7 @@ class PeftPromptTuning(ModuleBase):
         (
             tokenize_function,
             requires_unwrapping,
-        ) = base_model.build_task_tokenize_function(
+        ) = base_model.build_task_tokenize_closure(
             tokenizer, max_source_length, max_target_length, verbalizer, task_ids=0
         )
         mapped_stream = train_stream.map(tokenize_function)

@@ -1,0 +1,53 @@
+(tuning) [gpu_user@gpu5530 caikit-nlp]$ ./ft_job.sh 
+/u/gpu_user/.conda/envs/tuning/lib/python3.9/site-packages/caikit/core/toolkit/errors/__init__.py:29: DeprecationWarning: The caikit.toolkit.errors package has moved to caikit.core.exceptions
+  _warnings.warn(
+<function register_backend_type at 0x1471039b7790> is still in the BETA phase and subject to change!
+/u/gpu_user/.conda/envs/tuning/lib/python3.9/site-packages/caikit/core/toolkit/error_handler.py:29: DeprecationWarning: The caikit.toolkit.error_handler package has moved to caikit.core.exceptions
+  _warnings.warn(
+Existing model directory found; purging it now.
+Experiment Configuration
+- Model Name: [/tmp/tu/huggingface/hub/models--llama-2-7b]
+ |- Inferred Model Resource Type: [<class 'caikit_nlp.resources.pretrained_model.hf_auto_causal_lm.HFAutoCausalLM'>]
+- Dataset: [glue/rte]
+- Number of Epochs: [1]
+- Learning Rate: [2e-05]
+- Batch Size: [6]
+- Output Directory: [/tmp/tu/output/tuning/llama27b]
+- Maximum source sequence length: [512]
+- Maximum target sequence length: [1024]
+- Gradient accumulation steps: [16]
+- Enable evaluation: [False]
+- Evaluation metrics: [['rouge']]
+- Torch dtype to use for training: [bfloat16]
+[Loading the dataset...]
+2023-09-06T13:51:21.128309 [fsspe:DBUG] open file: /u/gpu_user/.cache/huggingface/datasets/glue/rte/1.0.0/dacbe3125aa31d7f70367a07a8a9e72a5a0bfeb5fc42e75c9db75b96da6053ad/dataset_info.json
+2023-09-06T13:51:21.146717 [fsspe:DBUG] open file: /u/gpu_user/.cache/huggingface/datasets/glue/rte/1.0.0/dacbe3125aa31d7f70367a07a8a9e72a5a0bfeb5fc42e75c9db75b96da6053ad/dataset_info.json
+[Loading the base model resource...]
+Loading checkpoint shards: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 2/2 [00:05<00:00,  2.79s/it]
+[Starting the training...]
+2023-09-06T13:52:11.307381 [PEFT_:DBUG] Shuffling enabled? True
+2023-09-06T13:52:11.307508 [PEFT_:DBUG] Shuffling buffer size: 7470
+TRAINING ARGS: {
+    "output_dir": "/tmp",
+    "per_device_train_batch_size": 6,
+    "per_device_eval_batch_size": 6,
+    "num_train_epochs": 1,
+    "seed": 73,
+    "do_eval": false,
+    "learning_rate": 2e-05,
+    "weight_decay": 0.01,
+    "save_total_limit": 3,
+    "push_to_hub": false,
+    "no_cuda": false,
+    "remove_unused_columns": false,
+    "dataloader_pin_memory": false,
+    "gradient_accumulation_steps": 16,
+    "eval_accumulation_steps": 16,
+    "bf16": true
+}
+  0%|                                                                                                                                                              | 0/77 [00:00<?, ?it/s]You're using a LlamaTokenizerFast tokenizer. Please note that with a fast tokenizer, using the `__call__` method is faster than using a method to encode the text followed by a call to the `pad` method to get a padded encoding.
+{'train_runtime': 348.4812, 'train_samples_per_second': 21.436, 'train_steps_per_second': 0.221, 'train_loss': 1.6495626870687905, 'epoch': 0.99}                                         
+100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 77/77 [05:48<00:00,  4.53s/it]
+Loading checkpoint shards: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 2/2 [00:03<00:00,  1.61s/it]
+Using sep_token, but it is not set yet.
+[Training Complete]
