@@ -26,6 +26,7 @@ from utils import (
     SUPPORTED_DATASETS,
     DatasetInfo,
     configure_random_seed_and_logging,
+    load_json_file_dataset,
     print_colored,
 )
 import datasets
@@ -166,7 +167,7 @@ def register_common_arguments(subparsers: Tuple[argparse.ArgumentParser]) -> Non
         subparser.add_argument(
             "--dataset",
             help="Dataset to use to train prompt vectors. Options: {}".format(
-                list(SUPPORTED_DATASETS.keys())
+                list(SUPPORTED_DATASETS.keys()) + ["json_file"]
             ),
             default="twitter_complaints",
         )
@@ -235,7 +236,44 @@ def register_common_arguments(subparsers: Tuple[argparse.ArgumentParser]) -> Non
             default=1,
             type=int,
         )
-
+        subparser.add_argument(
+            "--json_file_path",
+            help="File path of the local JSON file to be loaded as dataset. It should be a JSON array or JSONL format.",
+            default=None,
+            type=pathlib.Path,
+        )
+        subparser.add_argument(
+            "--json_file_input_field",
+            help="The input field to be used at the JSON file dataset",
+            default="input",
+        )
+        subparser.add_argument(
+            "--json_file_output_field",
+            help="The output field to be used at the JSON file dataset",
+            default="output",
+        )
+        subparser.add_argument(
+            "--json_file_init_text",
+            help="The init text to be used by the JSON file dataset",
+            default="",
+        )
+        subparser.add_argument(
+            "--json_file_verbalizer",
+            help="The custom verbalizer to be used by the JSON file dataset",
+            default="{{input}}",
+        )
+        subparser.add_argument(
+            "--json_file_test_size",
+            help="The percentage of the dataset that will be extracted as test set",
+            default=0.1,
+            type=float
+        )
+        subparser.add_argument(
+            "--json_file_validation_size",
+            help="The percentage of the dataset that will be extracted as validation set",
+            default=0.1,
+            type=float
+        )
 
 def register_multitask_prompt_tuning_args(subparser: argparse.ArgumentParser):
     """Register additional configuration options for MP(rompt)T subtask.
@@ -281,11 +319,15 @@ def validate_common_args(args: argparse.Namespace):
             Parsed args corresponding to one tuning task.
     """
     # Validate that the dataset is one of our allowed values
-    if args.dataset not in SUPPORTED_DATASETS:
+    if args.dataset != "json_file" and args.dataset not in SUPPORTED_DATASETS:
         raise KeyError(
             "[{}] is not a supported dataset; see --help for options.".format(
                 args.dataset
             )
+        )
+    if args.dataset == "json_file" and args.json_file_path is None:
+        raise argparse.ArgumentError(
+            None, "--json_file_path is required when dataset value is json_file."
         )
     # Purge our output directory if one already exists.
     if os.path.isdir(args.output_dir):
@@ -378,13 +420,30 @@ if __name__ == "__main__":
     configure_random_seed_and_logging()
     args = parse_args()
     model_type = get_resource_type(args.model_name)
-    # Unpack the dataset dictionary into a loaded dataset & verbalizer
-    dataset_info = SUPPORTED_DATASETS[args.dataset]
-    show_experiment_configuration(args, dataset_info, model_type)
     # Convert the loaded dataset to a stream
     print_colored("[Loading the dataset...]")
-    # TODO - conditionally enable validation stream
-    train_stream = dataset_info.dataset_loader()[0]
+    # Unpack the dataset dictionary into a loaded dataset & verbalizer
+    if args.dataset != "json_file":
+        dataset_info = SUPPORTED_DATASETS[args.dataset]
+        # TODO - conditionally enable validation stream
+        train_stream = dataset_info.dataset_loader()[0]
+    else:
+        print(
+            args.json_file_path, args.json_file_input_field, args.json_file_output_field
+        )
+        dataset_info = DatasetInfo(
+            verbalizer=args.json_file_verbalizer,
+            dataset_loader=load_json_file_dataset(
+                str(args.json_file_path),
+                str(args.json_file_input_field),
+                str(args.json_file_output_field),
+                test_size=args.json_file_test_size,
+                validation_size=args.json_file_validation_size
+            ),
+            init_text=args.json_file_init_text,
+        )
+        train_stream = dataset_info.dataset_loader[0]
+    show_experiment_configuration(args, dataset_info, model_type)
     if args.num_shots is not None:
         train_stream = subsample_stream(train_stream, args.num_shots)
     # Init the resource & Build the tuning config from our dataset/arg info

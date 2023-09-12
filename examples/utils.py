@@ -280,6 +280,37 @@ def load_samsum_dataset() -> Tuple[caikit.core.data_model.DataStream]:
     return (train_stream, validation_stream, test_stream)
 
 
+def load_json_file_dataset(
+    file_path, input_field, output_field, test_size=0.1, validation_size=0.1
+) -> Tuple[caikit.core.data_model.DataStream]:
+    """Load the dataset from local JSON file."""
+
+    def to_generation_fmt(x):
+        return GenerationTrainRecord(input=x[input_field], output=str(x[output_field]))
+
+    dataset = datasets.load_dataset("json", data_files=file_path)
+    if test_size > 0:
+        train_test_dataset = dataset["train"].train_test_split(test_size=test_size)
+    else:
+        train_test_dataset = dataset
+        train_test_dataset["test"] = []
+    # # # Split the 10% test + valid into half test, half valid
+    if validation_size > 0:
+        test_valid = train_test_dataset["train"].train_test_split(test_size=validation_size)
+        train_test_dataset["train"] = test_valid["train"]
+        train_test_dataset["validation"] = test_valid["test"]
+    else:
+        train_test_dataset["validation"] = []
+
+    build_stream = lambda split: caikit.core.data_model.DataStream.from_iterable(
+        [to_generation_fmt(datum) for datum in train_test_dataset[split]]
+    )
+    train_stream = build_stream("train")
+    validation_stream = build_stream("validation")
+    test_stream = build_stream("test")
+    return (train_stream, validation_stream, test_stream)
+
+
 def get_wrapped_evaluate_metric(metric_name: str, convert_to_numeric: bool) -> Callable:
     """Wrapper for running metrics out of evaluate which operate on numeric arrays
     named predictions & references, respectively.
