@@ -23,6 +23,7 @@ from tests.fixtures import (
     SEQ2SEQ_LM_MODEL,
     StubTGISBackend,
     StubTGISClient,
+    set_cpu_device,
 )
 
 SAMPLE_TEXT = "Hello stub"
@@ -90,7 +91,7 @@ def test_save_model_can_run():
 
 
 @pytest.mark.skipif(platform.processor() == "arm", reason="ARM training not supported")
-def test_local_train_load_tgis():
+def test_local_train_load_tgis(set_cpu_device):
     """Check if the model trained in local module is able to
     be loaded in TGIS module / backend
     """

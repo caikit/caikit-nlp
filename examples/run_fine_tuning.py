@@ -176,6 +176,11 @@ def register_common_arguments(subparser: argparse.ArgumentParser) -> None:
         help="Run inference using TGIS. NOTE: This involves saving and reloading model in TGIS container",
         action="store_true",
     )
+    subparser.add_argument(
+        "--iterable_dataset",
+        help="Enable evaluation on trained model",
+        action="store_true",
+    )
 
 
 def validate_common_args(args: argparse.Namespace):
@@ -227,6 +232,7 @@ def show_experiment_configuration(args, dataset_info, model_type) -> None:
         "- Enable evaluation: [{}]".format(args.evaluate),
         "- Evaluation metrics: [{}]".format(args.metrics),
         "- Torch dtype to use for training: [{}]".format(args.torch_dtype),
+        "- Using iterable dataset: [{}]".format(args.iterable_dataset),
     ]
     # Log and sleep for a few seconds in case people actually want to read this...
     print_colored("\n".join([print_str for print_str in print_strs if print_str]))
@@ -329,6 +335,7 @@ if __name__ == "__main__":
         batch_size=args.batch_size,
         accumulate_steps=args.accumulate_steps,
         num_epochs=args.num_epochs,
+        use_iterable_dataset=args.iterable_dataset,
     )
 
     print_colored("[Training Complete]")

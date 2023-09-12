@@ -14,6 +14,7 @@
 
 # Standard
 from abc import ABC, abstractmethod
+from collections.abc import Mapping
 from typing import Callable, List, Optional, Tuple, Type, Union
 import json
 import os
@@ -31,12 +32,13 @@ import torch
 
 # First Party
 from caikit import get_config
+from caikit.core.data_model import DataStream
 from caikit.core.modules import ModuleBase, ModuleConfig, ModuleSaver
 from caikit.core.toolkit import error_handler
 import alog
 
 # Local
-from ...data_model import PromptOutputModelType
+from ...data_model import GenerationTrainRecord, PromptOutputModelType
 from ...toolkit.data_type_utils import get_torch_dtype, str_to_torch_dtype
 
 log = alog.use_channel("HFRBAS")
@@ -49,6 +51,12 @@ class PretrainedModelBase(ABC, ModuleBase):
     _TOK_ARTIFACTS_CONFIG_KEY = "tokenizer_artifacts"
     _MODEL_ARTIFACTS_CONFIG_KEY = "model_artifacts"
     _LEFT_PAD_MODEL_TYPES = ("gpt", "opt", "bloom")
+
+    @classmethod
+    @property
+    def REQUIRES_TOKEN_UNWRAPPING(cls) -> str:
+        """Most models don't need token unwrapping from their tokenizer closures"""
+        return False
 
     ## Abstract Interface ######################################################
 
@@ -73,7 +81,6 @@ class PretrainedModelBase(ABC, ModuleBase):
         """All classes must indicate the model types supported by the resource"""
 
     ## Shared Implementation ###################################################
-
     def __init__(
         self,
         tokenizer: AutoTokenizer,
@@ -125,12 +132,14 @@ class PretrainedModelBase(ABC, ModuleBase):
         Args:
             model_name (str)
                 The name/path of the HF sequence classifier model
-            tokenizer_name (Optional[str])
+            tokenizer_name (Optional[str]
                 The name/path of the HF tokenizer model (matches model_name if
-                not given)
+                not given) or an instance of a loaded tokenizer.
+                NOTE: If a loaded tokenizer is provided, and it doesn't have
+                a pad token ID, the pad token ID will be set to the EOS token ID.
             padding_side (Optional[str])
                 The padding side for the tokenizer. Found by convention if not
-                given.
+                given. This value is only used if a tokenizer needs to be loaded.
             torch_dtype: (Optional[Union[torch.dtype, str]])
                 Data type to load the model as; if no value is provided, we pull
                 torch_dtype from config.
@@ -174,7 +183,10 @@ class PretrainedModelBase(ABC, ModuleBase):
             tokenizer_name,
             local_files_only=not get_config().allow_downloads,
             padding_side=padding_side,
+            # We can't disable use_fast otherwise unit test fails
+            # use_fast=False,
         )
+
         if tokenizer.pad_token_id is None:
             tokenizer.pad_token_id = tokenizer.eos_token_id
 
@@ -265,7 +277,6 @@ class PretrainedModelBase(ABC, ModuleBase):
         trainer_arguments = {
             "train_dataset": train_dataset,
             "data_collator": data_collator,
-            "tokenizer": self._tokenizer,
             "optimizers": optimizers,
             "eval_dataset": eval_dataset,
         }
@@ -302,20 +313,58 @@ class PretrainedModelBase(ABC, ModuleBase):
         """Return number of applicable transformer submodules"""
         return 1
 
+    @staticmethod
+    def decompose_example_io(example: Union[GenerationTrainRecord, Mapping]):
+        """Given an example, which might be a number of supported types,
+        extract the input / output texts. Depending on the manner in which
+        the sample is being leveraged, this might be a raw data model object,
+        a dict, or some other mappable, e.g., a HF dataset LazyRow.
+
+        args:
+            example: Union[GenerationTrainRecord, Mapping]
+                Objects whose input / output we want to retrieve.
+
+        Returns:
+            Tuple[str, str]
+                Input & Output strings.
+        """
+        if isinstance(example, GenerationTrainRecord):
+            return example.input, example.output
+        # TODO: probably a good idea to add some error handling here;
+        # For now, we don't since situations in which we call this
+        # internally should generally enforce this as true, e.g.,
+        # hf datasets created out of data model objects.
+        return example["input"], example["output"]
+
+    @classmethod
+    def build_task_tokenize_closure(cls, *args, **kwargs) -> Tuple[Callable, bool]:
+        """Builds tokenizer closure which can be mapped over train streams to process
+        data which can then be easily passed to a DataLoader for different model types.
+        This is largely for convenience if we want a closure that can be applied
+        without having to carry around other parameters.
+        """
+
+        def tokenize_wrapper(example: GenerationTrainRecord):
+            return cls.tokenize_function(example, *args, **kwargs)
+
+        return (tokenize_wrapper, cls.REQUIRES_TOKEN_UNWRAPPING)
+
     @classmethod
     @abstractmethod
-    def build_task_tokenize_function(
+    def tokenize_function(
         cls,
+        example: Union[GenerationTrainRecord, Mapping],
         tokenizer: "AutoTokenizer",
         max_source_length: int,
         max_target_length: int,
-        verbalizer: str,
+        verbalizer: Union[None, str] = None,
         task_ids: Union[None, int] = None,
-    ) -> Tuple[Callable, bool]:
-        """Builds tokenizer functions which can be mapped over train streams to process
-        data which can then be easily passed to a DataLoader for different model types.
+    ) -> Union["BatchEncoding", DataStream["BatchEncoding"]]:
+        """Tokenizes a generation training record.
 
         Args:
+            Union[GenerationTrainRecord, Mapping]
+                Example data model object / mapping to be tokenized.
             tokenizer: AutoTokenizer
                 Model tokenizer to be used in preprocessing, i.e., when we iterate over our data.
             max_source_length: int
@@ -325,14 +374,13 @@ class PretrainedModelBase(ABC, ModuleBase):
             verbalizer: str
                 Verbalizer template to be used for formatting data. This template may use brackets
                 to indicate where fields from the data model TrainGenerationRecord must be rendered.
+                If no verbalizer is provided, the source text is used as the rendered result.
             task_ids: Union[None, int]
                 Task id corresponding particular task for multi-task prompt tuning.
                 NOTE: Only required for MPT (Multi-task prompt tuning)
                 Default: None
 
         Returns:
-            Tuple(Callable, bool)
-                Mappable tokenize function to be applied to a training stream and bool indicating
-                whether or not the stream needs to be unwrapped, i.e., each sample yields a stream
-                of 1+ samples.
+            BatchEncoding | DataStream[BatchEncoding]
+                encoded tokenization output corresponding to the input example.
         """

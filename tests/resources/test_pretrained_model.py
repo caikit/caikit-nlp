@@ -9,11 +9,13 @@ NOTE: If the subclasses become sufficiently complex, this test file should be sp
 from unittest.mock import patch
 
 # Third Party
+from datasets import IterableDataset as TransformersIterableDataset
 import pytest
 import torch
 import transformers
 
 # First Party
+from caikit.core.data_model import DataStream
 import aconfig
 import caikit
 
@@ -95,13 +97,12 @@ def test_causal_lm_tokenize_func_contains_wrapped_stream(models_cache_dir):
     causal_lm = HFAutoCausalLM.bootstrap(
         model_name=CAUSAL_LM_MODEL, tokenizer_name=CAUSAL_LM_MODEL
     )
-    (tok_func, requires_unwrapping) = causal_lm.build_task_tokenize_function(
+    (tok_func, requires_unwrapping) = causal_lm.build_task_tokenize_closure(
         tokenizer=causal_lm.tokenizer,
         max_source_length=100,
         max_target_length=100,
         verbalizer="{{input}}",
     )
-    tok_res = tok_func(GenerationTrainRecord(input="hello", output="world"))
     map_stream = SAMPLE_TRAINING_DATA.map(tok_func)
     # Since tok_func for causal lm creates a datastream, we should get a stream
     # back; make sure that it's a stream of streams before proceeding
@@ -123,7 +124,7 @@ def test_causal_lm_tok_output_correctness(models_cache_dir):
     sample = GenerationTrainRecord(
         input="This len does not matter", output="but this one does!"
     )
-    (tok_func, requires_unwrapping) = causal_lm.build_task_tokenize_function(
+    (tok_func, _) = causal_lm.build_task_tokenize_closure(
         tokenizer=causal_lm.tokenizer,
         max_source_length=100,
         max_target_length=100,
@@ -166,14 +167,13 @@ def test_seq2seq_tokenize_func_contains_unwrapped_stream(models_cache_dir):
     seq2seq = HFAutoSeq2SeqLM.bootstrap(
         model_name=SEQ2SEQ_LM_MODEL, tokenizer_name=SEQ2SEQ_LM_MODEL
     )
-    (tok_func, requires_unwrapping) = seq2seq.build_task_tokenize_function(
+    (tok_func, requires_unwrapping) = seq2seq.build_task_tokenize_closure(
         tokenizer=seq2seq.tokenizer,
         max_source_length=100,
         max_target_length=100,
         verbalizer="{{input}}",
         task_ids=0,
     )
-    tok_res = tok_func(GenerationTrainRecord(input="hello", output="world"))
     map_stream = SAMPLE_TRAINING_DATA.map(tok_func)
     # Since we don't require unwrapping, i.e., each input sample just produces 1,
     # result, we should just get a stream of batch encodings we can use directly.
@@ -192,7 +192,7 @@ def test_seq2seq_tok_output_correctness(models_cache_dir):
     sample = GenerationTrainRecord(
         input="This len does not matter", output="and this one doesn't either!"
     )
-    (tok_func, requires_unwrapping) = seq2seq.build_task_tokenize_function(
+    (tok_func, _) = seq2seq.build_task_tokenize_closure(
         tokenizer=seq2seq.tokenizer,
         max_source_length=20,
         max_target_length=20,
@@ -200,7 +200,6 @@ def test_seq2seq_tok_output_correctness(models_cache_dir):
         task_ids=0,
     )
     input_tok = seq2seq.tokenizer.encode(sample.input)
-    output_tok = seq2seq.tokenizer.encode(sample.output)
 
     tok_sample = tok_func(sample)
     # Ensure we get one seq2seq; i.e., the result should NOT be a stream,
@@ -210,3 +209,45 @@ def test_seq2seq_tok_output_correctness(models_cache_dir):
     # Ensure we support MPT
     assert hasattr(tok_sample, "task_ids")
     assert tok_sample["task_ids"] == 0
+
+
+def test_causal_lm_batch_tokenization(models_cache_dir):
+    """Ensure that we can batch process causal lm inputs correctly."""
+    causal_lm = HFAutoCausalLM.bootstrap(
+        model_name=CAUSAL_LM_MODEL, tokenizer_name=CAUSAL_LM_MODEL
+    )
+    train_stream = DataStream.from_iterable(
+        [
+            GenerationTrainRecord(input="hello there", output="world"),
+            GenerationTrainRecord(input="how", output="today"),
+        ]
+    )
+    fn_kwargs = {
+        "tokenizer": causal_lm.tokenizer,
+        "max_source_length": 10,
+        "max_target_length": 10,
+    }
+    # Create an iterable dataset by batching...
+    def get(train_stream):
+        for data in train_stream:
+            yield {"input": data.input, "output": data.output}
+
+    dataset = TransformersIterableDataset.from_generator(
+        get, gen_kwargs={"train_stream": train_stream}
+    )
+    batched_dataset = dataset.map(
+        causal_lm.tokenize_function,
+        fn_kwargs=fn_kwargs,
+        batched=True,
+        remove_columns=["input", "output"],
+    )
+
+    # Do the same thing with no batching via tokenize closure + unwrapping
+    tok_func = causal_lm.build_task_tokenize_closure(**fn_kwargs)[0]
+    mapped_indiv_stream = train_stream.map(tok_func).flatten()
+    for indiv_res, batched_res in zip(mapped_indiv_stream, batched_dataset):
+        # All keys should match (input ids, attention mask)
+        assert indiv_res.keys() == batched_res.keys()
+        # And all of their values should be the same
+        for k in indiv_res:
+            assert indiv_res[k] == batched_res[k]
