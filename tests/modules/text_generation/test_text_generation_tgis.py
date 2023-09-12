@@ -177,13 +177,9 @@ def test_bootstrap_and_run_causallm_with_optional_params():
         min_new_tokens=50,
         truncate_input_tokens=10,
         decoding_method="GREEDY",
-        top_k=0,
-        top_p=0.1,
-        typical_p=0.5,
-        temperature=0.75,
         repetition_penalty=0.3,
         max_time=10.5,
-        exponential_decay_length_penalty=(2, 0.95),
+        exponential_decay_length_penalty=(2, 8),
         stop_sequences=["This is a test"],
     )
     StubTGISClient.validate_unary_generate_response(result)
@@ -200,15 +196,16 @@ def test_bootstrap_and_run_stream_out_with_optional_dependencies():
         max_new_tokens=200,
         min_new_tokens=50,
         truncate_input_tokens=10,
-        decoding_method="GREEDY",
-        top_k=0,
+        decoding_method="SAMPLING",
+        top_k=1,
         top_p=0.1,
         typical_p=0.5,
         temperature=0.75,
+        seed=42,
         repetition_penalty=0.3,
         max_time=10.5,
         exponential_decay_length_penalty=ExponentialDecayLengthPenalty(
-            start_index=2, decay_factor=0.95
+            start_index=2, decay_factor=1.5
         ),
         stop_sequences=["This is a test"],
     )
@@ -228,7 +225,10 @@ def test_invalid_optional_params():
         )
 
     with pytest.raises(TypeError):
-        _ = model.run(SAMPLE_TEXT, preserve_input_text=True, top_k=0.5)
+        _ = model.run(SAMPLE_TEXT, preserve_input_text=True, top_k=0.2)
 
     with pytest.raises(TypeError):
-        _ = model.run(SAMPLE_TEXT, exponential_decay_length_penalty=[2, 0.95])
+        _ = model.run(SAMPLE_TEXT, exponential_decay_length_penalty=[2, 2])
+
+    with pytest.raises(ValueError):
+        _ = model.run(SAMPLE_TEXT, decoding_method="GREEDY", seed=5)
