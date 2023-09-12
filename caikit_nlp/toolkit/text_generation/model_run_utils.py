@@ -211,6 +211,9 @@ def generate_text_func(
     if "attention_mask" in inputs:
         gen_optional_params["attention_mask"] = inputs["attention_mask"]
 
+    # NOTE: Below is required as `task_id` is a required field for generation
+    # with MPT in PEFT. We are manually setting task id to 0 vector since
+    # we do not allow setting task specific id anyways.
     if isinstance(model, PeftModel):
         gen_optional_params["task_ids"] = torch.zeros(
             inputs["input_ids"].shape[0], dtype=inputs["input_ids"].dtype
