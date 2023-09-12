@@ -71,6 +71,16 @@ class HFAutoCausalLM(PretrainedModelBase):
             example: GenerationTrainRecord | Mapping
                 Training data model object to convert a form we can learn on, or a Mapping
                 that has keys input/output.
+            tokenizer: AutoTokenizer
+                Tokenizer object to be applied to input records.
+            max_source_length: int
+                Maximum length for input sequences.
+            max_target_length: int
+                Maximum length for output sequences.
+            verbalizer: Union[None, str]
+                Verbalizer to be rendered into each text.
+            task_ids: Union[None, int]
+                Task IDs to be used for multiprompt tuning.
 
         Returns:
             DataStream[transformers.tokenization_utils_base.BatchEncoding]
