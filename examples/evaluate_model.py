@@ -89,7 +89,7 @@ def get_model_preds_and_references(model, validation_stream):
     for datum in tqdm(validation_stream):
         # Local .run() currently prepends the input text to the generated string;
         # Ensure that we're just splitting the first predicted token & beyond.
-        raw_model_text = model.run(datum.input).text
+        raw_model_text = model.run(datum.input).generated_text
         parse_pred_text = raw_model_text.split(datum.input)[-1].strip()
         model_preds.append(parse_pred_text)
         targets.append(datum.output)
