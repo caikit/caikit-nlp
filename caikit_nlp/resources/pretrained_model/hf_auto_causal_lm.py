@@ -15,8 +15,8 @@
 Huggingface auto causal LM resource type
 """
 # Standard
+from copy import copy
 from collections.abc import Mapping
-from copy import deepcopy
 from typing import Union
 
 # Third Party
@@ -99,70 +99,36 @@ class HFAutoCausalLM(PretrainedModelBase):
         source = (
             source if verbalizer is None else render_verbalizer(verbalizer, example)
         )
-
+        
         source_ids = tokenizer(source, max_length=max_source_length, truncation=True)
         target_ids = tokenizer(target, max_length=max_target_length, truncation=True)
-        if batched_mode:
-            num_target_samples = []
-            for idx, _ in enumerate(source_ids.input_ids):
-                source_ids["input_ids"][idx] = (
-                    source_ids.input_ids[idx] + target_ids.input_ids[idx]
-                )
-                num_target_samples.append(len(target_ids.input_ids[idx]))
-                if task_ids is not None:
-                    source_ids["task_ids"][idx] = task_ids
-        else:
-            source_ids["input_ids"] = source_ids.input_ids + target_ids.input_ids
-            # Here, we need to yield and manipulate the attention mask to attend
-            # to the input seq + the tokens we have seen so far...
-            num_target_samples = len(target_ids.input_ids)
+        # Force everything to a list of batch encodings; for non-batch mode, this just
+        # puts it into a list. For batch mode, we get a list of batch encodings,
+        # allowing us to standardize subsequent processing a bit.
 
-            if task_ids is not None:
-                source_ids["task_ids"] = task_ids
+        source_ids = cls._force_to_batch_encoding_list(
+            source_ids,
+            target_ids,
+            batched_mode,
+            task_ids
+        )
 
-        # This is disgusting! TODO:
-        # - Consolidate batched [generator] vs. non-batched behavior [batch encoded lists]
-        # - Make all attention mask logic common, etc.
-        def single_generator_func():
-            for idx in range(num_target_samples):
-                # This may not actually be needed, but for now we do it, since the underlying
-                # data may be referenced in multiple places, and the data will be dynamically
-                # padded by the LM collator
-                s = deepcopy(source_ids)
-                s["attention_mask"] = (
-                    s["attention_mask"]
-                    + [1] * (idx + 1)
-                    + [0] * (num_target_samples - idx - 1)
-                )
-                yield s
+        def build_generator_func(source_ids):
+            def single_generator_func():
+                for idx in range(source_ids["num_target_samples"]):
+                    s = copy(source_ids)
+                    s["attention_mask"] = cls._get_attention_mask(
+                        source_ids, 
+                        idx
+                    )
+                    yield s
+            return single_generator_func
 
-        def get_batched_output():
-            # Initialize the batch encoding key lists as empty
-            batch_encoding = BatchEncoding()
-            for k in source_ids:
-                batch_encoding[k] = []
-            # Flatten the batch and add everything individually...
-            for batch_idx in range(len(source_ids.input_ids)):
-                # Consider every output text for this entry in the batch
-                for idx in range(num_target_samples[batch_idx]):
-                    # Create the batch encoding dict directly and populate the keys
-                    # from the corresponding entry inside of the batch...
-                    for key in source_ids:
-                        if key != "attention_mask":
-                            batch_encoding[key].append(source_ids[key][batch_idx])
-                        else:
-                            # Handle the attention mask for this entry...
-                            attn_mask = (
-                                source_ids["attention_mask"][batch_idx]
-                                + [1] * (idx + 1)
-                                + [0] * (num_target_samples[batch_idx] - idx - 1)
-                            )
-                            batch_encoding["attention_mask"].append(attn_mask)
-            return batch_encoding
-
-        if batched_mode:
-            return get_batched_output()
-        return DataStream(single_generator_func)
+        if not batched_mode:
+            return DataStream(build_generator_func(source_ids))
+        streams = [DataStream(build_generator_func(s)) for s in source_ids]
+        encoding_keys = source_ids[0].keys()
+        return cls._collapse_streams_into_encoding(streams, encoding_keys)
 
     def _get_data_collator(self, **kwargs):
         """Function to return appropriate data collator based on resource.
@@ -192,3 +158,44 @@ class HFAutoCausalLM(PretrainedModelBase):
         return DataCollatorForLanguageModeling(
             tokenizer=self._tokenizer, return_tensors="pt", **collator_kwargs
         )
+
+    def _force_to_batch_encoding_list(source_ids, target_ids, batch_mode, task_ids):
+        if not batch_mode:
+            source_ids["input_ids"] = source_ids.input_ids + target_ids.input_ids
+            source_ids["num_target_samples"] = len(target_ids.input_ids)
+            source_ids["task_ids"] = task_ids            
+            return source_ids
+        # Otherwise we need to expand the dict along its keys, 
+        # mapping all of its encapsulated objects to new items.
+        encodings = []
+        id_keys = source_ids.keys()
+        for batch_idx in range(len(source_ids.input_ids)):
+            new_encoding = BatchEncoding()
+            for key in id_keys:
+                if key == "input_ids":
+                    new_encoding[key] = source_ids[key][batch_idx] + target_ids[key][batch_idx]
+                else:
+                    new_encoding[key] = source_ids[key][batch_idx]
+            new_encoding["num_target_samples"] = len(target_ids[key][batch_idx])
+            new_encoding["task_ids"] = task_ids
+            encodings.append(new_encoding)
+        return encodings
+
+    def _get_attention_mask(source_ids, idx):
+        return (
+            source_ids["attention_mask"]
+            + [1] * (idx + 1)
+            + [0] * (source_ids["num_target_samples"] - idx - 1)
+        )
+
+    @classmethod
+    def _collapse_streams_into_encoding(cls, streams, encoding_keys):
+        new_encoding = BatchEncoding()
+        for k in encoding_keys:
+            new_encoding[k] = []
+        # Now build the individual lists lists for each entry
+        for stream in streams:
+            for enc in stream:
+                for k in encoding_keys:
+                    new_encoding[k].append(enc[k])
+        return new_encoding
