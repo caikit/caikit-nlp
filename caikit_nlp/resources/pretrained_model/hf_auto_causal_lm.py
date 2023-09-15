@@ -106,27 +106,28 @@ class HFAutoCausalLM(PretrainedModelBase):
         # puts it into a list. For batch mode, we get a list of batch encodings,
         # allowing us to standardize subsequent processing a bit.
 
-        source_ids = cls._force_to_batch_encoding_list(
+        source_ids, num_target_samples = cls._force_to_batch_encoding_list(
             source_ids,
             target_ids,
             batched_mode,
             task_ids
         )
 
-        def build_generator_func(source_ids):
+        def build_generator_func(source_ids, num_target_samples):
             def single_generator_func():
-                for idx in range(source_ids["num_target_samples"]):
-                    s = copy(source_ids)
-                    s["attention_mask"] = cls._get_attention_mask(
+                for idx in range(num_target_samples):
+                    ret_source_ids = copy(source_ids)
+                    ret_source_ids["attention_mask"] = cls._get_attention_mask(
                         source_ids, 
-                        idx
+                        idx,
+                        num_target_samples,
                     )
-                    yield s
+                    yield ret_source_ids
             return single_generator_func
 
         if not batched_mode:
-            return DataStream(build_generator_func(source_ids))
-        streams = [DataStream(build_generator_func(s)) for s in source_ids]
+            return DataStream(build_generator_func(source_ids, num_target_samples))
+        streams = [DataStream(build_generator_func(s_ids, n_target_samples)) for s_ids, n_target_samples in zip(source_ids, num_target_samples)]
         encoding_keys = source_ids[0].keys()
         return cls._collapse_streams_into_encoding(streams, encoding_keys)
 
@@ -162,12 +163,13 @@ class HFAutoCausalLM(PretrainedModelBase):
     def _force_to_batch_encoding_list(source_ids, target_ids, batch_mode, task_ids):
         if not batch_mode:
             source_ids["input_ids"] = source_ids.input_ids + target_ids.input_ids
-            source_ids["num_target_samples"] = len(target_ids.input_ids)
             source_ids["task_ids"] = task_ids            
-            return source_ids
+            num_target_samples = len(target_ids.input_ids)
+            return source_ids, num_target_samples
         # Otherwise we need to expand the dict along its keys, 
         # mapping all of its encapsulated objects to new items.
         encodings = []
+        num_target_samples = []
         id_keys = source_ids.keys()
         for batch_idx in range(len(source_ids.input_ids)):
             new_encoding = BatchEncoding()
@@ -176,16 +178,16 @@ class HFAutoCausalLM(PretrainedModelBase):
                     new_encoding[key] = source_ids[key][batch_idx] + target_ids[key][batch_idx]
                 else:
                     new_encoding[key] = source_ids[key][batch_idx]
-            new_encoding["num_target_samples"] = len(target_ids[key][batch_idx])
+            num_target_samples.append(len(target_ids[key][batch_idx]))
             new_encoding["task_ids"] = task_ids
             encodings.append(new_encoding)
-        return encodings
+        return encodings, num_target_samples
 
-    def _get_attention_mask(source_ids, idx):
+    def _get_attention_mask(source_ids, idx, num_target_samples):
         return (
             source_ids["attention_mask"]
             + [1] * (idx + 1)
-            + [0] * (source_ids["num_target_samples"] - idx - 1)
+            + [0] * (num_target_samples - idx - 1)
         )
 
     @classmethod
