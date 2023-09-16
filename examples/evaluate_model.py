@@ -136,8 +136,9 @@ def export_model_preds(preds_file, predictions, validation_stream, verbalizer):
 if __name__ == "__main__":
     configure_random_seed_and_logging()
     args = parse_args()
-    print_colored("Metrics to be calculated: {}".format(args.metrics))
     metric_funcs = [SUPPORTED_METRICS[metric] for metric in args.metrics]
+    print_colored("Metrics to be calculated: {}".format(args.metrics))
+
     # Load the model; this can be a local model, or a distributed TGIS instance
     print_colored("Loading the model...")
     model = load_model(args.tgis, str(args.model_path))
