@@ -37,6 +37,7 @@ import alog
 from ...data_model import GenerationTrainRecord, PromptOutputModelType
 from ...toolkit.verbalizer_utils import render_verbalizer
 from .base import PretrainedModelBase
+from .hf_auto_seq2seq_lm import HFAutoSeq2SeqLM
 
 log = alog.use_channel("HFRCLM")
 error = error_handler.get(log)
@@ -66,6 +67,7 @@ class HFAutoCausalLM(PretrainedModelBase):
         max_target_length: int,
         verbalizer: Union[None, str] = None,
         task_ids: Union[None, int] = None,
+        use_seq2seq_tokenization: bool = False,
     ) -> DataStream[BatchEncoding]:
         """Tokenization function to be used for causallm training; this function consumes a
         GenerationTrainRecord object and applies the verbalizer to it followed by
@@ -95,6 +97,16 @@ class HFAutoCausalLM(PretrainedModelBase):
         source, target = cls.decompose_example_io(example)
         # Determine if our mapped inputs are in batched mode or not
         batched_mode = isinstance(source, list) and isinstance(target, list)
+        if use_seq2seq_tokenization:
+            assert batched_mode is False
+            return HFAutoSeq2SeqLM.tokenize_function(
+                example=example,
+                tokenizer=tokenizer,
+                max_source_length=max_source_length,
+                max_target_length=max_target_length,
+                verbalizer=verbalizer,
+                task_ids=task_ids,
+            )
 
         # TODO: Handle batched verbalizer stuff!
         if batched_mode and verbalizer is not None:
