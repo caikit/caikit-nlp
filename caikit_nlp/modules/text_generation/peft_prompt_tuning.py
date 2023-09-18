@@ -1132,6 +1132,9 @@ class PeftPromptTuning(ModuleBase):
             num_training_steps=(len(train_dataloader) * num_epochs),
         )
 
+        # Enable gradient checkpointing
+        model.gradient_checkpointing_enable()
+
         accelerator = Accelerator(
             gradient_accumulation_steps=accumulate_steps,
             device_placement=True,
