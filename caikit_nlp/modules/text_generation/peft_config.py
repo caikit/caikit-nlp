@@ -22,6 +22,7 @@ from transformers import AutoConfig
 
 # First Party
 from caikit import get_config
+from caikit.core import error_handler
 import alog
 
 # Local
@@ -41,7 +42,7 @@ allowed_tuning_init_methods = [
 ]
 
 log = alog.use_channel("PFT_CNFG_TLKT")
-
+error = error_handler.get(log)
 
 class TuningType(str, Enum):
     PROMPT_TUNING = "PROMPT_TUNING"
@@ -52,7 +53,7 @@ class TuningType(str, Enum):
     # LORA = "LORA"
 
 
-def resolve_base_model(base_model, cls, error, torch_dtype):
+def resolve_base_model(base_model, cls, torch_dtype):
     if isinstance(base_model, str):
         model_config = AutoConfig.from_pretrained(
             base_model, local_files_only=not get_config().allow_downloads
@@ -77,7 +78,7 @@ def resolve_base_model(base_model, cls, error, torch_dtype):
 
 
 def get_peft_config(
-    tuning_type, tuning_config, error, base_model, cls, torch_dtype, verbalizer
+    tuning_type, tuning_config, base_model, cls, torch_dtype, verbalizer
 ):
 
     if tuning_type not in TuningType._member_names_:

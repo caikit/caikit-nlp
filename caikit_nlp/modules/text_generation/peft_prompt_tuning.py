@@ -354,12 +354,11 @@ class PeftPromptTuning(ModuleBase):
 
         metric = kwargs.get("metric")
 
-        base_model = resolve_base_model(base_model, cls, error, torch_dtype)
+        base_model = resolve_base_model(base_model, cls, torch_dtype)
         base_model_name = base_model._model_name
         task_type, output_model_types, peft_config, tuning_type = get_peft_config(
             tuning_type,
             tuning_config,
-            error,
             base_model,
             cls,
             torch_dtype,
@@ -679,7 +678,7 @@ class PeftPromptTuning(ModuleBase):
             prompt_vector.shape[0] == num_transformer_submodules * num_virtual_tokens,
             f"Row mismatch: Expected num_transformer_submodules * num_virtual_tokens "
             f"({num_transformer_submodules * num_virtual_tokens}) "
-            f"but got f{prompt_vector.shape[0]}",
+            f"but got {prompt_vector.shape[0]}",
         )
 
         # Otherwise it depends on the number of transformer modules. See seq2seq forward()
