@@ -539,7 +539,6 @@ class PeftPromptTuning(ModuleBase):
         del base_model._model
         torch.cuda.empty_cache()
 
-
         # Convert our Peft model (not just the underlying
         # transformers model) to the right underlying type.
         device = cls._get_device(device)
@@ -1152,12 +1151,15 @@ class PeftPromptTuning(ModuleBase):
         )
 
         # Disable cache for training
-        model.config.use_cache=False
+        model.config.use_cache = False
 
         # Below would send all the data and model to
         # configured device and convert them to required dtypes
         model, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
-            model, optimizer, train_dataloader, lr_scheduler,
+            model,
+            optimizer,
+            train_dataloader,
+            lr_scheduler,
         )
 
         for epoch in range(num_epochs):
@@ -1179,7 +1181,10 @@ class PeftPromptTuning(ModuleBase):
                         lr_scheduler.step()
                         optimizer.zero_grad()
                 except torch.cuda.OutOfMemoryError:
-                    error("<NLP07175292E>", MemoryError("Not enough memory available for training!"))
+                    error(
+                        "<NLP07175292E>",
+                        MemoryError("Not enough memory available for training!"),
+                    )
 
             log.info("epoch %s: %s", epoch, loss)
             if eval_dataloader is not None:
