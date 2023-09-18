@@ -194,7 +194,8 @@ class PretrainedModelBase(ABC, ModuleBase):
         model = cls.MODEL_TYPE.from_pretrained(
             model_name,
             local_files_only=not get_config().allow_downloads,
-            torch_dtype=torch_dtype,
+            # FIXME: Seems like torch.dtype isn't working correctly
+            torch_dtype=torch.bfloat16,
             **kwargs,
         )
         log.debug4("Model Details: %s", model)

@@ -438,6 +438,8 @@ class PeftPromptTuning(ModuleBase):
                 )
             log.debug("Bootstrapping base resource [%s]", base_model)
             base_model = resource_type.bootstrap(base_model, torch_dtype=torch_dtype)
+
+            breakpoint()
         error.type_check("<NLP65714919E>", PretrainedModelBase, base_model=base_model)
 
         # Validate if tuned output model type is compatible with base model or not
@@ -537,7 +539,7 @@ class PeftPromptTuning(ModuleBase):
         # transformers model) to the right underlying type.
         device = cls._get_device(device)
         cls.convert_peft_model_to_type(device, peft_model, torch_dtype)
-
+        breakpoint()
         cls._execute_train_loop(
             peft_model,
             num_epochs,
@@ -1125,7 +1127,14 @@ class PeftPromptTuning(ModuleBase):
         )
 
         accelerator = Accelerator(
-            gradient_accumulation_steps=accumulate_steps, device_placement=True
+            gradient_accumulation_steps=accumulate_steps,
+            device_placement=True,
+            mixed_precision='bf16',
+        )
+        # model.to(accelerator.device, torch.bfloat16)
+        breakpoint()
+        model, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
+            model, optimizer, train_dataloader, lr_scheduler,
         )
 
         for epoch in range(num_epochs):
@@ -1133,11 +1142,16 @@ class PeftPromptTuning(ModuleBase):
             total_loss = 0
             tqdm_loader = tqdm(train_dataloader, disable=silence_progress_bars)
             for batch in tqdm_loader:
+
+                optimizer.zero_grad()
+
                 tqdm_loader.set_description("Epoch: {}".format(epoch))
 
                 # TODO Can this dict comprehension always replace "batch.to(device)" for us?
-                batch = {k: v.to(device) for k, v in batch.items()}
+                # batch = {k: v.to(device) for k, v in batch.items()}
+                breakpoint()
                 with accelerator.accumulate(model):
+                    breakpoint()
                     outputs = model(**batch)
                     loss = outputs.loss
                     total_loss += loss.detach().float()
@@ -1260,4 +1274,4 @@ class PeftPromptTuning(ModuleBase):
                 "Requested data type torch.bfloat16 is unsupported; falling back to torch.float32",
             )
             torch_dtype = torch.float32
-        peft_model.to(device, torch_dtype)
+        # peft_model.to(device, torch_dtype)
