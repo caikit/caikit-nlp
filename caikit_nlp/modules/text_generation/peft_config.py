@@ -44,6 +44,7 @@ allowed_tuning_init_methods = [
 log = alog.use_channel("PFT_CNFG_TLKT")
 error = error_handler.get(log)
 
+
 class TuningType(str, Enum):
     PROMPT_TUNING = "PROMPT_TUNING"
     MULTITASK_PROMPT_TUNING = "MULTITASK_PROMPT_TUNING"

@@ -17,12 +17,15 @@ from tests.fixtures import (
 
 
 @pytest.mark.parametrize(
-        "train_kwargs,dummy_model",
-        [
-            ("seq2seq_lm_train_kwargs", "seq2seq_lm_dummy_model",),
-            ("causal_lm_train_kwargs", "causal_lm_dummy_model"),
-        ]
-    )
+    "train_kwargs,dummy_model",
+    [
+        (
+            "seq2seq_lm_train_kwargs",
+            "seq2seq_lm_dummy_model",
+        ),
+        ("causal_lm_train_kwargs", "causal_lm_dummy_model"),
+    ],
+)
 def test_get_peft_config(train_kwargs, dummy_model, request):
     # Fixtures can't be called directly or passed to mark parametrize;
     # Currently, passing the fixture by name and retrieving it through
@@ -35,7 +38,7 @@ def test_get_peft_config(train_kwargs, dummy_model, request):
     tuning_config = TuningConfig(
         num_virtual_tokens=8,
         prompt_tuning_init_method="TEXT",
-        prompt_tuning_init_text="Hello world"
+        prompt_tuning_init_text="Hello world",
     )
     dummy_resource = train_kwargs["base_model"]
 
