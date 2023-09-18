@@ -407,7 +407,7 @@ if __name__ == "__main__":
         verbalizer=dataset_info.verbalizer,
         silence_progress_bars=not args.verbose,
         accumulate_steps=args.accumulate_steps,
-        torch_dtype="bfloat16"
+        torch_dtype="float16"
     )
     model.save(args.output_dir, save_base_model=not args.prompt_only)
     print_colored("[Training Complete]")
