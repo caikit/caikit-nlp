@@ -12,10 +12,6 @@ model_management:
   finders:
     default:
       type: LOCAL
-    remote_tgis:
-      type: TGIS-AUTO
-      config:
-        test_connection: true
   initializers:
     default:
       type: LOCAL
@@ -28,16 +24,3 @@ model_management:
                 grpc_port: null
                 http_port: null
                 health_poll_delay: 1.0
-              remote_models:
-                flan-t5-xl:
-                  hostname: localhost:8033
-                  prompt_dir: tgis_prompts
-                llama-70b:
-                  hostname: localhost:8034
-                  prompt_dir: tgis_prompts
-
-              connection:
-                hostname: "foo.{model_id}:1234"
-                ca_cert_file: null
-                client_cert_file: null
-                client_key_file: null

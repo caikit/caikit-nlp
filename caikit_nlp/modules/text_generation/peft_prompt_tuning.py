@@ -394,7 +394,7 @@ class PeftPromptTuning(ModuleBase):
         # Convert our Peft model (not just the underlying
         # transformers model) to the right underlying type.
         device = cls._get_device(device)
-        # cls.convert_peft_model_to_type(device, peft_model, torch_dtype)
+        cls.convert_peft_model_to_type(device, peft_model, torch_dtype)
 
         training_loss_tracker = cls._execute_train_loop(
             peft_model,
@@ -1013,7 +1013,7 @@ class PeftPromptTuning(ModuleBase):
 
         if torch_dtype == torch.float16:
             mixed_precision = "fp16"
-        elif torch_dtype == torch.bfloat16 and torch.cuda.is_bf16_supported():
+        elif torch.cuda.is_bf16_supported() and torch_dtype == torch.bfloat16:
             mixed_precision = "bf16"
         else:
             mixed_precision = "no"
