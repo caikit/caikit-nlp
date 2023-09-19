@@ -391,10 +391,6 @@ class PeftPromptTuning(ModuleBase):
 
         peft_model = get_peft_model(base_model.model, peft_config)
 
-        # FIXME:
-        del base_model._model
-        torch.cuda.empty_cache()
-
         # Convert our Peft model (not just the underlying
         # transformers model) to the right underlying type.
         device = cls._get_device(device)
@@ -1192,4 +1188,4 @@ class PeftPromptTuning(ModuleBase):
                 "Requested data type torch.bfloat16 is unsupported; falling back to torch.float32",
             )
             torch_dtype = torch.float32
-        # peft_model.to(device, torch_dtype)
+        peft_model.to(device, torch_dtype)
