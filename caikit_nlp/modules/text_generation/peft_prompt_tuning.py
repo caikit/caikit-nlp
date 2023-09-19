@@ -1184,9 +1184,9 @@ class PeftPromptTuning(ModuleBase):
         # then move the peft model to that type on our training device.
         torch_dtype = get_torch_dtype(torch_dtype)
         # If our requested dtype is bfloat16 & we don't support it, fall back to float32
-        if (
+        if torch_dtype == torch.bfloat16 and (
             device == "cpu" or not torch.cuda.is_bf16_supported()
-        ) and torch_dtype == torch.bfloat16:
+        ):
             log.warning(
                 "<NLP18555772W>",
                 "Requested data type torch.bfloat16 is unsupported; falling back to torch.float32",
