@@ -1013,7 +1013,11 @@ class PeftPromptTuning(ModuleBase):
 
         if torch_dtype == torch.float16:
             mixed_precision = "fp16"
-        elif torch.cuda.is_bf16_supported() and torch_dtype == torch.bfloat16:
+        elif (
+            torch.cuda.is_available()
+            and torch.cuda.is_bf16_supported()
+            and torch_dtype == torch.bfloat16
+        ):
             mixed_precision = "bf16"
         else:
             mixed_precision = "no"
@@ -1180,9 +1184,9 @@ class PeftPromptTuning(ModuleBase):
         # then move the peft model to that type on our training device.
         torch_dtype = get_torch_dtype(torch_dtype)
         # If our requested dtype is bfloat16 & we don't support it, fall back to float32
-        if torch_dtype == torch.bfloat16 and (
+        if (
             device == "cpu" or not torch.cuda.is_bf16_supported()
-        ):
+        ) and torch_dtype == torch.bfloat16:
             log.warning(
                 "<NLP18555772W>",
                 "Requested data type torch.bfloat16 is unsupported; falling back to torch.float32",
