@@ -235,6 +235,12 @@ def register_common_arguments(subparsers: Tuple[argparse.ArgumentParser]) -> Non
             default=1,
             type=int,
         )
+        subparser.add_argument(
+            "--torch_dtype",
+            help="Torch dtype to be used for training",
+            default="float32",
+            choices=["float16", "bfloat16", "float32"],
+        )
 
 
 def register_multitask_prompt_tuning_args(subparser: argparse.ArgumentParser):
@@ -407,6 +413,7 @@ if __name__ == "__main__":
         verbalizer=dataset_info.verbalizer,
         silence_progress_bars=not args.verbose,
         accumulate_steps=args.accumulate_steps,
+        torch_dtype=args.torch_dtype,
     )
     model.save(args.output_dir, save_base_model=not args.prompt_only)
     print_colored("[Training Complete]")

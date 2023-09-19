@@ -390,6 +390,7 @@ class PeftPromptTuning(ModuleBase):
             base_model.model.config.d_model = 1024
 
         peft_model = get_peft_model(base_model.model, peft_config)
+
         # Convert our Peft model (not just the underlying
         # transformers model) to the right underlying type.
         device = cls._get_device(device)
@@ -406,6 +407,7 @@ class PeftPromptTuning(ModuleBase):
             tokenizer=base_model.tokenizer,
             accumulate_steps=accumulate_steps,
             silence_progress_bars=silence_progress_bars,
+            torch_dtype=torch_dtype,
         )
 
         # Get config of the base model
@@ -963,6 +965,7 @@ class PeftPromptTuning(ModuleBase):
         tokenizer: Union[AutoTokenizer, None] = None,
         accumulate_steps: int = 1,
         silence_progress_bars: bool = True,
+        torch_dtype: "torch.dtype" = torch.float32,
     ) -> None:
         """Execute the core training logic for training the prompt vectors on the frozen model.
         Note that this is done by reference.
@@ -991,6 +994,8 @@ class PeftPromptTuning(ModuleBase):
                 Number of steps to use for gradient accumulation. Default: 1.
             silence_progress_bars: bool
                 Silences TQDM progress bars. Default: True
+            torch_dtype: torch.dtype
+                Dtype to be used for training. Default: torch.float32
 
         Returns:
             training_metadata: Dict
@@ -1003,8 +1008,36 @@ class PeftPromptTuning(ModuleBase):
             num_training_steps=(len(train_dataloader) * num_epochs),
         )
 
+        # Enable gradient checkpointing
+        model.gradient_checkpointing_enable()
+
+        if torch_dtype == torch.float16:
+            mixed_precision = "fp16"
+        elif (
+            torch.cuda.is_available()
+            and torch.cuda.is_bf16_supported()
+            and torch_dtype == torch.bfloat16
+        ):
+            mixed_precision = "bf16"
+        else:
+            mixed_precision = "no"
+
         accelerator = Accelerator(
-            gradient_accumulation_steps=accumulate_steps, device_placement=True
+            gradient_accumulation_steps=accumulate_steps,
+            device_placement=True,
+            mixed_precision=mixed_precision,
+        )
+
+        # Disable cache for training
+        model.config.use_cache = False
+
+        # Below would send all the data and model to
+        # configured device and convert them to required dtypes
+        model, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
+            model,
+            optimizer,
+            train_dataloader,
+            lr_scheduler,
         )
 
         training_loss_tracker = []
@@ -1014,18 +1047,24 @@ class PeftPromptTuning(ModuleBase):
             total_loss = 0
             tqdm_loader = tqdm(train_dataloader, disable=silence_progress_bars)
             for batch in tqdm_loader:
+
                 tqdm_loader.set_description("Epoch: {}".format(epoch))
 
                 # TODO Can this dict comprehension always replace "batch.to(device)" for us?
-                batch = {k: v.to(device) for k, v in batch.items()}
-                with accelerator.accumulate(model):
-                    outputs = model(**batch)
-                    loss = outputs.loss
-                    total_loss += loss.detach().float()
-                    accelerator.backward(loss)
-                    optimizer.step()
-                    lr_scheduler.step()
-                    optimizer.zero_grad()
+                try:
+                    with accelerator.accumulate(model):
+                        outputs = model(**batch)
+                        loss = outputs.loss
+                        total_loss += loss.detach().float()
+                        accelerator.backward(loss)
+                        optimizer.step()
+                        lr_scheduler.step()
+                        optimizer.zero_grad()
+                except torch.cuda.OutOfMemoryError:
+                    error(
+                        "<NLP07175292E>",
+                        MemoryError("Not enough memory available for training!"),
+                    )
 
             log.info("<NLP46114010I>", {"loss": float(loss), "epoch": epoch})
             # Below is added to be propagated and stored as training_metadata
