@@ -23,6 +23,7 @@ import os
 from accelerate import Accelerator
 from peft import (
     MultitaskPromptTuningConfig,
+    LoraConfig,
     PeftConfig,
     PeftModel,
     PeftType,
@@ -844,6 +845,8 @@ class PeftPromptTuning(ModuleBase):
         #     tuning_config_type = PrefixTuningConfig
         elif tuning_type == TuningType.MULTITASK_PROMPT_TUNING:
             tuning_config_type = MultitaskPromptTuningConfig
+        elif tuning_type == TuningType.LORA:
+            tuning_config_type = LoraConfig
 
         config_params = cls._filter_params_for_prompt_config(
             tuning_config_type, config_kwargs

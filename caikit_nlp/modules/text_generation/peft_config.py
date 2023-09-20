@@ -51,7 +51,7 @@ class TuningType(str, Enum):
     # MULTITASK_PREFIX_TUNING = "MULTITASK_PREFIX_TUNING"
     # P_TUNING = "P_TUNING"
     # PREFIX_TUNING = "PREFIX_TUNING"
-    # LORA = "LORA"
+    LORA = "LORA"
 
 
 def resolve_base_model(base_model, cls, torch_dtype):
