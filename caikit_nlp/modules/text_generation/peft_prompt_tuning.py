@@ -13,7 +13,7 @@
 # limitations under the License.
 """This module contains prompt tuning through PEFT"""
 # Standard
-from enum import Enum
+from datetime import datetime
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
 import gc
 import json
@@ -23,7 +23,6 @@ import os
 from accelerate import Accelerator
 from peft import (
     MultitaskPromptTuningConfig,
-    MultitaskPromptTuningInit,
     PeftConfig,
     PeftModel,
     PeftType,
@@ -35,7 +34,6 @@ from torch.optim import AdamW
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 from transformers import (
-    AutoConfig,
     AutoModelForCausalLM,
     DataCollatorForLanguageModeling,
     default_data_collator,
@@ -46,7 +44,6 @@ import numpy as np
 import torch
 
 # First Party
-from caikit import get_config
 from caikit.core.data_model import DataStream
 from caikit.core.modules import ModuleBase, ModuleConfig, ModuleSaver, module
 from caikit.core.toolkit import error_handler
@@ -78,31 +75,13 @@ from ...toolkit.text_generation.model_run_utils import (
     generate_text_func,
     generate_text_func_stream,
 )
-from ...toolkit.verbalizer_utils import is_valid_verbalizer, render_verbalizer
+from ...toolkit.verbalizer_utils import render_verbalizer
+from .peft_config import TuningType, get_peft_config, resolve_base_model
 
 log = alog.use_channel("PEFT_PROMPT")
 error = error_handler.get(log)
 
-
-# NOTE: We do not allow all the methods exposed by MPT / PT, such as `EXACT_SOURCE_TASK`
-# since those are for experimental use and would not be useful / applicable
-# for end-user use-cases
-allowed_tuning_init_methods = [
-    "TEXT",
-    "RANDOM",
-    "ONLY_SOURCE_SHARED",
-    "AVERAGE_SOURCE_TASKS",
-]
-
-
-class TuningType(str, Enum):
-    PROMPT_TUNING = "PROMPT_TUNING"
-    MULTITASK_PROMPT_TUNING = "MULTITASK_PROMPT_TUNING"
-    # MULTITASK_PREFIX_TUNING = "MULTITASK_PREFIX_TUNING"
-    # P_TUNING = "P_TUNING"
-    # PREFIX_TUNING = "PREFIX_TUNING"
-    # LORA = "LORA"
-
+TRAINING_LOSS_LOG_FILENAME = "training_logs.jsonl"
 
 # TODO: try to refactor this into a smaller module
 # pylint: disable=too-many-lines,too-many-instance-attributes
@@ -142,6 +121,7 @@ class PeftPromptTuning(ModuleBase):
         task_type: str,
         tuning_type: TuningType,
         output_model_types: List[PromptOutputModelType],
+        training_metadata: Union[Dict[str, Any], None] = None,
     ):
         super().__init__()
         # Put the PEFT model into evaluation mode for all future calls
@@ -156,6 +136,9 @@ class PeftPromptTuning(ModuleBase):
         self.task_type = task_type
         self.tuning_type = tuning_type
         self.output_model_types = output_model_types
+        self.training_metadata = (
+            training_metadata if training_metadata is not None else {}
+        )
 
     # pylint: disable=duplicate-code
     def __del__(self):
@@ -365,133 +348,25 @@ class PeftPromptTuning(ModuleBase):
                 Instance of this class with tuned prompt vectors.
         """
 
-        # TODO: Move all of the validation into a separate function
+        # HACK - These things can't be passed through the train API currently
 
-        if tuning_type not in TuningType._member_names_:
-            raise NotImplementedError(
-                "{} tuning type not supported!".format(tuning_type)
-            )
+        metric = kwargs.get("metric")
 
-        if tuning_config.prompt_tuning_init_method:
-            # NOTE: GK-APR-5-2023
-            # MultitaskPromptTuningInit and MultitaskPrefixTuningInit are same at the
-            # time of writing, which is a superset of PromptTuningInit
-            init_method = tuning_config.prompt_tuning_init_method
-
-            error.value_check(
-                "<NLP11848053E>",
-                init_method in allowed_tuning_init_methods,
-                f"Init method [{init_method}] not in allowed init methods: "
-                f"[{allowed_tuning_init_methods}]",
-            )
-
-            init_method = MultitaskPromptTuningInit(init_method)
-            log.info("Using initialization method [%s]", init_method)
-
-            # If init method provided relates to one that requires source model,
-            # make sure the source prompt model is provided.
-            if init_method in [
-                MultitaskPromptTuningInit.AVERAGE_SOURCE_TASKS,
-                MultitaskPromptTuningInit.ONLY_SOURCE_SHARED,
-            ]:
-                # NOTE: prompt_tuning_init_source_model is currently a path. In future
-                # we will replace this with caikit.resources to properly cataloging these
-                error.type_check(
-                    "<NLP89108490E>",
-                    str,
-                    prompt_tuning_init_source_model=tuning_config.prompt_tuning_init_source_model,
-                )
-                tuning_config.prompt_tuning_init_source_model = os.path.join(
-                    get_config().source_prompt_base,
-                    tuning_config.prompt_tuning_init_source_model,
-                )
-
-                error.file_check(
-                    "<NLP96030210E>", tuning_config.prompt_tuning_init_source_model
-                )
-                log.debug(
-                    "Validated tuning source prompt [%s]",
-                    tuning_config.prompt_tuning_init_source_model,
-                )
+        base_model = resolve_base_model(base_model, cls, torch_dtype)
+        base_model_name = base_model._model_name
+        task_type, output_model_types, peft_config, tuning_type = get_peft_config(
+            tuning_type,
+            tuning_config,
+            base_model,
+            cls,
+            torch_dtype,
+            verbalizer,
+        )
 
         # Coerce the passed model into a resource; if we have one, this is a noop
         # TODO: When splitting up this mono-module, use the configured resource
         #   type of the concrete class to bootstrap
         torch_dtype = get_torch_dtype(torch_dtype)
-        if isinstance(base_model, str):
-            model_config = AutoConfig.from_pretrained(
-                base_model, local_files_only=not get_config().allow_downloads
-            )
-
-            resource_type = None
-            for resource in cls.supported_resources:
-                if model_config.model_type in resource.SUPPORTED_MODEL_TYPES:
-                    resource_type = resource
-                    break
-
-            if not resource_type:
-                error(
-                    "<NLP61784225E>",
-                    "{} model type is not supported currently!".format(
-                        model_config.model_type
-                    ),
-                )
-            log.debug("Bootstrapping base resource [%s]", base_model)
-            base_model = resource_type.bootstrap(base_model, torch_dtype=torch_dtype)
-        error.type_check("<NLP65714919E>", PretrainedModelBase, base_model=base_model)
-
-        # Validate if tuned output model type is compatible with base model or not
-        if not tuning_config.output_model_types:
-            output_model_types = base_model.PROMPT_OUTPUT_TYPES
-        else:
-            # If the first element is not PromptOutputModelType, assume the entire list
-            # isn't and convert
-            if not isinstance(
-                tuning_config.output_model_types[0], PromptOutputModelType
-            ):
-                output_model_types = []
-                for output_type in tuning_config.output_model_types:
-                    output_model_types.append(PromptOutputModelType(output_type))
-            else:
-                output_model_types = tuning_config.output_model_types
-            error.value_check(
-                "<NLP36947542E>",
-                all(
-                    output_type in base_model.PROMPT_OUTPUT_TYPES
-                    for output_type in output_model_types
-                ),
-                "{} not supported for base model type {}".format(
-                    output_model_types, base_model.MODEL_TYPE
-                ),
-            )
-
-        error.value_check(
-            "<NLP30542004E>",
-            len(output_model_types) <= base_model.MAX_NUM_TRANSFORMERS,
-            f"Too many output model types. Got {len(output_model_types)}, "
-            f"maximum {base_model.MAX_NUM_TRANSFORMERS}",
-        )
-        # Ensure that our verbalizer is a string and will not render to a hardcoded string
-        error.value_check(
-            "<NLP83837412E>",
-            is_valid_verbalizer(verbalizer),
-            "Provided verbalizer is an invalid type or has no renderable placeholders",
-        )
-
-        # NOTE: Base model is a resource at this point
-        task_type = base_model.TASK_TYPE
-
-        # HACK - These things can't be passed through the train API currently
-        metric = kwargs.get("metric")
-        if isinstance(tuning_type, str):
-            error.value_check(
-                "<NLP65714994E>",
-                tuning_type in TuningType._member_names_,
-                f"Invalid tuning type [{tuning_type}]. Allowed types: "
-                f"[{TuningType._member_names_}]",
-            )
-            tuning_type = TuningType(tuning_type)
-        error.type_check("<NLP65714993E>", TuningType, tuning_type=tuning_type)
 
         train_stream = train_stream.map(convert_to_generation_record)
         if val_stream:
@@ -509,36 +384,19 @@ class PeftPromptTuning(ModuleBase):
             max_target_length=max_target_length,
         )
 
-        base_model_name = base_model._model_name
-
-        # Take tokenizer name/path from the model
-        tokenizer_name_or_path = base_model.model.config._name_or_path
-
-        # Build the peft config; this is how we determine that we want a sequence classifier.
-        # If we want more types, we will likely need to map this to data model outputs etc.
-
-        # NOTE: We currently only support TEXT as init type, this is to later only easily
-        # switch to MPT
-        peft_config = cls.create_hf_tuning_config(
-            base_model=base_model,
-            tuning_type=tuning_type,
-            task_type=task_type,
-            tokenizer_name_or_path=tokenizer_name_or_path,
-            tuning_config=tuning_config,
-            output_model_types=output_model_types,
-        )
         log.debug("Peft config [%s]", peft_config)
         # FIXME: Should only do following line for causal LM (and bloomz?) - check that is the case
         if isinstance(base_model, HFAutoCausalLM):
             base_model.model.config.d_model = 1024
 
         peft_model = get_peft_model(base_model.model, peft_config)
+
         # Convert our Peft model (not just the underlying
         # transformers model) to the right underlying type.
         device = cls._get_device(device)
         cls.convert_peft_model_to_type(device, peft_model, torch_dtype)
 
-        cls._execute_train_loop(
+        training_loss_tracker = cls._execute_train_loop(
             peft_model,
             num_epochs,
             train_dataloader,
@@ -549,6 +407,7 @@ class PeftPromptTuning(ModuleBase):
             tokenizer=base_model.tokenizer,
             accumulate_steps=accumulate_steps,
             silence_progress_bars=silence_progress_bars,
+            torch_dtype=torch_dtype,
         )
 
         # Get config of the base model
@@ -573,6 +432,7 @@ class PeftPromptTuning(ModuleBase):
             task_type=task_type,
             tuning_type=tuning_type,
             output_model_types=output_model_types,
+            training_metadata=training_loss_tracker,
             # TODO: Export other training params to model as well
         )
 
@@ -646,6 +506,23 @@ class PeftPromptTuning(ModuleBase):
 
                 config_options["full_model_path"] = b_model_rel_path
                 config_options["tokenizer_path"] = b_model_rel_path
+
+            training_loss_filename = TRAINING_LOSS_LOG_FILENAME
+
+            config_options.update({"training_logs": training_loss_filename})
+            # We are currently only saving logs containing loss in jsonl format
+            if "loss" in self.training_metadata:
+                loss_log_lines = self.training_metadata.get("loss")
+                error.type_check("<NLP60269855E>", list, loss_log_lines=loss_log_lines)
+                with open(
+                    os.path.join(model_path, training_loss_filename),
+                    "w",
+                    encoding="utf-8",
+                ) as f:
+                    for loss_log in loss_log_lines:
+                        loss_log = {"name": "loss", "data": loss_log}
+                        json.dump(loss_log, f)
+                        f.write("\n")
 
             module_saver.update_config(config_options)
 
@@ -801,7 +678,7 @@ class PeftPromptTuning(ModuleBase):
             prompt_vector.shape[0] == num_transformer_submodules * num_virtual_tokens,
             f"Row mismatch: Expected num_transformer_submodules * num_virtual_tokens "
             f"({num_transformer_submodules * num_virtual_tokens}) "
-            f"but got f{prompt_vector.shape[0]}",
+            f"but got {prompt_vector.shape[0]}",
         )
 
         # Otherwise it depends on the number of transformer modules. See seq2seq forward()
@@ -1088,6 +965,7 @@ class PeftPromptTuning(ModuleBase):
         tokenizer: Union[AutoTokenizer, None] = None,
         accumulate_steps: int = 1,
         silence_progress_bars: bool = True,
+        torch_dtype: "torch.dtype" = torch.float32,
     ) -> None:
         """Execute the core training logic for training the prompt vectors on the frozen model.
         Note that this is done by reference.
@@ -1116,6 +994,12 @@ class PeftPromptTuning(ModuleBase):
                 Number of steps to use for gradient accumulation. Default: 1.
             silence_progress_bars: bool
                 Silences TQDM progress bars. Default: True
+            torch_dtype: torch.dtype
+                Dtype to be used for training. Default: torch.float32
+
+        Returns:
+            training_metadata: Dict
+                Metadata computed during training
         """
         optimizer = AdamW(params=model.parameters(), lr=learning_rate)
         lr_scheduler = get_linear_schedule_with_warmup(
@@ -1124,29 +1008,74 @@ class PeftPromptTuning(ModuleBase):
             num_training_steps=(len(train_dataloader) * num_epochs),
         )
 
+        # Enable gradient checkpointing
+        model.gradient_checkpointing_enable()
+
+        if torch_dtype == torch.float16:
+            mixed_precision = "fp16"
+        elif (
+            torch.cuda.is_available()
+            and torch.cuda.is_bf16_supported()
+            and torch_dtype == torch.bfloat16
+        ):
+            mixed_precision = "bf16"
+        else:
+            mixed_precision = "no"
+
         accelerator = Accelerator(
-            gradient_accumulation_steps=accumulate_steps, device_placement=True
+            gradient_accumulation_steps=accumulate_steps,
+            device_placement=True,
+            mixed_precision=mixed_precision,
         )
+
+        # Disable cache for training
+        model.config.use_cache = False
+
+        # Below would send all the data and model to
+        # configured device and convert them to required dtypes
+        model, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
+            model,
+            optimizer,
+            train_dataloader,
+            lr_scheduler,
+        )
+
+        training_loss_tracker = []
 
         for epoch in range(num_epochs):
             model.train()
             total_loss = 0
             tqdm_loader = tqdm(train_dataloader, disable=silence_progress_bars)
             for batch in tqdm_loader:
+
                 tqdm_loader.set_description("Epoch: {}".format(epoch))
 
                 # TODO Can this dict comprehension always replace "batch.to(device)" for us?
-                batch = {k: v.to(device) for k, v in batch.items()}
-                with accelerator.accumulate(model):
-                    outputs = model(**batch)
-                    loss = outputs.loss
-                    total_loss += loss.detach().float()
-                    accelerator.backward(loss)
-                    optimizer.step()
-                    lr_scheduler.step()
-                    optimizer.zero_grad()
+                try:
+                    with accelerator.accumulate(model):
+                        outputs = model(**batch)
+                        loss = outputs.loss
+                        total_loss += loss.detach().float()
+                        accelerator.backward(loss)
+                        optimizer.step()
+                        lr_scheduler.step()
+                        optimizer.zero_grad()
+                except torch.cuda.OutOfMemoryError:
+                    error(
+                        "<NLP07175292E>",
+                        MemoryError("Not enough memory available for training!"),
+                    )
 
-            log.info("epoch %s: %s", epoch, loss)
+            log.info("<NLP46114010I>", {"loss": float(loss), "epoch": epoch})
+            # Below is added to be propagated and stored as training_metadata
+            training_loss_tracker.append(
+                {
+                    "epoch": epoch,
+                    "value": float(loss),
+                    "timestamp": datetime.isoformat(datetime.now()),
+                }
+            )
+
             if eval_dataloader is not None:
                 model.eval()
 
@@ -1202,6 +1131,9 @@ class PeftPromptTuning(ModuleBase):
                         eval_ppl,
                         eval_epoch_loss,
                     )
+
+        error.value_check("<NLP66129758E>", len(training_loss_tracker) == num_epochs)
+        return {"loss": training_loss_tracker}
 
     @classmethod
     def _filter_params_for_prompt_config(cls, prompt_config, params):

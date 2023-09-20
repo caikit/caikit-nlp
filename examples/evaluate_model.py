@@ -55,9 +55,10 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--metrics",
-        help="Metrics to calculate. Options: {}".format(list(SUPPORTED_METRICS.keys())),
-        nargs="*",
+        help="Metrics to calculate in space delimited list",
         default=["accuracy"],
+        nargs="*",
+        choices=list(SUPPORTED_METRICS.keys()),
     )
     parser.add_argument(
         "--preds_file",
@@ -135,14 +136,9 @@ def export_model_preds(preds_file, predictions, validation_stream, verbalizer):
 if __name__ == "__main__":
     configure_random_seed_and_logging()
     args = parse_args()
-    if not all(metric_name in SUPPORTED_METRICS for metric_name in args.metrics):
-        raise KeyError(
-            "One or more requested metrics {} not supported! Supported metrics: {}".format(
-                args.metrics, list(SUPPORTED_METRICS.keys())
-            )
-        )
-    metric_funcs = list(SUPPORTED_METRICS.values())
+    metric_funcs = [SUPPORTED_METRICS[metric] for metric in args.metrics]
     print_colored("Metrics to be calculated: {}".format(args.metrics))
+
     # Load the model; this can be a local model, or a distributed TGIS instance
     print_colored("Loading the model...")
     model = load_model(args.tgis, str(args.model_path))

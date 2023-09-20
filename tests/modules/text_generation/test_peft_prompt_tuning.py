@@ -65,6 +65,18 @@ def test_save_and_reload_without_base_model(causal_lm_dummy_model):
             caikit_nlp.load(model_dir)
 
 
+def test_save_log_loss_file(causal_lm_dummy_model):
+    """Ensure saving a model saves the log loss file"""
+    with tempfile.TemporaryDirectory() as model_dir:
+        causal_lm_dummy_model.save(model_dir, save_base_model=False)
+        assert os.path.isfile(
+            os.path.join(
+                model_dir,
+                caikit_nlp.modules.text_generation.peft_prompt_tuning.TRAINING_LOSS_LOG_FILENAME,
+            )
+        )
+
+
 def test_run_model(causal_lm_dummy_model):
     """Ensure that we can run a model and get the right type out."""
     pred = causal_lm_dummy_model.run("This text doesn't matter")
