@@ -125,15 +125,15 @@ def validate_inf_params(
     )
 
     error.value_check(
-        "<NLP28185344E>", top_p > 0.0 and top_p <= 1.0, "top_p must be > 0.0 and <= 1.0"
+        "<NLP28185346E>", top_p > 0.0 and top_p <= 1.0, "top_p must be > 0.0 and <= 1.0"
     )
 
-    error.value_check("<NLP28185344E>", top_k >= 0, "top_k must be strictly positive")
+    error.value_check("<NLP28185347E>", top_k >= 0, "top_k must be strictly positive")
 
-    error.value_check("<NLP28185344E>", typical_p <= 1.0, "typical_p must be <= 1.0")
+    error.value_check("<NLP28185348E>", typical_p <= 1.0, "typical_p must be <= 1.0")
 
     error.value_check(
-        "<NLP28185344E>", repetition_penalty > 0.0, "repetition_penalty must be > 0.0"
+        "<NLP28185349E>", repetition_penalty > 0.0, "repetition_penalty must be > 0.0"
     )
 
     if exponential_decay_length_penalty:
@@ -143,7 +143,7 @@ def validate_inf_params(
                 exponential_decay_length_penalty.decay_factor,
             )
         error.value_check(
-            "<NLP28185344E>",
+            "<NLP28185350E>",
             exponential_decay_length_penalty[1] >= 1.0
             and exponential_decay_length_penalty[1] <= 10.0,
             "decay_factor in exponential_decay_length_penalty must be >= 1.0 and <= 10.0",
