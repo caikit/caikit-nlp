@@ -130,7 +130,7 @@ def validate_inf_params(
 
     error.value_check("<NLP28185344E>", top_k >= 0, "top_k must be strictly positive")
 
-    # error.value_check("<NLP28185344E>", typical_p < 1.0, "typical_p must be < 1.0")
+    error.value_check("<NLP28185344E>", typical_p <= 1.0, "typical_p must be <= 1.0")
 
     error.value_check(
         "<NLP28185344E>", repetition_penalty > 0.0, "repetition_penalty must be > 0.0"
