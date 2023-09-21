@@ -294,12 +294,44 @@ def register_lora_config_args(subparser: argparse.ArgumentParser):
         subparser: argparser.ArgumentParser
             Configuration options for lora specifically.
         """
+
     subparser.add_argument(
-        "--lora_config",
-        help="Initialization method to be used for prompt tuning",
-        choices=[x.name for x in LoraConfig],
-        default="TEXT",
+        "--lora_alpha",
+        help="The alpha parameter for Lora scaling",
+        default=8,
+        type=int,
     )
+    subparser.add_argument(
+        "--lora_r",
+        help="Lora attention dimension",
+        default=8,
+        type=int,
+    )
+    subparser.add_argument(
+        "--lora_bias",
+        help="""Bias type for Lora. Can be ‘none’, ‘all’ or ‘lora_only’. If ‘all’ or ‘lora_only’,
+                the corresponding biases will be updated during training. Be aware that this
+                means that, even when disabling the adapters, the model will not produce the
+                same output as the base model would have without adaptation""",
+        default="none",
+        choices=["none", "all", "lora_only"],
+    )
+
+    subparser.add_argument(
+        "--lora_dropout",
+        help="The dropout probability for Lora layers",
+        type=float,
+        default=0.0,
+    )
+
+    subparser.add_argument(
+        "--lora_target_modules",
+        help="The names of the modules to apply Lora to",
+        nargs="+",
+        type=str,
+        default=None
+    )
+
 
 def validate_common_args(args: argparse.Namespace):
     """Validates common arguments to ensure values make sense; here, we only validate things that
