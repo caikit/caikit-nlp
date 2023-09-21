@@ -245,6 +245,7 @@ def generate_text_func(
         finish_reason=finish_reason,
         producer_id=producer_id,
         input_token_count=input_token_count,
+        seed=seed,
     )
 
 
@@ -339,6 +340,7 @@ def generate_text_func_stream(
         )
         details = TokenStreamDetails(
             input_token_count=input_token_count,
+            seed=seed,
         )
         for stream_part in stream_outputs:
             gen_text = tokenizer.batch_decode(

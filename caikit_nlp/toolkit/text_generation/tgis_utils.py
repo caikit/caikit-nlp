@@ -327,6 +327,7 @@ class TGISGenerationClient:
             finish_reason=response.stop_reason,
             producer_id=self.producer_id,
             input_token_count=response.input_token_count,
+            seed=seed,
         )
 
     def stream_generate(
