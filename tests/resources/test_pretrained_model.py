@@ -93,6 +93,7 @@ def test_boostrap_model_path(models_cache_dir):
     assert base_model.MODEL_TYPE is transformers.AutoModelForCausalLM
     assert base_model.TASK_TYPE == "CAUSAL_LM"
 
+
 ### Tests for tokenization behaviors
 SAMPLE_TRAINING_DATA = caikit.core.data_model.DataStream.from_iterable(
     [
