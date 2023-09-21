@@ -164,6 +164,7 @@ class PretrainedModelBase(ABC, ModuleBase):
         else:
             if tokenizer_name is None:
                 tokenizer_name = model_name
+                log.info("Loading tokenizer from model directory")
 
             if not os.path.isdir(tokenizer_name) and tokenizer_name != model_name:
                 log.warning(
