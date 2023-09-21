@@ -47,8 +47,12 @@ from ...toolkit.text_generation.model_run_utils import (
     GENERATE_FUNCTION_ARGS,
     generate_text_func,
 )
+from ...toolkit.text_generation.training_utils import (
+    infer_max_steps,
+    launch_training,
+    preprocess_function,
+)
 from ...toolkit.torch_run import get_torch_elastic_launch_config
-from ...toolkit.text_generation.training_utils import preprocess_function, launch_training, infer_max_steps
 
 log = alog.use_channel("TXT_GEN")
 error = error_handler.get(log)
@@ -293,7 +297,7 @@ class TextGeneration(ModuleBase):
             max_target_length=max_target_length,
             shuffle=True,
             use_iterable_dataset=use_iterable_dataset,
-            random_seed=cls.RANDOM_SEED
+            random_seed=cls.RANDOM_SEED,
         )
 
         ### Dtype based processing
@@ -374,9 +378,7 @@ class TextGeneration(ModuleBase):
                 # negatively impact the performance
                 "full_determinism": False,
                 # Required for iterable dataset
-                "max_steps": infer_max_steps(
-                    num_epochs, batch_size, training_dataset
-                ),
+                "max_steps": infer_max_steps(num_epochs, batch_size, training_dataset),
                 # Some interesting parameters:
                 "auto_find_batch_size": True,
                 # NOTE: following can override above arguments in order
