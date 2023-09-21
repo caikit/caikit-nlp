@@ -372,18 +372,6 @@ class PeftPromptTuning(ModuleBase):
         if val_stream:
             val_stream = val_stream.map(convert_to_generation_record)
 
-        # Convert our datastreams -> data loaders by disguising them as PyTorch iterable datasets
-        train_dataloader, val_dataloader = cls.create_dataloaders_from_stream(
-            base_model=base_model,
-            task_type=task_type,
-            train_stream=train_stream,
-            verbalizer=verbalizer,
-            validation_stream=val_stream or None,
-            batch_size=batch_size,
-            max_source_length=max_source_length,
-            max_target_length=max_target_length,
-        )
-
         log.debug("Peft config [%s]", peft_config)
         # FIXME: Should only do following line for causal LM (and bloomz?) - check that is the case
         if isinstance(base_model, HFAutoCausalLM):
@@ -395,6 +383,22 @@ class PeftPromptTuning(ModuleBase):
         # transformers model) to the right underlying type.
         device = cls._get_device(device)
         cls.convert_peft_model_to_type(device, peft_model, torch_dtype)
+
+
+        ## Generate data loader from stream
+        training_dataset: Union[
+            Dataset, TransformersIterableDataset
+        ] = preprocess_function(
+            base_model=base_model,
+            train_stream=train_stream,
+            tokenizer=base_model.tokenizer,
+            max_source_length=max_source_length,
+            max_target_length=max_target_length,
+            shuffle=True,
+            # FIX ME:
+            use_iterable_dataset=False,
+            random_seed=cls.RANDOM_SEED,
+        )
 
         training_loss_tracker = cls._execute_train_loop(
             peft_model,

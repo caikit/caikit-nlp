@@ -185,7 +185,7 @@ class TextGeneration(ModuleBase):
         num_epochs: int = 5,
         accumulate_steps: int = 32,
         random_seed: int = RANDOM_SEED,
-        lr: float = 2e-5,
+        learning_rate: float = 2e-5,
         use_iterable_dataset: bool = True,
         **kwargs,
     ) -> "TextGeneration":
@@ -213,7 +213,7 @@ class TextGeneration(ModuleBase):
                 Number of epochs to tune the model. Default: 20.
             accumulate_steps: int
                 Number of steps to use for gradient accumulation. Default: 1.
-            lr: float
+            learning_rate: float
                 Learning rate to be used while tuning model. Default: 2e-5.
             use_iterable_dataset: bool
                 Indicates whether or not we should load the full dataset into memory
@@ -363,7 +363,7 @@ class TextGeneration(ModuleBase):
                 # NOTE: We have disabled evaluation for now
                 "do_eval": False,
                 "do_train": True,
-                "learning_rate": lr,
+                "learning_rate": learning_rate,
                 "weight_decay": 0.01,
                 "save_total_limit": 3,
                 "push_to_hub": False,
