@@ -20,6 +20,7 @@ import time
 # Third Party
 from peft.tuners.multitask_prompt_tuning import MultitaskPromptTuningInit
 from peft.tuners.prompt_tuning import PromptTuningInit
+
 from transformers import AutoConfig
 from utils import (
     ALOG_OPTS,
@@ -137,14 +138,23 @@ def parse_args() -> argparse.Namespace:
         help="Train prompt vectors through Prompt Tuning.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
+
+    lora_tuning = subparsers.add_parser(
+        "LORA_TUNING",
+        help="Train update matrices for low-rank adaptation of large language model (LoRA).",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+
     subparsers = (
         parser_multiprompt_tuning,
         parser_prompt_tuning,
+        lora_tuning
     )
     # Register all of the common args, as well as specific tuning args for subcommands
     register_common_arguments(subparsers)
     register_multitask_prompt_tuning_args(parser_multiprompt_tuning)
     register_prompt_tuning_args(parser_prompt_tuning)
+    register_lora_tuning_args(lora_tuning)
     args = parser.parse_args()
     # Reconfigure logging level based on verbosity, while preserving filters etc.
     default_level = "debug" if args.verbose else "info"
@@ -277,6 +287,19 @@ def register_prompt_tuning_args(subparser: argparse.ArgumentParser):
         default="TEXT",
     )
 
+def register_lora_config_args(subparser: argparse.ArgumentParser):
+    """Register additional configuration options for LoRA tuning subtask.
+
+    Args:
+        subparser: argparser.ArgumentParser
+            Configuration options for lora specifically.
+        """
+    subparser.add_argument(
+        "--lora_config",
+        help="Initialization method to be used for prompt tuning",
+        choices=[x.name for x in LoraConfig],
+        default="TEXT",
+    )
 
 def validate_common_args(args: argparse.Namespace):
     """Validates common arguments to ensure values make sense; here, we only validate things that
@@ -414,6 +437,11 @@ if __name__ == "__main__":
         silence_progress_bars=not args.verbose,
         accumulate_steps=args.accumulate_steps,
         torch_dtype=args.torch_dtype,
+        lora_alpha= args.lora_alpha,
+        lora_dropout= args.lora_dropout,
+        lora_r= args.lora_r,
+        lora_bias= args.lora_bias,
+        lora_target_modules= args.lora_target_modules
     )
     model.save(args.output_dir, save_base_model=not args.prompt_only)
     print_colored("[Training Complete]")

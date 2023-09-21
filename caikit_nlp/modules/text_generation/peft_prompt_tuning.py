@@ -105,7 +105,7 @@ class PeftPromptTuning(ModuleBase):
         # TuningType.MULTITASK_PREFIX_TUNING: PeftType.MULTITASK_PREFIX_TUNING,
         # TuningType.P_TUNING: PeftType.P_TUNING,
         # TuningType.PREFIX_TUNING: PeftType.PREFIX_TUNING,
-        # TuningType.LORA: PeftType.LORA,
+        TuningType.LORA: PeftType.LORA,
     }
 
     supported_resources = [HFAutoCausalLM, HFAutoSeq2SeqLM]
@@ -299,9 +299,14 @@ class PeftPromptTuning(ModuleBase):
         accumulate_steps: Optional[int] = 32,
         torch_dtype: Optional[str] = None,  # TODO: Optional[Union[torch.dtype, str]]
         silence_progress_bars: Optional[bool] = True,
+        lora_alpha: Optional[int] = 8,
+        lora_dropout: Optional[float] = 0.0,
+        lora_r: Optional[int] = 8,
+        lora_bias: Optional[str] = "none",
+        lora_target_modules: Optional[Union[List[str], str]] = None,
         **kwargs,
     ) -> "PeftPromptTuning":
-        """Run prompt tuning (vanilla or MPT) through PEFT on a CausalLM or Seq2seq model
+        """Run prompt tuning (vanilla or MPT) or LoRA through PEFT on a CausalLM or Seq2seq model
         to refine a text generation model.
 
         Args:
@@ -344,6 +349,19 @@ class PeftPromptTuning(ModuleBase):
                 underpinning the resource will be converted in place to the correct torch dtype.
             silence_progress_bars: bool
                 Silences TQDM progress bars at train time. Default: True.
+            lora_alpha: int
+                The alpha parameter for Lora scaling. Default: 8
+            lora_dropout: float
+                The dropout probability for Lora layers.Default: 0.0
+            lora_r: int
+                Lora attention dimension. Default: 8
+            lora_bias: str
+                Bias type for Lora. Can be ‘none’, ‘all’ or ‘lora_only’. If ‘all’ or ‘lora_only’,
+                the corresponding biases will be updated during training. Be aware that this
+                means that, even when disabling the adapters, the model will not produce the
+                same output as the base model would have without adaptation. Default: "none"
+            lora_target_modules:
+                The names of the modules to apply Lora to. Default: None
         Returns:
             PeftPromptTuning
                 Instance of this class with tuned prompt vectors.
@@ -362,6 +380,11 @@ class PeftPromptTuning(ModuleBase):
             cls,
             torch_dtype,
             verbalizer,
+            lora_alpha,
+            lora_dropout,
+            lora_r,
+            lora_bias,
+            lora_target_modules
         )
 
         # Coerce the passed model into a resource; if we have one, this is a noop

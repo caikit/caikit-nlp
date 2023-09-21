@@ -17,7 +17,7 @@ from enum import Enum
 import os
 
 # Third Party
-from peft import MultitaskPromptTuningInit
+from peft import MultitaskPromptTuningInit, LoraConfig
 from transformers import AutoConfig
 
 # First Party
@@ -79,7 +79,11 @@ def resolve_base_model(base_model, cls, torch_dtype):
 
 
 def get_peft_config(
-    tuning_type, tuning_config, base_model, cls, torch_dtype, verbalizer
+    tuning_type, tuning_config, base_model, cls, torch_dtype, verbalizer, lora_alpha,
+        lora_dropout,
+        lora_r,
+        lora_bias,
+        lora_target_modules
 ):
 
     if tuning_type not in TuningType._member_names_:
@@ -189,15 +193,26 @@ def get_peft_config(
     # Build the peft config; this is how we determine that we want a sequence classifier.
     # If we want more types, we will likely need to map this to data model outputs etc.
 
-    # NOTE: We currently only support TEXT as init type, this is to later only easily
-    # switch to MPT
-    peft_config = cls.create_hf_tuning_config(
-        base_model=base_model,
-        tuning_type=tuning_type,
-        task_type=task_type,
-        tokenizer_name_or_path=tokenizer_name_or_path,
-        tuning_config=tuning_config,
-        output_model_types=output_model_types,
-    )
+    if tuning_type == TuningType.LORA:
+        peft_config = LoraConfig(
+            lora_alpha=lora_alpha,
+            lora_dropout=lora_dropout,
+            r=lora_r,
+            bias=lora_bias,
+            task_type=task_type,
+            target_modules=lora_target_modules
+        )
+    else:
+        # if not LORA, then must be Prompt tuning or MPT
+        # NOTE: We currently only support TEXT as init type, this is to later only easily
+        # switch to MPT
+        peft_config = cls.create_hf_tuning_config(
+            base_model=base_model,
+            tuning_type=tuning_type,
+            task_type=task_type,
+            tokenizer_name_or_path=tokenizer_name_or_path,
+            tuning_config=tuning_config,
+            output_model_types=output_model_types,
+        )
 
     return task_type, output_model_types, peft_config, tuning_type
