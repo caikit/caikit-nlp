@@ -24,6 +24,7 @@ from torch.utils.data import IterableDataset
 from transformers import (
     AutoTokenizer,
     DataCollatorWithPadding,
+    PreTrainedTokenizerBase,
     Trainer,
     TrainingArguments,
 )
@@ -132,7 +133,7 @@ class PretrainedModelBase(ABC, ModuleBase):
         Args:
             model_name (str)
                 The name/path of the HF sequence classifier model
-            tokenizer_name (Optional[str]
+            tokenizer_name (Optional[Union[str, PreTrainedTokenizerBase]])
                 The name/path of the HF tokenizer model (matches model_name if
                 not given) or an instance of a loaded tokenizer.
                 NOTE: If a loaded tokenizer is provided, and it doesn't have
@@ -151,41 +152,44 @@ class PretrainedModelBase(ABC, ModuleBase):
             model HFAutoSequenceClassifier
                 The loaded resource model
         """
-        # Default tokenizer to model if downloading with a model name rather
-        # than a path
-        error.value_check(
-            "<NLP12813423E>",
-            not os.path.isdir(model_name) or tokenizer_name is not None,
-            "Must provide path to tokenizer if model_name is a path",
-        )
+
         torch_dtype = get_torch_dtype(torch_dtype)
-        if tokenizer_name is None:
-            tokenizer_name = model_name
-        if not os.path.isdir(tokenizer_name) and tokenizer_name != model_name:
-            log.warning(
-                "Bootstrapping with mismatched tokenizer (%s) / model (%s)",
+
+        # Check if we passed the tokenizer directly; for now, we keep
+        # the arg name tokenizer_name for compatibility reasons
+        if isinstance(tokenizer_name, PreTrainedTokenizerBase):
+            log.debug("Bootstrapping with in-memory tokenizer")
+            tokenizer = tokenizer_name
+
+        else:
+            if tokenizer_name is None:
+                tokenizer_name = model_name
+
+            if not os.path.isdir(tokenizer_name) and tokenizer_name != model_name:
+                log.warning(
+                    "Bootstrapping with mismatched tokenizer (%s) / model (%s)",
+                    tokenizer_name,
+                    model_name,
+                )
+
+            # Figure out the right padding side based on the name of the HF model
+            # NOTE: This matches models whose name includes the left-pad types as a
+            #   substring and not just as an exact match.
+            if padding_side is None:
+                padding_side = (
+                    "left"
+                    if any(k in model_name for k in cls._LEFT_PAD_MODEL_TYPES)
+                    else "right"
+                )
+
+            # Load the tokenizer and set up the pad token if needed
+            tokenizer = AutoTokenizer.from_pretrained(
                 tokenizer_name,
-                model_name,
+                local_files_only=not get_config().allow_downloads,
+                padding_side=padding_side,
+                # We can't disable use_fast otherwise unit test fails
+                # use_fast=False,
             )
-
-        # Figure out the right padding side based on the name of the HF model
-        # NOTE: This matches models whose name includes the left-pad types as a
-        #   substring and not just as an exact match.
-        if padding_side is None:
-            padding_side = (
-                "left"
-                if any(k in model_name for k in cls._LEFT_PAD_MODEL_TYPES)
-                else "right"
-            )
-
-        # Load the tokenizer and set up the pad token if needed
-        tokenizer = AutoTokenizer.from_pretrained(
-            tokenizer_name,
-            local_files_only=not get_config().allow_downloads,
-            padding_side=padding_side,
-            # We can't disable use_fast otherwise unit test fails
-            # use_fast=False,
-        )
 
         if tokenizer.pad_token_id is None:
             tokenizer.pad_token_id = tokenizer.eos_token_id
