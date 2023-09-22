@@ -205,7 +205,6 @@ class TextGenerationTGIS(ModuleBase):
     def run(
         self,
         text: str,
-        preserve_input_text: bool = False,
         max_new_tokens: Optional[int] = 20,
         min_new_tokens: Optional[int] = 0,
         truncate_input_tokens: Optional[int] = 0,
@@ -221,6 +220,7 @@ class TextGenerationTGIS(ModuleBase):
             Union[Tuple[int, float], ExponentialDecayLengthPenalty]
         ] = None,
         stop_sequences: Optional[List[str]] = None,
+        preserve_input_text: bool = False,
     ) -> GeneratedTextResult:
         """Run inference against the model running in TGIS.
 
@@ -256,7 +256,6 @@ class TextGenerationTGIS(ModuleBase):
     def run_stream_out(
         self,
         text: str,
-        preserve_input_text: bool = False,
         max_new_tokens: Optional[int] = 20,
         min_new_tokens: Optional[int] = 0,
         truncate_input_tokens: Optional[int] = 0,
@@ -272,6 +271,7 @@ class TextGenerationTGIS(ModuleBase):
             Union[Tuple[int, float], ExponentialDecayLengthPenalty]
         ] = None,
         stop_sequences: Optional[List[str]] = None,
+        preserve_input_text: bool = False,
     ) -> Iterable[GeneratedTextStreamResult]:
         """Run output stream inferencing for text generation module.
 

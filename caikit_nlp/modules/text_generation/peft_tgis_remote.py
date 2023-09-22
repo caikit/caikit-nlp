@@ -179,7 +179,6 @@ class PeftPromptTuningTGIS(ModuleBase):  # pylint: disable=too-many-instance-att
     def run(
         self,
         text: str,
-        preserve_input_text: bool = False,
         max_new_tokens: Optional[int] = 20,
         min_new_tokens: Optional[int] = 0,
         truncate_input_tokens: Optional[int] = 0,
@@ -195,6 +194,7 @@ class PeftPromptTuningTGIS(ModuleBase):  # pylint: disable=too-many-instance-att
             Union[Tuple[int, float], ExponentialDecayLengthPenalty]
         ] = None,
         stop_sequences: Optional[List[str]] = None,
+        preserve_input_text: bool = False,
     ) -> GeneratedTextResult:
         """Run inference against the model running in TGIS.
 
@@ -235,7 +235,6 @@ class PeftPromptTuningTGIS(ModuleBase):  # pylint: disable=too-many-instance-att
     def run_stream_out(
         self,
         text: str,
-        preserve_input_text: bool = False,
         max_new_tokens: Optional[int] = 20,
         min_new_tokens: Optional[int] = 0,
         truncate_input_tokens: Optional[int] = 0,
@@ -251,6 +250,7 @@ class PeftPromptTuningTGIS(ModuleBase):  # pylint: disable=too-many-instance-att
             Union[Tuple[int, float], ExponentialDecayLengthPenalty]
         ] = None,
         stop_sequences: Optional[List[str]] = None,
+        preserve_input_text: bool = False,
     ) -> Iterable[GeneratedTextStreamResult]:
         """Run output stream inferencing against the model running in TGIS
 
