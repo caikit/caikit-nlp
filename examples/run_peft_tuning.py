@@ -406,11 +406,16 @@ def show_experiment_configuration(args, dataset_info, model_type) -> None:
         model_type: type
             Resource class corresponding to the base model.
     """
-    text_init_substr = (
-        " |- Prompt Tuning initialization Text: [{}]".format(dataset_info.init_text)
-        if args.prompt_tuning_init == "TEXT"
-        else ""
-    )
+
+    if "prompt_tuning_init" in args:
+        text_init_substr = (
+            " |- Prompt Tuning initialization Text: [{}]".format(dataset_info.init_text)
+            if args.prompt_tuning_init == "TEXT"
+            else ""
+        )
+    else:
+        text_init_substr = ""
+
     print_strs = [
         "Experiment Configuration",
         "- Model Name: [{}]".format(args.model_name),
