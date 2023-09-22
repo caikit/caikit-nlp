@@ -482,7 +482,7 @@ class PeftPromptTuning(ModuleBase):
                 Save base model along with the prompts in the model_path provided.
                 Default: False
         """
-
+        log.debug(self.tuning_type)
         if self.tuning_type == TuningType.LORA:
             log.debug("Saving a lora, but whoever is reviewing this NOTE- this is all wrong")
             log.debug("Trevor put this hack here to save the model and make sure the LORA worked")
