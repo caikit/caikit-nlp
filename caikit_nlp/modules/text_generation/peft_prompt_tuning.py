@@ -487,8 +487,9 @@ class PeftPromptTuning(ModuleBase):
             log.debug("Saving a lora, but whoever is reviewing this NOTE- this is all wrong")
             log.debug("Trevor put this hack here to save the model and make sure the LORA worked")
             log.debug("but i doubt this will work w/whatever is down stream")
+
             model_save = self.model.module if hasattr(self.model, "module") else self.model
-            model_save.save_pretrained
+            model_save.save_pretrained(model_path)
         else:
             module_saver = ModuleSaver(
                 self,
