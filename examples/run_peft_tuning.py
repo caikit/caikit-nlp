@@ -371,25 +371,28 @@ def build_tuning_config(args: argparse.Namespace, dataset_info: DatasetInfo):
     # NOTE: the block itself already does filtering on our options, but since we separate things
     # through the CLI, we build the Tuning Config as accurately as possible so that the options
     # can be shown in the console.
+
     base_kwargs = {
         "num_virtual_tokens": args.num_virtual_tokens,
-        "prompt_tuning_init_method": args.prompt_tuning_init,
     }
-    # Add the initialization text only if we actually initialize with text
-    if args.prompt_tuning_init == "TEXT":
-        base_kwargs["prompt_tuning_init_text"] = dataset_info.init_text
-    if (
-        args.tuning_type == "MULTITASK_PROMPT_TUNING"
-        and args.prompt_tuning_init_source_model
-    ):
-        if not args.prompt_tuning_init_source_model.exists():
-            raise FileNotFoundError(
-                "Provided prompt tuning init source does not exist!"
+    if "prompt_tuning_init" in args:
+        base_kwargs['prompt_tuning_init_method'] = args.prompt_tuning_init
+        # Add the initialization text only if we actually initialize with text
+        if args.prompt_tuning_init == "TEXT":
+            base_kwargs["prompt_tuning_init_text"] = dataset_info.init_text
+        if (
+            args.tuning_type == "MULTITASK_PROMPT_TUNING"
+            and args.prompt_tuning_init_source_model
+        ):
+            if not args.prompt_tuning_init_source_model.exists():
+                raise FileNotFoundError(
+                    "Provided prompt tuning init source does not exist!"
+                )
+            base_kwargs["prompt_tuning_init_source_model"] = str(
+                args.prompt_tuning_init_source_model
             )
-        base_kwargs["prompt_tuning_init_source_model"] = str(
-            args.prompt_tuning_init_source_model
-        )
     return TuningConfig(**base_kwargs)
+
 
 
 def show_experiment_configuration(args, dataset_info, model_type) -> None:
