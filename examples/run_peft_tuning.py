@@ -140,7 +140,7 @@ def parse_args() -> argparse.Namespace:
     )
 
     lora_tuning = subparsers.add_parser(
-        "LORA_TUNING",
+        "LORA",
         help="Train update matrices for low-rank adaptation of large language model (LoRA).",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
