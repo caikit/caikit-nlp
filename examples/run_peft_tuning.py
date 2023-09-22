@@ -154,7 +154,7 @@ def parse_args() -> argparse.Namespace:
     register_common_arguments(subparsers)
     register_multitask_prompt_tuning_args(parser_multiprompt_tuning)
     register_prompt_tuning_args(parser_prompt_tuning)
-    register_lora_tuning_args(lora_tuning)
+    register_lora_config_args(lora_tuning)
     args = parser.parse_args()
     # Reconfigure logging level based on verbosity, while preserving filters etc.
     default_level = "debug" if args.verbose else "info"
