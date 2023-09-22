@@ -420,6 +420,17 @@ class PeftPromptTuning(ModuleBase):
         device = cls._get_device(device)
         cls.convert_peft_model_to_type(device, peft_model, torch_dtype)
 
+        if hasattr(peft_model, "enable_input_require_grads"):
+            peft_model.enable_input_require_grads()
+            log.debug("at point 1")
+        else:
+            log.debug("at point 2")
+
+            def make_inputs_require_grad(module, input, output):
+                output.requires_grad_(True)
+
+            peft_model.get_input_embeddings().register_forward_hook(make_inputs_require_grad)
+
         training_loss_tracker = cls._execute_train_loop(
             peft_model,
             num_epochs,
@@ -446,15 +457,7 @@ class PeftPromptTuning(ModuleBase):
             "_name_or_path needs to be removed from config!",
         )
 
-        if hasattr(peft_model, "enable_input_require_grads"):
-            peft_model.enable_input_require_grads()
-            log.debug("at point 1")
-        else:
-            log.debug("at point 2")
-            def make_inputs_require_grad(module, input, output):
-                output.requires_grad_(True)
 
-            peft_model.get_input_embeddings().register_forward_hook(make_inputs_require_grad)
         # Wrap up the trained model in a class instance
         return cls(
             tokenizer=base_model.tokenizer,
