@@ -413,29 +413,50 @@ def show_experiment_configuration(args, dataset_info, model_type) -> None:
             if args.prompt_tuning_init == "TEXT"
             else ""
         )
-    else:
-        text_init_substr = ""
 
-    print_strs = [
-        "Experiment Configuration",
-        "- Model Name: [{}]".format(args.model_name),
-        " |- Inferred Model Resource Type: [{}]".format(model_type),
-        "- Tuning Type: [{}]".format(args.tuning_type),
-        "- Prompt Tuning Initialization Type [{}]".format(args.prompt_tuning_init),
-        "- Number of Virtual Tokens: [{}]".format(args.num_virtual_tokens),
-        text_init_substr,
-        "- Dataset: [{}]".format(args.dataset),
-        "- Verbalizer: [{}]".format(dataset_info.verbalizer),
-        "- Number of Epochs: [{}]".format(args.num_epochs),
-        "- Learning Rate: [{}]".format(args.learning_rate),
-        "- Batch Size: [{}]".format(args.batch_size),
-        "- Output Directory: [{}]".format(args.output_dir),
-        "- Exporting prompt only: [{}]".format(args.prompt_only),
-        "- Number of shots: [{}]".format(args.num_shots),
-        "- Maximum source sequence length: [{}]".format(args.max_source_length),
-        "- Maximum target sequence length: [{}]".format(args.max_target_length),
-        "- Gradient accumulation steps: [{}]".format(args.accumulate_steps),
-    ]
+        print_strs = [
+            "Experiment Configuration",
+            "- Model Name: [{}]".format(args.model_name),
+            " |- Inferred Model Resource Type: [{}]".format(model_type),
+            "- Tuning Type: [{}]".format(args.tuning_type),
+            "- Prompt Tuning Initialization Type [{}]".format(args.prompt_tuning_init),
+            "- Number of Virtual Tokens: [{}]".format(args.num_virtual_tokens),
+            text_init_substr,
+            "- Dataset: [{}]".format(args.dataset),
+            "- Verbalizer: [{}]".format(dataset_info.verbalizer),
+            "- Number of Epochs: [{}]".format(args.num_epochs),
+            "- Learning Rate: [{}]".format(args.learning_rate),
+            "- Batch Size: [{}]".format(args.batch_size),
+            "- Output Directory: [{}]".format(args.output_dir),
+            "- Exporting prompt only: [{}]".format(args.prompt_only),
+            "- Number of shots: [{}]".format(args.num_shots),
+            "- Maximum source sequence length: [{}]".format(args.max_source_length),
+            "- Maximum target sequence length: [{}]".format(args.max_target_length),
+            "- Gradient accumulation steps: [{}]".format(args.accumulate_steps),
+        ]
+    else:
+        print_strs = [
+            "Experiment Configuration",
+            "- Model Name: [{}]".format(args.model_name),
+            " |- Inferred Model Resource Type: [{}]".format(model_type),
+            "- Tuning Type: [{}]".format(args.tuning_type),
+            "- Dataset: [{}]".format(args.dataset),
+            "- Verbalizer: [{}]".format(dataset_info.verbalizer),
+            "- Number of Epochs: [{}]".format(args.num_epochs),
+            "- Learning Rate: [{}]".format(args.learning_rate),
+            "- Batch Size: [{}]".format(args.batch_size),
+            "- Output Directory: [{}]".format(args.output_dir),
+            "- Exporting prompt only: [{}]".format(args.prompt_only),
+            "- Number of shots: [{}]".format(args.num_shots),
+            "- Maximum source sequence length: [{}]".format(args.max_source_length),
+            "- Maximum target sequence length: [{}]".format(args.max_target_length),
+            "- Gradient accumulation steps: [{}]".format(args.accumulate_steps),
+            "- LoRA Alpha: [{}]".format(args.lora_alpha),
+            "- LoRA r: [{}]".format(args.lora_r),
+            "- LoRA Bias: [{}]".format(args.lora_bias),
+            "- LoRA Dropout: [{}]".format(args.lora_dropout),
+            "- LoRA Target Modules: [{}]".format(args.lora_target_modules),
+            ]
     # Log and sleep for a few seconds in case people actually want to read this...
     print_colored("\n".join([print_str for print_str in print_strs if print_str]))
 
