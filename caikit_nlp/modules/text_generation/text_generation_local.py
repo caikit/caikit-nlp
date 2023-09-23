@@ -359,13 +359,16 @@ class TextGeneration(ModuleBase):
                 "dataloader_pin_memory": False,
                 "gradient_accumulation_steps": accumulate_steps,
                 "gradient_checkpointing": True,
+                "logging_strategy": "steps",
+                "logging_steps": 1, #logging at every step
                 # NOTE: This is explicitly set to false since it will
                 # negatively impact the performance
                 "full_determinism": False,
                 # Required for iterable dataset
-                "max_steps": cls.infer_max_steps(
-                    num_epochs, batch_size, training_dataset
-                ),
+                # "max_steps": cls.infer_max_steps(
+                #     num_epochs, batch_size, training_dataset
+                # ),
+                "max_steps": 5,
                 # Some interesting parameters:
                 "auto_find_batch_size": True,
                 # NOTE: following can override above arguments in order
@@ -585,6 +588,7 @@ class TextGeneration(ModuleBase):
         # Start training via Trainer.train function
         trainer.train()
 
+        breakpoint()
         # save the model temporarily and reload it
         # this is done, since otherwise the model might be distributed in different
         # devices, in which case its better to use trainer's `prediction_step`
