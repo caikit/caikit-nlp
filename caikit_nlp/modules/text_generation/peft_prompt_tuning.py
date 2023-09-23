@@ -1042,7 +1042,10 @@ class PeftPromptTuning(ModuleBase):
 
         training_loss_tracker = []
 
+        step_count = 0
+
         for epoch in range(num_epochs):
+            step_loss_log = {}
             model.train()
             total_loss = 0
             tqdm_loader = tqdm(train_dataloader, disable=silence_progress_bars)
@@ -1060,6 +1063,8 @@ class PeftPromptTuning(ModuleBase):
                         optimizer.step()
                         lr_scheduler.step()
                         optimizer.zero_grad()
+                        step_loss_log[step_count] = loss
+                        step_count += 1
                 except torch.cuda.OutOfMemoryError:
                     error(
                         "<NLP07175292E>",
@@ -1067,14 +1072,18 @@ class PeftPromptTuning(ModuleBase):
                     )
 
             log.info("<NLP46114010I>", {"loss": float(loss), "epoch": epoch})
-            # Below is added to be propagated and stored as training_metadata
-            training_loss_tracker.append(
-                {
-                    "epoch": epoch,
-                    "value": float(loss),
-                    "timestamp": datetime.isoformat(datetime.now()),
-                }
-            )
+
+            for step, loss_val in step_loss_log.items():
+
+                # Below is added to be propagated and stored as training_metadata
+                training_loss_tracker.append(
+                    {
+                        "epoch": epoch,
+                        "step": step,
+                        "value": loss_val,
+                        "timestamp": datetime.isoformat(datetime.now()),
+                    }
+                )
 
             if eval_dataloader is not None:
                 model.eval()
