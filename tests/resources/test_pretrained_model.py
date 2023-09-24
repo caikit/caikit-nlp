@@ -172,56 +172,6 @@ def test_causal_lm_tok_output_correctness(models_cache_dir):
         assert tok_sample["task_ids"] == 0
 
 
-### Tests for Seq2Seq tokenization
-def test_seq2seq_tokenize_func_contains_unwrapped_stream(models_cache_dir):
-    """Ensure the seq2seq tokenizer produces an unwrapped stream; not flattening needed."""
-    seq2seq = HFAutoSeq2SeqLM.bootstrap(
-        model_name=SEQ2SEQ_LM_MODEL, tokenizer_name=SEQ2SEQ_LM_MODEL
-    )
-    (tok_func, requires_unwrapping) = seq2seq.build_task_tokenize_closure(
-        tokenizer=seq2seq.tokenizer,
-        max_source_length=100,
-        max_target_length=100,
-        verbalizer="{{input}}",
-        task_ids=0,
-    )
-    map_stream = SAMPLE_TRAINING_DATA.map(tok_func)
-    # Since we don't require unwrapping, i.e., each input sample just produces 1,
-    # result, we should just get a stream of batch encodings we can use directly.
-    assert requires_unwrapping is False
-    assert isinstance(map_stream, caikit.core.data_model.DataStream)
-    assert isinstance(
-        map_stream.peek(), transformers.tokenization_utils_base.BatchEncoding
-    )
-
-
-def test_seq2seq_tok_output_correctness(models_cache_dir):
-    """Validate the correctness of the attention mask for the seq2seq task."""
-    seq2seq = HFAutoSeq2SeqLM.bootstrap(
-        model_name=SEQ2SEQ_LM_MODEL, tokenizer_name=SEQ2SEQ_LM_MODEL
-    )
-    sample = GenerationTrainRecord(
-        input="This len does not matter", output="and this one doesn't either!"
-    )
-    (tok_func, _) = seq2seq.build_task_tokenize_closure(
-        tokenizer=seq2seq.tokenizer,
-        max_source_length=20,
-        max_target_length=20,
-        verbalizer="{{input}}",
-        task_ids=0,
-    )
-    input_tok = seq2seq.tokenizer.encode(sample.input)
-
-    tok_sample = tok_func(sample)
-    # Ensure we get one seq2seq; i.e., the result should NOT be a stream,
-    # and we should only be attending to the tokens from the input sequence.
-    assert isinstance(tok_sample, transformers.tokenization_utils_base.BatchEncoding)
-    assert sum(tok_sample["attention_mask"]) == len(input_tok)
-    # Ensure we support MPT
-    assert hasattr(tok_sample, "task_ids")
-    assert tok_sample["task_ids"] == 0
-
-
 def test_causal_lm_batch_tokenization(models_cache_dir):
     """Ensure that we can batch process causal lm inputs correctly."""
     causal_lm = HFAutoCausalLM.bootstrap(
@@ -263,14 +213,63 @@ def test_causal_lm_batch_tokenization(models_cache_dir):
         for k in indiv_res:
             assert indiv_res[k] == batched_res[k]
 
-def test_causal_lm_seq2seq_tok_forward(models_cache_dir):
-    """Ensure that we can override forward to seq2seq tokenization."""
+
+### Tests for Seq2Seq tokenization
+def test_seq2seq_tokenize_func_contains_unwrapped_stream(models_cache_dir):
+    """Ensure the seq2seq tokenizer produces an unwrapped stream; not flattening needed."""
+    seq2seq = HFAutoSeq2SeqLM.bootstrap(
+        model_name=SEQ2SEQ_LM_MODEL, tokenizer_name=SEQ2SEQ_LM_MODEL
+    )
+    (tok_func, requires_unwrapping) = seq2seq.build_task_tokenize_closure(
+        tokenizer=seq2seq.tokenizer,
+        max_source_length=100,
+        max_target_length=100,
+        verbalizer="{{input}}",
+        task_ids=0,
+    )
+    map_stream = SAMPLE_TRAINING_DATA.map(tok_func)
+    # Since we don't require unwrapping, i.e., each input sample just produces 1,
+    # result, we should just get a stream of batch encodings we can use directly.
+    assert requires_unwrapping is False
+    assert isinstance(map_stream, caikit.core.data_model.DataStream)
+    assert isinstance(
+        map_stream.peek(), transformers.tokenization_utils_base.BatchEncoding
+    )
+
+def test_seq2seq_tok_output_correctness(models_cache_dir):
+    """Validate the correctness of the attention mask for the seq2seq task."""
+    seq2seq = HFAutoSeq2SeqLM.bootstrap(
+        model_name=SEQ2SEQ_LM_MODEL, tokenizer_name=SEQ2SEQ_LM_MODEL
+    )
+    sample = GenerationTrainRecord(
+        input="This len does not matter", output="and this one doesn't either!"
+    )
+    (tok_func, _) = seq2seq.build_task_tokenize_closure(
+        tokenizer=seq2seq.tokenizer,
+        max_source_length=20,
+        max_target_length=20,
+        verbalizer="{{input}}",
+        task_ids=0,
+    )
+    input_tok = seq2seq.tokenizer.encode(sample.input)
+
+    tok_sample = tok_func(sample)
+    # Ensure we get one seq2seq; i.e., the result should NOT be a stream,
+    # and we should only be attending to the tokens from the input sequence.
+    assert isinstance(tok_sample, transformers.tokenization_utils_base.BatchEncoding)
+    assert sum(tok_sample["attention_mask"]) == len(input_tok)
+    # Ensure we support MPT
+    assert hasattr(tok_sample, "task_ids")
+    assert tok_sample["task_ids"] == 0
+
+### Tests for Causal LM -> seq2seq forwarded tokenization
+# Note - in all tests below, we always use the causal LM tokenizer, even when calling the
+# seq2seq tok function directly, to ensure the results are comparable.
+def test_causal_lm_seq2seq_tok_forward_no_batching(models_cache_dir):
+    """Ensure that we can override forward to seq2seq tokenization [non-batched mode]."""
     # Build a causal LM & Sequence to sequence model
     causal_lm = HFAutoCausalLM.bootstrap(
         model_name=CAUSAL_LM_MODEL, tokenizer_name=CAUSAL_LM_MODEL
-    )
-    seq2seq = HFAutoSeq2SeqLM.bootstrap(
-        model_name=SEQ2SEQ_LM_MODEL, tokenizer_name=SEQ2SEQ_LM_MODEL
     )
     # Build the dataset and tokenizer closures
     train_stream = DataStream.from_iterable(
@@ -279,14 +278,14 @@ def test_causal_lm_seq2seq_tok_forward(models_cache_dir):
             GenerationTrainRecord(input="how", output="today"),
         ]
     )
-    tok_func_causal_lm = causal_lm.build_task_tokenize_closure(
+    tok_func_causal_lm = HFAutoCausalLM.build_task_tokenize_closure(
         tokenizer=causal_lm.tokenizer,
         max_source_length=100,
         max_target_length=100,
         verbalizer="{{input}}",
         use_seq2seq_tokenization=True,
     )[0]
-    tok_func_seq2seq = seq2seq.build_task_tokenize_closure(
+    tok_func_seq2seq = HFAutoSeq2SeqLM.build_task_tokenize_closure(
         tokenizer=causal_lm.tokenizer,
         max_source_length=100,
         max_target_length=100,
@@ -300,3 +299,53 @@ def test_causal_lm_seq2seq_tok_forward(models_cache_dir):
         for k, causal_lm_v in causal_lm_res.items():
             seq2seq_lm_v = seq2seq_lm_res[k]
             assert causal_lm_v == seq2seq_lm_v
+
+
+def test_causal_lm_seq2seq_tok_forward_with_batching(models_cache_dir):
+    """Ensure that we can override forward to seq2seq tokenization [batched mode]."""
+    causal_lm = HFAutoCausalLM.bootstrap(
+        model_name=CAUSAL_LM_MODEL, tokenizer_name=CAUSAL_LM_MODEL
+    )
+    train_stream = DataStream.from_iterable(
+        [
+            GenerationTrainRecord(input="hello there", output="world"),
+            GenerationTrainRecord(input="how", output="today"),
+        ]
+    )
+    causal_lm_fn_kwargs = {
+        "tokenizer": causal_lm.tokenizer,
+        "max_source_length": 10,
+        "max_target_length": 10,
+        "use_seq2seq_tokenization": True,
+    }
+    seq2seq_kwargs = {k: v for k,v in causal_lm_fn_kwargs.items() if k != "use_seq2seq_tokenization"}
+
+    # Create an iterable dataset by batching...
+    def get(train_stream):
+        for data in train_stream:
+            yield {"input": data.input, "output": data.output}
+
+    dataset = TransformersIterableDataset.from_generator(
+        get, gen_kwargs={"train_stream": train_stream}
+    )
+    # Map the respective tokenize functions over the dataset
+    clm_batched_dataset = dataset.map(
+        HFAutoCausalLM.tokenize_function,
+        fn_kwargs=causal_lm_fn_kwargs,
+        batched=True,
+        remove_columns=["input", "output"],
+    )
+    seq2seqlm_batched_dataset = dataset.map(
+        HFAutoSeq2SeqLM.tokenize_function,
+        fn_kwargs=seq2seq_kwargs,
+        batched=True,
+        remove_columns=["input", "output"],
+    )
+
+    assert len(list(seq2seqlm_batched_dataset)) == len(list(clm_batched_dataset))
+    for clm_res, seq2seq_res in zip(clm_batched_dataset, seq2seqlm_batched_dataset):
+        # All keys should match (input ids, attention mask)
+        assert clm_res.keys() == seq2seq_res.keys()
+        # And all of their values should be the same
+        for k in clm_res:
+            assert clm_res[k] == seq2seq_res[k]
