@@ -93,6 +93,16 @@ class HFAutoCausalLM(PretrainedModelBase):
             DataStream[transformers.tokenization_utils_base.BatchEncoding]
                 stream of encoded tokenization output corresponding to the input example.
         """
+        if use_seq2seq_tokenization:
+            return cls._forward_to_seq2seq_tokenization(
+                example=example,
+                tokenizer=tokenizer,
+                max_source_length=max_source_length,
+                max_target_length=max_target_length,
+                verbalizer=verbalizer,
+                task_ids=task_ids,
+            )
+
         # Extract the source & target from our provided inputs
         source, target = cls.decompose_example_io(example)
         # Determine if our mapped inputs are in batched mode or not
@@ -106,17 +116,6 @@ class HFAutoCausalLM(PretrainedModelBase):
         source = (
             source if verbalizer is None else render_verbalizer(verbalizer, example)
         )
-
-        if use_seq2seq_tokenization:
-            return cls._forward_to_seq2seq_tokenization(
-                source=source,
-                target=target,
-                tokenizer=tokenizer,
-                max_source_length=max_source_length,
-                max_target_length=max_target_length,
-                task_ids=task_ids,
-                batched_mode=batched_mode,
-            )
 
         source_ids = tokenizer(source, max_length=max_source_length, truncation=True)
         target_ids = tokenizer(target, max_length=max_target_length, truncation=True)
@@ -298,21 +297,18 @@ class HFAutoCausalLM(PretrainedModelBase):
 
     @staticmethod
     def _forward_to_seq2seq_tokenization(
-        source,
-        target,
+        example,
         tokenizer, 
         max_source_length,
         max_target_length,
+        verbalizer,
         task_ids,
-        batched_mode,
     ):
-        if batched_mode:
-            raise NotImplementedError("seq2seq batch not implemented")
-        return HFAutoSeq2SeqLM._tokenize_source_and_target(
+        return HFAutoSeq2SeqLM.tokenize_function(
+            example=example,
             tokenizer=tokenizer,
-            source=source,
-            target=target,
             max_source_length=max_source_length,
             max_target_length=max_target_length,
+            verbalizer=verbalizer,
             task_ids=task_ids,
         )
