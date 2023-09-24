@@ -37,7 +37,6 @@ import alog
 from ...data_model import GenerationTrainRecord, PromptOutputModelType
 from ...toolkit.verbalizer_utils import render_verbalizer
 from .base import PretrainedModelBase
-from .hf_auto_seq2seq_lm import HFAutoSeq2SeqLM
 
 log = alog.use_channel("HFRCLM")
 error = error_handler.get(log)

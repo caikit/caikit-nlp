@@ -183,17 +183,7 @@ class HFAutoSeq2SeqLM(PretrainedModelBase):
         source = (
             source if verbalizer is None else render_verbalizer(verbalizer, example)
         )
-        return cls._tokenize_source_and_target(
-            tokenizer,
-            source,
-            target,
-            max_source_length,
-            max_target_length,
-            task_ids
-        )
 
-    @classmethod
-    def _tokenize_source_and_target(cls, tokenizer, source, target, max_source_length, max_target_length, task_ids):
         model_inputs = tokenizer(
             source,
             max_length=max_source_length,
@@ -215,4 +205,5 @@ class HFAutoSeq2SeqLM(PretrainedModelBase):
         model_inputs["labels"] = labels
         if task_ids is not None:
             model_inputs["task_ids"] = task_ids
+
         return model_inputs
