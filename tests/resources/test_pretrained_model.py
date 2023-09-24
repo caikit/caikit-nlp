@@ -262,3 +262,41 @@ def test_causal_lm_batch_tokenization(models_cache_dir):
         # And all of their values should be the same
         for k in indiv_res:
             assert indiv_res[k] == batched_res[k]
+
+def test_causal_lm_seq2seq_tok_forward(models_cache_dir):
+    """Ensure that we can override forward to seq2seq tokenization."""
+    # Build a causal LM & Sequence to sequence model
+    causal_lm = HFAutoCausalLM.bootstrap(
+        model_name=CAUSAL_LM_MODEL, tokenizer_name=CAUSAL_LM_MODEL
+    )
+    seq2seq = HFAutoSeq2SeqLM.bootstrap(
+        model_name=SEQ2SEQ_LM_MODEL, tokenizer_name=SEQ2SEQ_LM_MODEL
+    )
+    # Build the dataset and tokenizer closures
+    train_stream = DataStream.from_iterable(
+        [
+            GenerationTrainRecord(input="hello there", output="world"),
+            GenerationTrainRecord(input="how", output="today"),
+        ]
+    )
+    tok_func_causal_lm = causal_lm.build_task_tokenize_closure(
+        tokenizer=causal_lm.tokenizer,
+        max_source_length=100,
+        max_target_length=100,
+        verbalizer="{{input}}",
+        use_seq2seq_tokenization=True,
+    )[0]
+    tok_func_seq2seq = seq2seq.build_task_tokenize_closure(
+        tokenizer=causal_lm.tokenizer,
+        max_source_length=100,
+        max_target_length=100,
+        verbalizer="{{input}}",
+    )[0]
+    for elem in train_stream:
+        causal_lm_res = tok_func_causal_lm(elem)
+        seq2seq_lm_res = tok_func_seq2seq(elem)
+        # Compare the tokenization results...
+        assert causal_lm_res.keys() == seq2seq_lm_res.keys()
+        for k, causal_lm_v in causal_lm_res.items():
+            seq2seq_lm_v = seq2seq_lm_res[k]
+            assert causal_lm_v == seq2seq_lm_v
