@@ -482,21 +482,18 @@ class PeftPromptTuning(ModuleBase):
                 Save base model along with the prompts in the model_path provided.
                 Default: False
         """
-        log.debug(self.tuning_type)
+
         if self.tuning_type == TuningType.LORA:
-            log.debug("Saving a lora, but whoever is reviewing this NOTE- this is all wrong")
-            log.debug("Trevor put this hack here to save the model and make sure the LORA worked")
-            log.debug("but i doubt this will work w/whatever is down stream")
-
             model_save = self.model.module if hasattr(self.model, "module") else self.model
-            merged_model = model_save.merge_and_unload()
-            merged_model.save_pretrained(model_path)
-        else:
-            module_saver = ModuleSaver(
-                self,
-                model_path=model_path,
-            )
+            self.model = model_save.merge_and_unload()
 
+
+        module_saver = ModuleSaver(
+            self,
+            model_path=model_path,
+        )
+
+        if self.tuning_type != TuningType.LORA:
             # NOTE: In case we want optionally allow saving of the base model with the prompts
             # we can use the `base_model.save` method as its a resource that
             # implements its own save method
@@ -504,23 +501,26 @@ class PeftPromptTuning(ModuleBase):
                 self.model, self.tuning_type, self.output_model_types
             )
             assert prompt_dict, "Failed to export encoder and/or decoder prompts"
-            with module_saver:
-                config_options = {
-                    "base_model_config": self._base_model_config,
-                    "base_model_name": self.base_model_name,
-                    "eos_token": self.tokenizer.eos_token,
-                    "has_base_model": save_base_model,
-                    "verbalizer": self.verbalizer,
-                    "tuning_type": self.tuning_type.name,
-                    "task_type": str(self.task_type),
-                    # Grab the torch property for the dtype so that we can rebuild from a str.
-                    "trained_torch_dtype": str(self.model.dtype).rsplit(".", maxsplit=1)[
-                        -1
-                    ],
-                    "output_model_types": json.dumps(
-                        [output_type.name for output_type in self.output_model_types]
-                    ),
-                }
+        with module_saver:
+            config_options = {
+                "base_model_config": self._base_model_config,
+                "base_model_name": self.base_model_name,
+                "eos_token": self.tokenizer.eos_token,
+                "has_base_model": save_base_model,
+                "verbalizer": self.verbalizer,
+                "tuning_type": self.tuning_type.name,
+                "task_type": str(self.task_type),
+                # Grab the torch property for the dtype so that we can rebuild from a str.
+                "trained_torch_dtype": str(self.model.dtype).rsplit(".", maxsplit=1)[
+                    -1
+                ],
+
+            }
+
+            if self.tuning_type != TuningType.LORA:
+                config_options["output_model_types"] = json.dumps(
+                    [output_type.name for output_type in self.output_model_types]
+                )
                 # NOTE: These file names correspond to expected file names in TGIS.
                 key_file_pairs = [
                     [PeftPromptTuning._ENCODER_KEY.name, "encoder.pt"],
@@ -543,34 +543,34 @@ class PeftPromptTuning(ModuleBase):
                     assert os.path.isfile(
                         prompt_save_path
                     ), f"Prompt was not successfully saved to {prompt_save_path}"
-                if save_base_model:
-                    b_model_rel_path, b_model_abs_path = module_saver.add_dir(
-                        self.base_model_name
-                    )
-                    self.tokenizer.save_pretrained(os.path.join(b_model_abs_path))
-                    self.model.save_pretrained(os.path.join(b_model_abs_path))
+            if save_base_model or self.tuning_type == TuningType.LORA:
+                b_model_rel_path, b_model_abs_path = module_saver.add_dir(
+                    self.base_model_name
+                )
+                self.tokenizer.save_pretrained(os.path.join(b_model_abs_path))
+                self.model.save_pretrained(os.path.join(b_model_abs_path))
 
-                    config_options["full_model_path"] = b_model_rel_path
-                    config_options["tokenizer_path"] = b_model_rel_path
+                config_options["full_model_path"] = b_model_rel_path
+                config_options["tokenizer_path"] = b_model_rel_path
 
-                training_loss_filename = TRAINING_LOSS_LOG_FILENAME
+            training_loss_filename = TRAINING_LOSS_LOG_FILENAME
 
-                config_options.update({"training_logs": training_loss_filename})
-                # We are currently only saving logs containing loss in jsonl format
-                if "loss" in self.training_metadata:
-                    loss_log_lines = self.training_metadata.get("loss")
-                    error.type_check("<NLP60269855E>", list, loss_log_lines=loss_log_lines)
-                    with open(
-                        os.path.join(model_path, training_loss_filename),
-                        "w",
-                        encoding="utf-8",
-                    ) as f:
-                        for loss_log in loss_log_lines:
-                            loss_log = {"name": "loss", "data": loss_log}
-                            json.dump(loss_log, f)
-                            f.write("\n")
+            config_options.update({"training_logs": training_loss_filename})
+            # We are currently only saving logs containing loss in jsonl format
+            if "loss" in self.training_metadata:
+                loss_log_lines = self.training_metadata.get("loss")
+                error.type_check("<NLP60269855E>", list, loss_log_lines=loss_log_lines)
+                with open(
+                    os.path.join(model_path, training_loss_filename),
+                    "w",
+                    encoding="utf-8",
+                ) as f:
+                    for loss_log in loss_log_lines:
+                        loss_log = {"name": "loss", "data": loss_log}
+                        json.dump(loss_log, f)
+                        f.write("\n")
 
-                module_saver.update_config(config_options)
+            module_saver.update_config(config_options)
 
     @classmethod
     def load(
