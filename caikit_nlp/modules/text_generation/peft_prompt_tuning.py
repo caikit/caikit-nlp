@@ -502,6 +502,8 @@ class PeftPromptTuning(ModuleBase):
             )
             assert prompt_dict, "Failed to export encoder and/or decoder prompts"
         with module_saver:
+            log.debug("base_model_config:")
+            log.debug(self._base_model_config)
             config_options = {
                 "base_model_config": self._base_model_config,
                 "base_model_name": self.base_model_name,
