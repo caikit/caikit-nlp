@@ -1080,7 +1080,7 @@ class PeftPromptTuning(ModuleBase):
                     {
                         "epoch": epoch,
                         "step": step,
-                        "value": loss_val,
+                        "value": float(loss_val),
                         "timestamp": datetime.isoformat(datetime.now()),
                     }
                 )
@@ -1141,7 +1141,6 @@ class PeftPromptTuning(ModuleBase):
                         eval_epoch_loss,
                     )
 
-        error.value_check("<NLP66129758E>", len(training_loss_tracker) == num_epochs)
         return {"loss": training_loss_tracker}
 
     @classmethod
