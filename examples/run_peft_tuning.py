@@ -504,5 +504,10 @@ if __name__ == "__main__":
         lora_bias= args.lora_bias,
         lora_target_modules= args.lora_target_modules
     )
-    model.save(args.output_dir, save_base_model=not args.prompt_only)
+
+    if args.tuning_type != "LORA":
+        model.save(args.output_dir, save_base_model=not args.prompt_only)
+    else:
+        model.save(args.output_dir)
+
     print_colored("[Training Complete]")
