@@ -450,6 +450,9 @@ class TextGeneration(ModuleBase):
         elif config.trained_torch_dtype:
             torch_dtype = str_to_torch_dtype(config.trained_torch_dtype)
 
+        log.debug("Loading config...")
+        log.debug(config)
+
         base_model_path = config.get("artifact_path")
         error.type_check("<NLP35174683E>", str, base_model_path=base_model_path)
 
