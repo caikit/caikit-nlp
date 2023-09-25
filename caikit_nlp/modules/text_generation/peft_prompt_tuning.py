@@ -489,7 +489,8 @@ class PeftPromptTuning(ModuleBase):
             log.debug("but i doubt this will work w/whatever is down stream")
 
             model_save = self.model.module if hasattr(self.model, "module") else self.model
-            model_save.save_pretrained(model_path)
+            merged_model = model_save.merge_and_unload()
+            merged_model.save_pretrained(model_path)
         else:
             module_saver = ModuleSaver(
                 self,
