@@ -16,8 +16,7 @@ Huggingface auto causal LM resource type
 """
 # Standard
 from collections.abc import Mapping
-from copy import copy
-from typing import Callable, List, Tuple, Union, Optional
+from typing import List, Union
 
 # Third Party
 from transformers import (
@@ -69,7 +68,7 @@ class HFAutoCausalLM(PretrainedModelBase):
         task_ids: Union[None, int] = None,
         use_seq2seq_tokenization: bool = False,
         chunk_size: int = 128,
-        drop_remainder: bool = False
+        drop_remainder: bool = False,
     ) -> DataStream[BatchEncoding]:
         """Tokenization function to be used for causallm training; this function consumes a
         GenerationTrainRecord object and applies the verbalizer to it followed by
@@ -137,6 +136,7 @@ class HFAutoCausalLM(PretrainedModelBase):
         def generator_func():
             for chunk in source_id_chunks:
                 yield chunk
+
         chunk_stream = DataStream(generator_func)
         # If it's batch mode, collapse down into one encoding batch object
         if batched_mode:
@@ -241,7 +241,9 @@ class HFAutoCausalLM(PretrainedModelBase):
             left[k] = left[k] + right[k]
 
     @staticmethod
-    def _split_encoding_into_chunks(encoding: dict, chunk_size: int, drop_remainder:bool=False, task_ids=None):
+    def _split_encoding_into_chunks(
+        encoding: dict, chunk_size: int, drop_remainder: bool = False, task_ids=None
+    ):
         """Fetch the chunked batch encoding objects from source/target encoding(s).
         If no target encoding is provided, it's assumed that the source and target
         have already been concatenated.
@@ -264,15 +266,21 @@ class HFAutoCausalLM(PretrainedModelBase):
             slice_len = tok_len
         chunked_encodings = [
             BatchEncoding(
-                data={k: v[chunk_num: chunk_num+chunk_size] for k, v in encoding.items()}
-            ) for chunk_num in range(0, slice_len, chunk_size)
+                data={
+                    k: v[chunk_num : chunk_num + chunk_size]
+                    for k, v in encoding.items()
+                }
+            )
+            for chunk_num in range(0, slice_len, chunk_size)
         ]
         for enc in chunked_encodings:
             enc["task_ids"] = task_ids
         return chunked_encodings
 
     @staticmethod
-    def _collapse_stream_into_encoding(stream: DataStream[BatchEncoding]) -> BatchEncoding:
+    def _collapse_stream_into_encoding(
+        stream: DataStream[BatchEncoding],
+    ) -> BatchEncoding:
         """Given a stream batch encodings, collapse them back into
         one encoding, i.e., the return value of the batch encoding.
 
@@ -302,7 +310,7 @@ class HFAutoCausalLM(PretrainedModelBase):
     @staticmethod
     def _forward_to_seq2seq_tokenization(
         example,
-        tokenizer, 
+        tokenizer,
         max_source_length,
         max_target_length,
         verbalizer,

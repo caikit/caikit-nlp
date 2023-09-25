@@ -131,7 +131,10 @@ def test_causal_lm_tokenize_func_contains_wrapped_stream(models_cache_dir):
 # 1 - simplest and minimal case
 # 3 - because the concat sequence is length 17, so we have a remainder
 # 100 - which is much larger than the concatenated seq and should yield one chunk
-@pytest.mark.parametrize("chunk_size,drop_remainder", [(1, True), (1, False), (3, True), (3, False), (100, True), (100, False)])
+@pytest.mark.parametrize(
+    "chunk_size,drop_remainder",
+    [(1, True), (1, False), (3, True), (3, False), (100, True), (100, False)],
+)
 def test_causal_lm_tok_output_correctness(models_cache_dir, chunk_size, drop_remainder):
     """Validate the tokenized results for the chunked language modeling objective."""
     causal_lm = HFAutoCausalLM.bootstrap(
@@ -170,15 +173,14 @@ def test_causal_lm_tok_output_correctness(models_cache_dir, chunk_size, drop_rem
     for idx in range(num_expected_chunks):
         assert len(tok_list[idx]["attention_mask"]) == chunk_size
         assert len(tok_list[idx]["input_ids"]) == chunk_size
-        assert all(atn==1 for atn in tok_list[idx]["attention_mask"])
+        assert all(atn == 1 for atn in tok_list[idx]["attention_mask"])
         assert tok_list[idx]["task_ids"] == 0
     # Check the remainder; lists should be the same length, but less than the chunk size
     if has_remainder:
         remainder = tok_list[-1]
         assert len(remainder["attention_mask"]) == len(remainder["input_ids"])
         assert len(remainder["input_ids"]) < chunk_size
-        assert all(atn==1 for atn in remainder["attention_mask"])
-
+        assert all(atn == 1 for atn in remainder["attention_mask"])
 
 
 def test_causal_lm_batch_tokenization(models_cache_dir):
@@ -245,6 +247,7 @@ def test_seq2seq_tokenize_func_contains_unwrapped_stream(models_cache_dir):
         map_stream.peek(), transformers.tokenization_utils_base.BatchEncoding
     )
 
+
 def test_seq2seq_tok_output_correctness(models_cache_dir):
     """Validate the correctness of the attention mask for the seq2seq task."""
     seq2seq = HFAutoSeq2SeqLM.bootstrap(
@@ -270,6 +273,7 @@ def test_seq2seq_tok_output_correctness(models_cache_dir):
     # Ensure we support MPT
     assert hasattr(tok_sample, "task_ids")
     assert tok_sample["task_ids"] == 0
+
 
 ### Tests for Causal LM -> seq2seq forwarded tokenization
 # Note - in all tests below, we always use the causal LM tokenizer, even when calling the
@@ -327,7 +331,9 @@ def test_causal_lm_seq2seq_tok_forward_with_batching(models_cache_dir):
         "max_target_length": 10,
         "use_seq2seq_tokenization": True,
     }
-    seq2seq_kwargs = {k: v for k,v in causal_lm_fn_kwargs.items() if k != "use_seq2seq_tokenization"}
+    seq2seq_kwargs = {
+        k: v for k, v in causal_lm_fn_kwargs.items() if k != "use_seq2seq_tokenization"
+    }
 
     # Create an iterable dataset by batching...
     def get(train_stream):
@@ -358,5 +364,6 @@ def test_causal_lm_seq2seq_tok_forward_with_batching(models_cache_dir):
         # And all of their values should be the same
         for k in clm_res:
             assert clm_res[k] == seq2seq_res[k]
+
 
 ### Tests for Causal LM tokenization chunking
