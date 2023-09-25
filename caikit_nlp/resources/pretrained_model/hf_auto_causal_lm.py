@@ -17,7 +17,7 @@ Huggingface auto causal LM resource type
 # Standard
 from collections.abc import Mapping
 from copy import copy
-from typing import Callable, List, Tuple, Union
+from typing import Callable, List, Tuple, Union, Optional
 
 # Third Party
 from transformers import (
@@ -68,6 +68,8 @@ class HFAutoCausalLM(PretrainedModelBase):
         verbalizer: Union[None, str] = None,
         task_ids: Union[None, int] = None,
         use_seq2seq_tokenization: bool = False,
+        chunk_size: int = 128,
+        drop_remainder: bool = False
     ) -> DataStream[BatchEncoding]:
         """Tokenization function to be used for causallm training; this function consumes a
         GenerationTrainRecord object and applies the verbalizer to it followed by
@@ -88,6 +90,11 @@ class HFAutoCausalLM(PretrainedModelBase):
                 Verbalizer to be rendered into each text.
             task_ids: Union[None, int]
                 Task IDs to be used for multiprompt tuning.
+            chunk_size: int
+                unsigned int value to be used for chunk size.
+            drop_remainder: bool
+                Whether or not to keep the residual as an extra chunk if the
+                total number of tokens is not divisible by the chunk size.
 
         Returns:
             DataStream[transformers.tokenization_utils_base.BatchEncoding]
@@ -123,42 +130,19 @@ class HFAutoCausalLM(PretrainedModelBase):
         # Force everything to a list of batch encodings; for non-batch mode, this just
         # puts it into a list. For batch mode, we get a list of batch encodings,
         # allowing us to standardize subsequent processing a bit.
-        source_ids, num_target_samples = cls._force_to_batch_encoding_list(
-            source_ids, target_ids, batched_mode, task_ids
+        source_id_chunks = cls._force_to_batch_encoding_list_of_chunks(
+            source_ids, target_ids, batched_mode, task_ids, chunk_size, drop_remainder
         )
 
-        def build_generator_func(
-            source_ids: BatchEncoding, num_target_samples: int
-        ) -> Callable:
-            """Builds a generator that can be applied to a single batch encoding and its
-            corresponding original number of target samples.
-
-            source_ids: BatchEncoding
-                Source ID to generate different samples from.
-            num_target_samples: int
-                Number of target IDs; used for attention mask creation.
-            """
-
-            def single_generator_func():
-                for idx in range(num_target_samples):
-                    ret_source_ids = copy(source_ids)
-                    ret_source_ids["attention_mask"] = cls._get_attention_mask(
-                        source_ids,
-                        idx,
-                        num_target_samples,
-                    )
-                    yield ret_source_ids
-
-            return single_generator_func
-
-        if not batched_mode:
-            return DataStream(build_generator_func(source_ids, num_target_samples))
-        streams = [
-            DataStream(build_generator_func(s_ids, n_target_samples))
-            for s_ids, n_target_samples in zip(source_ids, num_target_samples)
-        ]
-        encoding_keys = source_ids[0].keys()
-        return cls._collapse_streams_into_encoding(streams, encoding_keys)
+        def generator_func():
+            for chunk in source_id_chunks:
+                yield chunk
+        chunk_stream = DataStream(generator_func)
+        # If it's batch mode, collapse down into one encoding batch object
+        if batched_mode:
+            return cls._collapse_stream_into_encoding(chunk_stream)
+        # Otherwise just produce the stream to be chained
+        return chunk_stream
 
     def _get_data_collator(self, **kwargs) -> "transformers.DataCollator":
         """Function to return appropriate data collator based on resource.
@@ -190,12 +174,14 @@ class HFAutoCausalLM(PretrainedModelBase):
         )
 
     @staticmethod
-    def _force_to_batch_encoding_list(
+    def _force_to_batch_encoding_list_of_chunks(
         source_ids: BatchEncoding,
         target_ids: BatchEncoding,
         batch_mode: bool,
         task_ids: Union[None, int],
-    ) -> Tuple[Union[BatchEncoding, List[BatchEncoding]], Union[int, List[int]]]:
+        chunk_size: int,
+        drop_remainder: bool,
+    ) -> List[BatchEncoding]:
         """Forces our inputs into either a single batch encoding (if we aren't running in batch
         mode), or a list of Batch Encodings. I.e., a list of dicts instead of a dict of lists.
         The primary reason that we do this is to allow us to easily map a common generator
@@ -212,17 +198,19 @@ class HFAutoCausalLM(PretrainedModelBase):
                 Optional task IDs for MPT to be propagated to produced encodings.
 
         Returns:
-            Tuple[Union[BatchEncoding, List[BatchEncoding]], Union[int, List]]
+            List[BatchEncoding]
         """
         if not batch_mode:
-            source_ids["input_ids"] = source_ids.input_ids + target_ids.input_ids
-            source_ids["task_ids"] = task_ids
-            num_target_samples = len(target_ids.input_ids)
-            return source_ids, num_target_samples
+            HFAutoCausalLM._concatenate_encodings(source_ids, target_ids)
+            chunks = HFAutoCausalLM._split_encoding_into_chunks(
+                encoding=source_ids,
+                chunk_size=chunk_size,
+                task_ids=task_ids,
+            )
+            return chunks
         # Otherwise we need to expand the dict along its keys,
         # mapping all of its encapsulated objects to new items.
         encodings = []
-        num_target_samples = []
         id_keys = source_ids.keys()
         key = None
         error.value_check(
@@ -230,49 +218,62 @@ class HFAutoCausalLM(PretrainedModelBase):
             source_ids.keys(),
             "Source ID batch encoding must have keys",
         )
+
         for batch_idx in range(len(source_ids.input_ids)):
             new_encoding = BatchEncoding()
             for key in id_keys:
-                if key == "input_ids":
-                    new_encoding[key] = (
-                        source_ids[key][batch_idx] + target_ids[key][batch_idx]
-                    )
-                else:
-                    new_encoding[key] = source_ids[key][batch_idx]
-            num_target_samples.append(len(target_ids[key][batch_idx]))
-            new_encoding["task_ids"] = task_ids
-            encodings.append(new_encoding)
-        return encodings, num_target_samples
+                new_encoding[key] = (
+                    source_ids[key][batch_idx] + target_ids[key][batch_idx]
+                )
+            chunks = HFAutoCausalLM._split_encoding_into_chunks(
+                encoding=new_encoding,
+                chunk_size=chunk_size,
+                drop_remainder=drop_remainder,
+                task_ids=task_ids,
+            )
+            # Chunks are held as a list of lists
+            encodings += chunks
+        return encodings
 
     @staticmethod
-    def _get_attention_mask(
-        source_ids: BatchEncoding, idx: int, num_target_samples: int
-    ) -> List[int]:
-        """Get the attention mask for a given target token from some source encoding.
+    def _concatenate_encodings(left, right):
+        for k in left.keys():
+            left[k] = left[k] + right[k]
 
-        Args:
-            source_ids: BatchEncoding
-                Source encoding that requires an attention mask.
-            idx: int
-                Index of the output token we attend up to.
-            num_target_samples: int
-                Length of the original target seequence being considered.
+    @staticmethod
+    def _split_encoding_into_chunks(encoding: dict, chunk_size: int, drop_remainder:bool=False, task_ids=None):
+        """Fetch the chunked batch encoding objects from source/target encoding(s).
+        If no target encoding is provided, it's assumed that the source and target
+        have already been concatenated.
 
-        Returns:
-            List[int]
-                Binary attention mask.
+        If drop remainder is enabled, do not yield uneven chunks. For now, this parameter
+        is not exposed.
         """
-        return (
-            source_ids["attention_mask"]
-            + [1] * (idx + 1)
-            + [0] * (num_target_samples - idx - 1)
-        )
+        chunked_encodings = []
+        # all encoding keys have the same length list values; we just use input ids
+        tok_len = len(encoding["input_ids"])
+        # Build a batch encoding for every chunk; for each data,
+        # use the slice for all keys inside of the source_encoding.
+        if tok_len >= chunk_size:
+            slice_len = (tok_len // chunk_size) * chunk_size
+            # If we have a remainder and we don't want to drop it, add a new chunk
+            if not drop_remainder and slice_len != tok_len:
+                slice_len += chunk_size
+        # We just have one big chunk
+        else:
+            slice_len = tok_len
+        chunked_encodings = [
+            BatchEncoding(
+                data={k: v[chunk_num: chunk_num+chunk_size] for k, v in encoding.items()}
+            ) for chunk_num in range(0, slice_len, chunk_size)
+        ]
+        for enc in chunked_encodings:
+            enc["task_ids"] = task_ids
+        return chunked_encodings
 
     @staticmethod
-    def _collapse_streams_into_encoding(
-        streams: List[DataStream[BatchEncoding]], encoding_keys: "dict_keys"
-    ) -> BatchEncoding:
-        """Given a list of streams of batch encodings, collapse them back into
+    def _collapse_stream_into_encoding(stream: DataStream[BatchEncoding]) -> BatchEncoding:
+        """Given a stream batch encodings, collapse them back into
         one encoding, i.e., the return value of the batch encoding.
 
         Args:
@@ -283,16 +284,19 @@ class HFAutoCausalLM(PretrainedModelBase):
 
         Returns:
             BatchEncoding
-                Collapsed batch encoding to be returned from tokenizatino func.
+                Collapsed batch encoding to be returned from tokenization func.
         """
+        encoding_keys = None
         new_encoding = BatchEncoding()
-        for k in encoding_keys:
-            new_encoding[k] = []
         # Now build the individual lists lists for each entry
-        for stream in streams:
-            for enc in stream:
+        for enc in stream:
+            # Initialize the existing keys in the new encoding
+            if encoding_keys is None:
+                encoding_keys = enc.keys()
                 for k in encoding_keys:
-                    new_encoding[k].append(enc[k])
+                    new_encoding[k] = []
+            for k in encoding_keys:
+                new_encoding[k].append(enc[k])
         return new_encoding
 
     @staticmethod
