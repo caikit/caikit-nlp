@@ -127,13 +127,18 @@ def test_causal_lm_tokenize_func_contains_wrapped_stream(models_cache_dir):
     )
 
 
-def test_causal_lm_tok_output_correctness(models_cache_dir):
-    """Validate the correctness of the attention mask for the language modeling objective."""
+# Key cases here are:
+# 1 - simplest and minimal case
+# 3 - because the concat sequence is length 17, so we have a remainder
+# 100 - which is much larger than the concatenated seq and should yield one chunk
+@pytest.mark.parametrize("chunk_size,drop_remainder", [(1, True), (1, False), (3, True), (3, False), (100, True), (100, False)])
+def test_causal_lm_tok_output_correctness(models_cache_dir, chunk_size, drop_remainder):
+    """Validate the tokenized results for the chunked language modeling objective."""
     causal_lm = HFAutoCausalLM.bootstrap(
         model_name=CAUSAL_LM_MODEL, tokenizer_name=CAUSAL_LM_MODEL
     )
     sample = GenerationTrainRecord(
-        input="This len does not matter", output="but this one does!"
+        input="Hello world", output="How are you doing today?!"
     )
     (tok_func, _) = causal_lm.build_task_tokenize_closure(
         tokenizer=causal_lm.tokenizer,
@@ -141,35 +146,39 @@ def test_causal_lm_tok_output_correctness(models_cache_dir):
         max_target_length=100,
         verbalizer="{{input}}",
         task_ids=0,
+        chunk_size=chunk_size,
+        drop_remainder=drop_remainder,
     )
     input_tok = causal_lm.tokenizer.encode(sample.input)
     output_tok = causal_lm.tokenizer.encode(sample.output)
+    concat_tok = input_tok + output_tok
     tok_stream = tok_func(sample)
     # Ensure we get one token per output in our stream
     assert isinstance(tok_stream, caikit.core.data_model.DataStream)
-    assert len(tok_stream) == len(output_tok)
-    for idx, tok_sample in enumerate(tok_stream):
-        # We expect by default, everything is in order, and each attention mask grows the tokens
-        # we attend to in the target by one, until we are paying attention to the whole sequence.
-        expected_target_mask = torch.tensor(
-            ([1] * (idx + 1)) + [0] * (len(output_tok) - idx - 1)
-        )
-        actual_target_mask = torch.tensor(
-            tok_sample["attention_mask"][-len(output_tok) :]
-        )
-        assert bool(torch.all(expected_target_mask == actual_target_mask))
-        # Check the source mask; we should always attend to the whole source sequence
-        actual_source_mask = torch.tensor(
-            tok_sample["attention_mask"][: len(input_tok)]
-        )
-        assert bool(torch.all(torch.tensor([1] * len(input_tok)) == actual_source_mask))
-        # Also, the number of tokens we attend to should be the sum of toks in input/output
-        assert (len(actual_target_mask) + len(actual_source_mask)) == len(
-            tok_sample["attention_mask"]
-        )
-        # Ensure we support MPT
-        assert hasattr(tok_sample, "task_ids")
-        assert tok_sample["task_ids"] == 0
+    # Figure out how many chunks we should have, including if we have a remainder
+    has_remainder = False
+    if len(concat_tok) > chunk_size:
+        num_expected_chunks = len(concat_tok) // chunk_size
+        if num_expected_chunks * chunk_size != len(concat_tok):
+            has_remainder = True
+    else:
+        num_expected_chunks = 1
+        chunk_size = len(concat_tok)
+    tok_list = list(tok_stream)
+    assert len(tok_list) == num_expected_chunks + has_remainder
+    # Check all full chunks. Note that we always attend to everything
+    for idx in range(num_expected_chunks):
+        assert len(tok_list[idx]["attention_mask"]) == chunk_size
+        assert len(tok_list[idx]["input_ids"]) == chunk_size
+        assert all(atn==1 for atn in tok_list[idx]["attention_mask"])
+        assert tok_list[idx]["task_ids"] == 0
+    # Check the remainder; lists should be the same length, but less than the chunk size
+    if has_remainder:
+        remainder = tok_list[-1]
+        assert len(remainder["attention_mask"]) == len(remainder["input_ids"])
+        assert len(remainder["input_ids"]) < chunk_size
+        assert all(atn==1 for atn in remainder["attention_mask"])
+
 
 
 def test_causal_lm_batch_tokenization(models_cache_dir):
@@ -349,3 +358,5 @@ def test_causal_lm_seq2seq_tok_forward_with_batching(models_cache_dir):
         # And all of their values should be the same
         for k in clm_res:
             assert clm_res[k] == seq2seq_res[k]
+
+### Tests for Causal LM tokenization chunking
