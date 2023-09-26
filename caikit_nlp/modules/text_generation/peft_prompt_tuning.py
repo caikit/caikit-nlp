@@ -557,6 +557,7 @@ class PeftPromptTuning(ModuleBase):
                 config_options["tokenizer_path"] = b_model_rel_path
                 if self.tuning_type == TuningType.LORA:
                     config_options['base_model'] = b_model_rel_path
+                    config_options['has_base_model'] = True
 
 
             training_loss_filename = TRAINING_LOSS_LOG_FILENAME
