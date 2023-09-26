@@ -15,8 +15,10 @@
 Huggingface auto causal LM resource type
 """
 # Standard
+import os
 from collections.abc import Mapping
-from typing import List, Union
+from datetime import datetime
+from typing import Dict, List, Union
 
 # Third Party
 from torch.utils.data import IterableDataset
@@ -27,6 +29,7 @@ from transformers import (
     Seq2SeqTrainingArguments,
 )
 from transformers.models.auto import modeling_auto
+import torch
 
 # First Party
 from caikit.core.modules import module
@@ -43,6 +46,46 @@ error = error_handler.get(log)
 
 IGNORE_ID = -100
 
+
+class LoggingTrainer(Seq2SeqTrainer):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.training_loss_history = []
+
+    def log(self, logs: Dict[str, float]) -> None:
+        """
+        Log `logs` on the various objects watching training.
+
+        Subclass and override this method to inject custom behavior.
+
+        Args:
+            logs (`Dict[str, float]`):
+                The values to log.
+        """
+        if self.state.epoch is not None:
+            logs["epoch"] = round(self.state.epoch, 2)
+
+        # output = {**logs, **{"step": self.state.global_step}}
+        # Get Rank
+        if torch.distributed.is_initialized():
+            rank = torch.distributed.get_rank()
+        else:
+            rank = 0
+
+        if "loss" in logs:
+            print("loss in logs. {} rank".format(os.getenv("RANK")))
+            log.debug(f"process rank: {rank} loss: {float(logs['loss'])} step: {self.state.global_step}")
+            output =  {
+                    "epoch": float(logs["epoch"]),
+                    "step": self.state.global_step,
+                    "value": float(logs["loss"]),
+                    "timestamp": datetime.isoformat(datetime.now()),
+                }
+            print("loss: ", output)
+            self.state.log_history.append(output)
+            self.control = self.callback_handler.on_log(self.args, self.state, self.control, logs)
+        else:
+            print("loss not in logs")
 
 @module(
     id="6759e891-287b-405b-bd8b-54a4a4d51c25",
@@ -110,7 +153,7 @@ class HFAutoSeq2SeqLM(PretrainedModelBase):
             # "generation_max_length": max_target_length,
         }
 
-        return Seq2SeqTrainer(self._model, training_args, **trainer_arguments)
+        return LoggingTrainer(self._model, training_args, **trainer_arguments)
 
     def _get_data_collator(self, **kwargs):
         """Function to return appropriate data collator based on resource.

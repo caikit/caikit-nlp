@@ -15,18 +15,21 @@
 # Standard
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
-from typing import Callable, List, Optional, Tuple, Type, Union
+from typing import Callable, Dict, List, Optional, Tuple, Type, Union
 import json
 import os
+from torch import nn
 
 # Third Party
-from torch.utils.data import IterableDataset
+from torch.utils.data import Dataset, IterableDataset
 from transformers import (
     AutoTokenizer,
+    DataCollator,
     DataCollatorWithPadding,
     Trainer,
     TrainingArguments,
 )
+from transformers.modeling_utils import PreTrainedModel
 from transformers.models.auto.auto_factory import _BaseAutoModelClass
 import torch
 
@@ -36,6 +39,9 @@ from caikit.core.data_model import DataStream
 from caikit.core.modules import ModuleBase, ModuleConfig, ModuleSaver
 from caikit.core.toolkit import error_handler
 import alog
+from transformers.tokenization_utils_base import PreTrainedTokenizerBase
+from transformers.trainer_callback import TrainerCallback
+from transformers.trainer_utils import EvalPrediction
 
 # Local
 from ...data_model import GenerationTrainRecord, PromptOutputModelType
@@ -44,6 +50,11 @@ from ...toolkit.data_type_utils import get_torch_dtype, str_to_torch_dtype
 log = alog.use_channel("HFRBAS")
 error = error_handler.get(log)
 
+
+class LoggingTrainer(Trainer):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.training_loss_history = []
 
 class PretrainedModelBase(ABC, ModuleBase):
     """Common abstractions and requirements for pretrained model resources"""
@@ -281,7 +292,7 @@ class PretrainedModelBase(ABC, ModuleBase):
             "eval_dataset": eval_dataset,
         }
 
-        return Trainer(self._model, training_args, **trainer_arguments)
+        return LoggingTrainer(self._model, training_args, **trainer_arguments)
 
     def _get_data_collator(self, **kwargs):
         """Function to return appropriate data collator based on resource.
