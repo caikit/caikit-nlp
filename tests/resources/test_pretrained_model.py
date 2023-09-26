@@ -113,6 +113,7 @@ def test_causal_lm_tokenize_func_contains_wrapped_stream(models_cache_dir):
         max_source_length=100,
         max_target_length=100,
         verbalizer="{{input}}",
+        use_seq2seq_tokenization=False,
     )
     map_stream = SAMPLE_TRAINING_DATA.map(tok_func)
     # Since tok_func for causal lm creates a datastream, we should get a stream
@@ -149,6 +150,7 @@ def test_causal_lm_tok_output_correctness(models_cache_dir, chunk_size, drop_rem
         max_target_length=100,
         verbalizer="{{input}}",
         task_ids=0,
+        use_seq2seq_tokenization=False,
         chunk_size=chunk_size,
         drop_remainder=drop_remainder,
     )
@@ -198,6 +200,7 @@ def test_causal_lm_batch_tokenization(models_cache_dir):
         "tokenizer": causal_lm.tokenizer,
         "max_source_length": 10,
         "max_target_length": 10,
+        "use_seq2seq_tokenization": False,
     }
     # Create an iterable dataset by batching...
     def get(train_stream):
