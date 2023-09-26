@@ -545,6 +545,7 @@ class PeftPromptTuning(ModuleBase):
                     assert os.path.isfile(
                         prompt_save_path
                     ), f"Prompt was not successfully saved to {prompt_save_path}"
+
             if save_base_model or self.tuning_type == TuningType.LORA:
                 b_model_rel_path, b_model_abs_path = module_saver.add_dir(
                     self.base_model_name
@@ -554,7 +555,9 @@ class PeftPromptTuning(ModuleBase):
 
                 config_options["full_model_path"] = b_model_rel_path
                 config_options["tokenizer_path"] = b_model_rel_path
-                # config_options["artifact_path"] = b_model_rel_path
+                if self.tuning_type == TuningType.LORA:
+                    config_options['base_model'] = b_model_rel_path
+
 
             training_loss_filename = TRAINING_LOSS_LOG_FILENAME
 
