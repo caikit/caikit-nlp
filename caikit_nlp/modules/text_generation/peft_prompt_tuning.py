@@ -938,13 +938,13 @@ class PeftPromptTuning(ModuleBase):
         """
         (
             tokenize_function,
-            requires_unwrapping,
+            _,
         ) = base_model.build_task_tokenize_closure(
             tokenizer, max_source_length, max_target_length, verbalizer, task_ids=0
         )
         mapped_stream = train_stream.map(tokenize_function)
-        if requires_unwrapping:
-            mapped_stream = mapped_stream.flatten()
+        # if requires_unwrapping:
+        #     mapped_stream = mapped_stream.flatten()
         wrapped_stream = SimpleIterableStreamWrapper(mapped_stream, shuffle=shuffle)
         dataloader = DataLoader(
             wrapped_stream, collate_fn=collate_fn, batch_size=batch_size
