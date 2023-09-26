@@ -2,6 +2,7 @@
 Supported tuning types:
 - MultiPrompt Tuning
 - Prompt Tuning
+- LoRA
 
 Supported model types:
 - Causal LM

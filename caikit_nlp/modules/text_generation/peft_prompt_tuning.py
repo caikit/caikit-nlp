@@ -554,7 +554,7 @@ class PeftPromptTuning(ModuleBase):
 
                 config_options["full_model_path"] = b_model_rel_path
                 config_options["tokenizer_path"] = b_model_rel_path
-                config_options["artifact_path"] = b_model_rel_path
+                # config_options["artifact_path"] = b_model_rel_path
 
             training_loss_filename = TRAINING_LOSS_LOG_FILENAME
 
