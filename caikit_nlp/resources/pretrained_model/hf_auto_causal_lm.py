@@ -66,7 +66,7 @@ class HFAutoCausalLM(PretrainedModelBase):
         max_target_length: int,
         verbalizer: Union[None, str] = None,
         task_ids: Union[None, int] = None,
-        use_seq2seq_tokenization: bool = False,
+        use_seq2seq_tokenization: bool = True,
         chunk_size: int = 128,
         drop_remainder: bool = False,
     ) -> DataStream[BatchEncoding]:
