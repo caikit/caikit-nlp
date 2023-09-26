@@ -484,6 +484,7 @@ class PeftPromptTuning(ModuleBase):
         """
 
         if self.tuning_type == TuningType.LORA:
+            self.model.save_pretrained(model_path+"_lora")
             model_save = self.model.module if hasattr(self.model, "module") else self.model
             self.model = model_save.merge_and_unload()
 
