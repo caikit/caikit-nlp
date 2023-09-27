@@ -110,7 +110,9 @@ class TextGeneration(ModuleBase):
         self._sep_token = sep_token
         self._eos_token = eos_token
         self._pad_token = pad_token
-        self.training_metadata = training_metadata
+        self.training_metadata = (
+            training_metadata if training_metadata is not None else {}
+        )
 
     # pylint: disable=duplicate-code
     def __del__(self):
