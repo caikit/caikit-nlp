@@ -1042,7 +1042,7 @@ class PeftPromptTuning(ModuleBase):
 
         training_loss_tracker = []
 
-        step_count = 0
+        step_count = 1
 
         for epoch in range(num_epochs):
             step_loss_log = {}

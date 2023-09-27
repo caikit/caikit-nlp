@@ -18,19 +18,16 @@ from collections.abc import Mapping
 from typing import Callable, Dict, List, Optional, Tuple, Type, Union
 import json
 import os
-from torch import nn
 
 # Third Party
-from torch.utils.data import Dataset, IterableDataset
+from torch.utils.data import IterableDataset
 from transformers import (
     AutoTokenizer,
-    DataCollator,
     DataCollatorWithPadding,
     PreTrainedTokenizerBase,
     Trainer,
     TrainingArguments,
 )
-from transformers.modeling_utils import PreTrainedModel
 from transformers.models.auto.auto_factory import _BaseAutoModelClass
 import torch
 
@@ -40,9 +37,6 @@ from caikit.core.data_model import DataStream
 from caikit.core.exceptions import error_handler
 from caikit.core.modules import ModuleBase, ModuleConfig, ModuleSaver
 import alog
-from transformers.tokenization_utils_base import PreTrainedTokenizerBase
-from transformers.trainer_callback import TrainerCallback
-from transformers.trainer_utils import EvalPrediction
 
 # Local
 from ...data_model import GenerationTrainRecord, PromptOutputModelType
@@ -54,7 +48,6 @@ error = error_handler.get(log)
 
 
 class LoggingTrainer(Trainer):
-
     def log(self, logs: Dict[str, float]) -> None:
         """
         Log `logs` on the various objects watching training.
@@ -66,7 +59,9 @@ class LoggingTrainer(Trainer):
                 The values to log.
         """
         self.state = log_step(self.state, logs)
-        self.control = self.callback_handler.on_log(self.args, self.state, self.control, logs)
+        self.control = self.callback_handler.on_log(
+            self.args, self.state, self.control, logs
+        )
 
 
 class PretrainedModelBase(ABC, ModuleBase):

@@ -70,9 +70,9 @@ def test_save_log_loss_file(causal_lm_dummy_model):
     with tempfile.TemporaryDirectory() as model_dir:
         causal_lm_dummy_model.save(model_dir, save_base_model=False)
         file_path = os.path.join(
-                model_dir,
-                caikit_nlp.modules.text_generation.peft_prompt_tuning.TRAINING_LOSS_LOG_FILENAME,
-            )
+            model_dir,
+            caikit_nlp.modules.text_generation.peft_prompt_tuning.TRAINING_LOSS_LOG_FILENAME,
+        )
 
         assert os.path.isfile(file_path)
 
