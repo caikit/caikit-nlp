@@ -15,18 +15,18 @@
 # Standard
 from datetime import datetime
 
-# First Party
-import alog
-
 # Third Party
 import torch
 
+# First Party
+import alog
+
 log = alog.use_channel("TRNR_UTILS")
+
 
 def log_step(state, logs):
     if state.epoch is not None:
         logs["epoch"] = round(state.epoch, 2)
-
 
     # Get Rank
     if torch.distributed.is_initialized():
@@ -40,18 +40,15 @@ def log_step(state, logs):
 
         log.debug(
             "process rank: {} loss: {} step: {}".format(
-                rank,
-                float(logs['loss']),
-                state.global_step
+                rank, float(logs["loss"]), state.global_step
             )
-
         )
-        output =  {
-                "epoch": float(logs["epoch"]),
-                "step": state.global_step,
-                "value": float(logs["loss"]),
-                "timestamp": datetime.isoformat(datetime.now()),
-            }
+        output = {
+            "epoch": float(logs["epoch"]),
+            "step": state.global_step,
+            "value": float(logs["loss"]),
+            "timestamp": datetime.isoformat(datetime.now()),
+        }
         state.log_history.append(output)
     else:
         output = {**logs, **{"step": state.global_step}}
