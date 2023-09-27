@@ -19,6 +19,7 @@ from collections.abc import Mapping
 from typing import List, Union
 
 # Third Party
+import torch
 from transformers import (
     AutoModelForCausalLM,
     BatchEncoding,
@@ -66,7 +67,7 @@ class HFAutoCausalLM(PretrainedModelBase):
         max_target_length: int,
         verbalizer: Union[None, str] = None,
         task_ids: Union[None, int] = None,
-        use_seq2seq_tokenization: bool = True,
+        use_seq2seq_approach: bool = True,
         chunk_size: int = 128,
         drop_remainder: bool = False,
     ) -> DataStream[BatchEncoding]:
@@ -99,16 +100,7 @@ class HFAutoCausalLM(PretrainedModelBase):
             DataStream[transformers.tokenization_utils_base.BatchEncoding]
                 stream of encoded tokenization output corresponding to the input example.
         """
-        if use_seq2seq_tokenization:
-            return cls._forward_to_seq2seq_tokenization(
-                example=example,
-                tokenizer=tokenizer,
-                max_source_length=max_source_length,
-                max_target_length=max_target_length,
-                verbalizer=verbalizer,
-                task_ids=task_ids,
-            )
-
+        ### Things common to all Causal LM tokenization approaches
         # Extract the source & target from our provided inputs
         source, target = cls.decompose_example_io(example)
         # Determine if our mapped inputs are in batched mode or not
@@ -122,27 +114,31 @@ class HFAutoCausalLM(PretrainedModelBase):
         source = (
             source if verbalizer is None else render_verbalizer(verbalizer, example)
         )
-
-        source_ids = tokenizer(source, max_length=max_source_length, truncation=True)
-        target_ids = tokenizer(target, max_length=max_target_length, truncation=True)
-
-        # Force everything to a list of batch encodings; for non-batch mode, this just
-        # puts it into a list. For batch mode, we get a list of batch encodings,
-        # allowing us to standardize subsequent processing a bit.
-        source_id_chunks = cls._force_to_batch_encoding_list_of_chunks(
-            source_ids, target_ids, batched_mode, task_ids, chunk_size, drop_remainder
+        # Treat this as a seq2seq type problem. Note that this implementation is different
+        # from the seq2seq tokenization function even though it is conceptually similar due
+        # to sequence length / padding requirements assumed internally by causal LMs.
+        if use_seq2seq_approach:
+            return cls._causal_lm_padding_as_seq2seq(
+                tokenizer=tokenizer,
+                source=source,
+                target=target,
+                max_source_length=max_source_length,
+                max_target_length=max_target_length,
+                task_ids=task_ids,
+            )
+        # Do causal language model chunking
+        return cls._causal_lm_as_chunked(
+            tokenizer=tokenizer,
+            source=source,
+            target=target,
+            max_source_length=max_source_length,
+            max_target_length=max_target_length,
+            batched_mode=batched_mode,
+            task_ids=task_ids,
+            chunk_size=chunk_size,
+            drop_remainder=drop_remainder,
         )
 
-        def generator_func():
-            for chunk in source_id_chunks:
-                yield chunk
-
-        chunk_stream = DataStream(generator_func)
-        # If it's batch mode, collapse down into one encoding batch object
-        if batched_mode:
-            return cls._collapse_stream_into_encoding(chunk_stream)
-        # Otherwise just produce the stream to be chained
-        return chunk_stream
 
     def _get_data_collator(self, **kwargs) -> "transformers.DataCollator":
         """Function to return appropriate data collator based on resource.
@@ -172,6 +168,35 @@ class HFAutoCausalLM(PretrainedModelBase):
         return DataCollatorForLanguageModeling(
             tokenizer=self._tokenizer, return_tensors="pt", **collator_kwargs
         )
+
+
+    ### Tokenization strategy implementations
+    # Chunked causal language modeling
+    @classmethod
+    def _causal_lm_as_chunked(cls, tokenizer, source, target,  max_source_length, max_target_length, batched_mode, task_ids, chunk_size, drop_remainder):
+        source_ids = tokenizer(source, max_length=max_source_length, truncation=True)
+        target_ids = tokenizer(target, max_length=max_target_length, truncation=True)
+
+        # Force everything to a list of batch encodings; for non-batch mode, this just
+        # puts it into a list. For batch mode, we get a list of batch encodings,
+        # allowing us to standardize subsequent processing a bit.
+        source_id_chunks = cls._force_to_batch_encoding_list_of_chunks(
+            source_ids, target_ids, batched_mode, task_ids, chunk_size, drop_remainder
+        )
+
+        def generator_func():
+            for chunk in source_id_chunks:
+                yield chunk
+
+        chunk_stream = DataStream(generator_func)
+        # If it's batch mode, collapse down into one encoding batch object
+        if batched_mode:
+            return cls._collapse_stream_into_encoding(chunk_stream)
+        # Otherwise just produce the stream to be chained
+        # NOTE: it might be a good idea to deprecate this to force standardization
+        # onto using batch encodings the way that they are intended to be
+        return chunk_stream
+
 
     @staticmethod
     def _force_to_batch_encoding_list_of_chunks(
@@ -235,10 +260,12 @@ class HFAutoCausalLM(PretrainedModelBase):
             encodings += chunks
         return encodings
 
+
     @staticmethod
     def _concatenate_encodings(left, right):
         for k in left.keys():
             left[k] = left[k] + right[k]
+
 
     @staticmethod
     def _split_encoding_into_chunks(
@@ -277,6 +304,7 @@ class HFAutoCausalLM(PretrainedModelBase):
             enc["task_ids"] = task_ids
         return chunked_encodings
 
+
     @staticmethod
     def _collapse_stream_into_encoding(
         stream: DataStream[BatchEncoding],
@@ -307,20 +335,93 @@ class HFAutoCausalLM(PretrainedModelBase):
                 new_encoding[k].append(enc[k])
         return new_encoding
 
+
+    # Causal language modeling as a sequence to sequence problem
     @staticmethod
-    def _forward_to_seq2seq_tokenization(
-        example,
+    def _causal_lm_padding_as_seq2seq(
         tokenizer,
+        source,
+        target,
         max_source_length,
         max_target_length,
-        verbalizer,
         task_ids,
     ):
-        return HFAutoSeq2SeqLM.tokenize_function(
-            example=example,
-            tokenizer=tokenizer,
-            max_source_length=max_source_length,
-            max_target_length=max_target_length,
-            verbalizer=verbalizer,
-            task_ids=task_ids,
+        """Tokenize the example as a seq2seq type problem; this is conceptually similar to
+        what seq2seq tokenization is doing, but some care needs be taken to ensure the labels
+        are the same length as the input sequence because of the shifting mechanism implemented
+        in most causal language models.
+        
+        Collator compatability is extremely important here; because we are setting the labels
+        directly, we should NOT use the causal lm collator, otherwise it will clobber it with a
+        shifted input sequence.
+
+        For now, this is a logical port of the old tokenization logic.
+        """
+        IGNORE_ID = -100
+        # ID of the token to append after our target string; this should generally be pad / EOS
+        FINAL_TOK_ID = tokenizer.eos_token_id
+
+        # TODO: Add a check to verify if source and example.output both are str or not
+        # max_length=None => use the model max length (it's actually the default)
+        # For mrpc [default example], we have 2 sentences + labels to see if they are
+        # semantically equivalent
+        model_inputs = tokenizer(source, truncation=True)
+        labels = tokenizer(target, truncation=True)
+
+        # Combine the source + target strings into the source input IDs
+        # This makes the source and target the same length, and then masks the source out of the
+        # target IDs, and updates the length of the attention vector to be evenly spread on the
+        # whole combined sequence
+        sample_input_ids = model_inputs["input_ids"]
+        label_input_ids = labels["input_ids"] + [FINAL_TOK_ID]
+        model_inputs["input_ids"] = sample_input_ids + label_input_ids
+        labels["input_ids"] = [IGNORE_ID] * len(sample_input_ids) + label_input_ids
+        model_inputs["attention_mask"] = [1] * len(model_inputs["input_ids"])
+        # Now we have to update everything to be the max length of the tokenizer, then pad &
+        # ensure all of the padded stuff we have added has attention weights of 0.
+        sample_input_ids = model_inputs[
+            "input_ids"
+        ]  # NOTE - combined source + target + <FINAL_TOK_ID>
+        # TODO: can we handle the padding through the collator?
+        if tokenizer.padding_side.lower() == "left":
+            # Do left padding
+            # labels["input_ids"] = [IGNORE_ID] * len(
+            #     sample_input_ids
+            # ) + label_input_ids
+            label_input_ids = labels["input_ids"]
+            model_inputs["input_ids"] = [tokenizer.pad_token_id] * (
+                max_source_length - len(sample_input_ids)
+            ) + sample_input_ids
+            model_inputs["attention_mask"] = [0] * (
+                max_source_length - len(sample_input_ids)
+            ) + model_inputs["attention_mask"]
+            labels["input_ids"] = [IGNORE_ID] * (
+                max_source_length - len(sample_input_ids)
+            ) + label_input_ids
+        else:
+            # Do right padding
+            # labels["input_ids"] = [IGNORE_ID] * len(
+            #     sample_input_ids
+            # ) + label_input_ids
+            label_input_ids = labels["input_ids"]
+            model_inputs["input_ids"] = sample_input_ids + [
+                tokenizer.pad_token_id
+            ] * (max_source_length - len(sample_input_ids))
+            model_inputs["attention_mask"] = model_inputs["attention_mask"] + [
+                0
+            ] * (max_source_length - len(sample_input_ids))
+            labels["input_ids"] = label_input_ids + [IGNORE_ID] * (
+                max_source_length - len(sample_input_ids)
+            )
+
+        model_inputs["input_ids"] = torch.tensor(
+            model_inputs["input_ids"][:max_source_length]
         )
+        model_inputs["attention_mask"] = torch.tensor(
+            model_inputs["attention_mask"][:max_source_length]
+        )
+        # TODO: This is a bug, but it was present in the thing Alex is WIP porting
+        labels["input_ids"] = torch.tensor(labels["input_ids"][:max_source_length])
+        model_inputs["labels"] = labels["input_ids"]
+        model_inputs["task_ids"] = task_ids
+        return model_inputs
