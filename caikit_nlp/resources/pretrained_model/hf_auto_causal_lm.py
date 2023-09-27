@@ -29,8 +29,8 @@ from transformers.models.auto import modeling_auto
 
 # First Party
 from caikit.core.data_model import DataStream
+from caikit.core.exceptions import error_handler
 from caikit.core.modules import module
-from caikit.core.toolkit import error_handler
 import alog
 
 # Local

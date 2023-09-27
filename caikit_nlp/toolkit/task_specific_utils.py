@@ -13,7 +13,7 @@
 # limitations under the License.
 
 # First Party
-from caikit.core.toolkit import error_handler
+from caikit.core.exceptions import error_handler
 from caikit.interfaces.nlp.data_model import ClassificationTrainRecord
 import alog
 

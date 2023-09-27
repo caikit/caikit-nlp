@@ -45,8 +45,8 @@ import torch
 
 # First Party
 from caikit.core.data_model import DataStream
+from caikit.core.exceptions import error_handler
 from caikit.core.modules import ModuleBase, ModuleConfig, ModuleSaver, module
-from caikit.core.toolkit import error_handler
 from caikit.interfaces.nlp.data_model import (
     ClassificationTrainRecord,
     GeneratedTextResult,

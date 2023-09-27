@@ -25,7 +25,7 @@ import torch
 
 # First Party
 from caikit.core.data_model.producer import ProducerId
-from caikit.core.toolkit.errors import error_handler
+from caikit.core.exceptions import error_handler
 from caikit.interfaces.nlp.data_model import (
     GeneratedTextResult,
     GeneratedTextStreamResult,

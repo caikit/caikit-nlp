@@ -21,6 +21,7 @@ from typing import Iterable, List, Optional
 import os
 
 # First Party
+from caikit.core.exceptions import error_handler
 from caikit.core.modules import (
     ModuleBase,
     ModuleConfig,
@@ -28,7 +29,6 @@ from caikit.core.modules import (
     ModuleSaver,
     module,
 )
-from caikit.core.toolkit import error_handler
 from caikit.interfaces.nlp.data_model import (
     TokenClassificationResult,
     TokenClassificationResults,

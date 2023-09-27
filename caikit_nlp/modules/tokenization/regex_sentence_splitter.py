@@ -18,8 +18,8 @@ import os
 import re
 
 # First Party
+from caikit.core.exceptions import error_handler
 from caikit.core.modules import ModuleBase, ModuleConfig, ModuleSaver, module
-from caikit.core.toolkit import error_handler
 from caikit.interfaces.nlp.data_model import Token, TokenizationResults
 from caikit.interfaces.nlp.tasks import TokenizationTask
 import alog
