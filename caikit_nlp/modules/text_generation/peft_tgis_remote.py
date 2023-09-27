@@ -24,8 +24,8 @@ import numpy as np
 # First Party
 from caikit.config import get_config
 from caikit.core import ModuleBase, ModuleConfig, ModuleSaver, modules
+from caikit.core.exceptions import error_handler
 from caikit.core.module_backends import BackendBase, backend_types
-from caikit.core.toolkit import error_handler
 from caikit.interfaces.nlp.data_model import (
     GeneratedTextResult,
     GeneratedTextStreamResult,
