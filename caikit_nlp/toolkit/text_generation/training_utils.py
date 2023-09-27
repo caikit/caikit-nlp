@@ -34,6 +34,27 @@ from ...resources.pretrained_model import PretrainedModelBase
 log = alog.use_channel("TXTGEN_TRN_UTLS")
 error = error_handler.get(log)
 
+# Below list is taken from
+# https://huggingface.co/docs/transformers/main/en/main_classes/trainer#transformers.TrainingArguments
+ALLOWED_TRAINING_ARGS = {
+    "weight_decay",
+    "adam_beta1",
+    "adam_beta2",
+    "adam_epsilon",
+    "max_grad_norm",
+    "lr_scheduler_type",
+    "warmup_ratio",
+    "warmup_steps",
+    "use_ipex",
+    "disable_tqdm",
+    "label_names",
+    "optim",
+    "optim_args",
+    "group_by_length",
+    "dataloader_pin_memory",
+    "gradient_checkpointing",
+    "full_determinism",
+}
 
 def preprocess_function(
     base_model: PretrainedModelBase,

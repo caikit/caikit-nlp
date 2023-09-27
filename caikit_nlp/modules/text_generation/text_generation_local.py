@@ -23,7 +23,7 @@ import tempfile
 # Third Party
 from datasets import Dataset
 from datasets import IterableDataset as TransformersIterableDataset
-from transformers import AutoConfig, AutoTokenizer
+from transformers import AutoConfig
 import torch
 
 # First Party
@@ -48,6 +48,7 @@ from ...toolkit.text_generation.model_run_utils import (
     generate_text_func,
 )
 from ...toolkit.text_generation.training_utils import (
+    ALLOWED_TRAINING_ARGS,
     infer_max_steps,
     launch_training,
     preprocess_function,
@@ -72,28 +73,6 @@ class TextGeneration(ModuleBase):
 
     RANDOM_SEED = 73
     supported_resources = [HFAutoCausalLM, HFAutoSeq2SeqLM]
-
-    # Below list is taken from
-    # https://huggingface.co/docs/transformers/main/en/main_classes/trainer#transformers.TrainingArguments
-    allowed_training_args = {
-        "weight_decay",
-        "adam_beta1",
-        "adam_beta2",
-        "adam_epsilon",
-        "max_grad_norm",
-        "lr_scheduler_type",
-        "warmup_ratio",
-        "warmup_steps",
-        "use_ipex",
-        "disable_tqdm",
-        "label_names",
-        "optim",
-        "optim_args",
-        "group_by_length",
-        "dataloader_pin_memory",
-        "gradient_checkpointing",
-        "full_determinism",
-    }
 
     def __init__(
         self,
@@ -321,7 +300,7 @@ class TextGeneration(ModuleBase):
 
         # Filter **training_arguments to only process allowed ones
         filtered_training_arguments = {
-            k: v for k, v in kwargs.items() if k in cls.allowed_training_args
+            k: v for k, v in kwargs.items() if k in ALLOWED_TRAINING_ARGS
         }
 
         extra_training_args = set(kwargs.keys()).difference(
