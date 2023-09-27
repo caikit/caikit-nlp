@@ -83,6 +83,17 @@ def test_boostrap_causal_lm_download_enabled(mock_tok_from_pretrained, temp_cach
         assert kwargs["local_files_only"] == False
 
 
+def test_boostrap_model_path(models_cache_dir):
+    """Ensure that we can bootstrap works with loading a model from local directory"""
+    # If we have an empty cachedir & do allow downloads, we should be able to init happily
+    base_model = HFAutoCausalLM.bootstrap(
+        model_name=CAUSAL_LM_MODEL,
+    )
+    assert isinstance(base_model, HFAutoCausalLM)
+    assert base_model.MODEL_TYPE is transformers.AutoModelForCausalLM
+    assert base_model.TASK_TYPE == "CAUSAL_LM"
+
+
 ### Tests for tokenization behaviors
 SAMPLE_TRAINING_DATA = caikit.core.data_model.DataStream.from_iterable(
     [
