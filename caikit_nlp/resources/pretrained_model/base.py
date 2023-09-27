@@ -47,15 +47,27 @@ from transformers.trainer_utils import EvalPrediction
 # Local
 from ...data_model import GenerationTrainRecord, PromptOutputModelType
 from ...toolkit.data_type_utils import get_torch_dtype, str_to_torch_dtype
+from ...toolkit.trainer_utils import log_step
 
 log = alog.use_channel("HFRBAS")
 error = error_handler.get(log)
 
 
 class LoggingTrainer(Trainer):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.training_loss_history = []
+
+    def log(self, logs: Dict[str, float]) -> None:
+        """
+        Log `logs` on the various objects watching training.
+
+        Subclass and override this method to inject custom behavior.
+
+        Args:
+            logs (`Dict[str, float]`):
+                The values to log.
+        """
+        self.state = log_step(self.state, logs)
+        self.control = self.callback_handler.on_log(self.args, self.state, self.control, logs)
+
 
 class PretrainedModelBase(ABC, ModuleBase):
     """Common abstractions and requirements for pretrained model resources"""

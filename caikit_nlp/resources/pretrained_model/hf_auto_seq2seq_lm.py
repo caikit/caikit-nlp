@@ -38,6 +38,7 @@ import alog
 
 # Local
 from ...data_model import GenerationTrainRecord, PromptOutputModelType
+from ...toolkit.trainer_utils import log_step
 from ...toolkit.verbalizer_utils import render_verbalizer
 from .base import PretrainedModelBase
 
@@ -48,9 +49,6 @@ IGNORE_ID = -100
 
 
 class LoggingTrainer(Seq2SeqTrainer):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.training_loss_history = []
 
     def log(self, logs: Dict[str, float]) -> None:
         """
@@ -62,30 +60,8 @@ class LoggingTrainer(Seq2SeqTrainer):
             logs (`Dict[str, float]`):
                 The values to log.
         """
-        if self.state.epoch is not None:
-            logs["epoch"] = round(self.state.epoch, 2)
-
-        # output = {**logs, **{"step": self.state.global_step}}
-        # Get Rank
-        if torch.distributed.is_initialized():
-            rank = torch.distributed.get_rank()
-        else:
-            rank = 0
-
-        if "loss" in logs:
-            print("loss in logs. {} rank".format(os.getenv("RANK")))
-            log.debug(f"process rank: {rank} loss: {float(logs['loss'])} step: {self.state.global_step}")
-            output =  {
-                    "epoch": float(logs["epoch"]),
-                    "step": self.state.global_step,
-                    "value": float(logs["loss"]),
-                    "timestamp": datetime.isoformat(datetime.now()),
-                }
-            print("loss: ", output)
-            self.state.log_history.append(output)
-            self.control = self.callback_handler.on_log(self.args, self.state, self.control, logs)
-        else:
-            print("loss not in logs")
+        self.state = log_step(self.state, logs)
+        self.control = self.callback_handler.on_log(self.args, self.state, self.control, logs)
 
 @module(
     id="6759e891-287b-405b-bd8b-54a4a4d51c25",
