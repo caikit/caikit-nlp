@@ -16,7 +16,7 @@ Huggingface auto causal LM resource type
 """
 # Standard
 from collections.abc import Mapping
-from typing import List, Union
+from typing import Dict, List, Union
 
 # Third Party
 from torch.utils.data import IterableDataset
@@ -35,6 +35,7 @@ import alog
 
 # Local
 from ...data_model import GenerationTrainRecord, PromptOutputModelType
+from ...toolkit.trainer_utils import log_step
 from ...toolkit.verbalizer_utils import render_verbalizer
 from .base import PretrainedModelBase
 
@@ -42,6 +43,23 @@ log = alog.use_channel("HFRBAS")
 error = error_handler.get(log)
 
 IGNORE_ID = -100
+
+
+class LoggingTrainer(Seq2SeqTrainer):
+    def log(self, logs: Dict[str, float]) -> None:
+        """
+        Log `logs` on the various objects watching training.
+
+        Subclass and override this method to inject custom behavior.
+
+        Args:
+            logs (`Dict[str, float]`):
+                The values to log.
+        """
+        self.state = log_step(self.state, logs)
+        self.control = self.callback_handler.on_log(
+            self.args, self.state, self.control, logs
+        )
 
 
 @module(
@@ -110,7 +128,7 @@ class HFAutoSeq2SeqLM(PretrainedModelBase):
             # "generation_max_length": max_target_length,
         }
 
-        return Seq2SeqTrainer(self._model, training_args, **trainer_arguments)
+        return LoggingTrainer(self._model, training_args, **trainer_arguments)
 
     def _get_data_collator(self, **kwargs):
         """Function to return appropriate data collator based on resource.

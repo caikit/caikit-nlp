@@ -15,7 +15,7 @@
 # Standard
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
-from typing import Callable, List, Optional, Tuple, Type, Union
+from typing import Callable, Dict, List, Optional, Tuple, Type, Union
 import json
 import os
 
@@ -41,9 +41,27 @@ import alog
 # Local
 from ...data_model import GenerationTrainRecord, PromptOutputModelType
 from ...toolkit.data_type_utils import get_torch_dtype, str_to_torch_dtype
+from ...toolkit.trainer_utils import log_step
 
 log = alog.use_channel("HFRBAS")
 error = error_handler.get(log)
+
+
+class LoggingTrainer(Trainer):
+    def log(self, logs: Dict[str, float]) -> None:
+        """
+        Log `logs` on the various objects watching training.
+
+        Subclass and override this method to inject custom behavior.
+
+        Args:
+            logs (`Dict[str, float]`):
+                The values to log.
+        """
+        self.state = log_step(self.state, logs)
+        self.control = self.callback_handler.on_log(
+            self.args, self.state, self.control, logs
+        )
 
 
 class PretrainedModelBase(ABC, ModuleBase):
@@ -286,7 +304,7 @@ class PretrainedModelBase(ABC, ModuleBase):
             "eval_dataset": eval_dataset,
         }
 
-        return Trainer(self._model, training_args, **trainer_arguments)
+        return LoggingTrainer(self._model, training_args, **trainer_arguments)
 
     def _get_data_collator(self, **kwargs):
         """Function to return appropriate data collator based on resource.
