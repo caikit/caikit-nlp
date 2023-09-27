@@ -371,15 +371,14 @@ class TextGeneration(ModuleBase):
                 # negatively impact the performance
                 "full_determinism": False,
                 # Required for iterable dataset
-                "max_steps": 5,
-                # "max_steps": cls.infer_max_steps(
-                #     num_epochs, batch_size, training_dataset
-                # ),
+                "max_steps": cls.infer_max_steps(
+                    num_epochs, batch_size, training_dataset
+                ),
                 # Some interesting parameters:
                 "auto_find_batch_size": True,
                 # NOTE: following can override above arguments in order
                 **filtered_training_arguments,
-                # **processing_configuration,
+                **processing_configuration,
                 **dtype_based_params,
             }
 
@@ -438,7 +437,7 @@ class TextGeneration(ModuleBase):
             sep_token=model.tokenizer.sep_token or None,
             eos_token=model.tokenizer.eos_token or None,
             pad_token=model.tokenizer.pad_token or None,
-            training_metadata=training_loss_history
+            training_metadata={"loss": training_loss_history}
         )
 
     @classmethod
