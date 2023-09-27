@@ -18,9 +18,12 @@ from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
 import gc
 import json
 import os
+import tempfile
 
 # Third Party
 from accelerate import Accelerator
+from datasets import Dataset
+from datasets import IterableDataset as TransformersIterableDataset
 from peft import (
     MultitaskPromptTuningConfig,
     PeftConfig,
@@ -75,6 +78,12 @@ from ...toolkit.text_generation.model_run_utils import (
     generate_text_func,
     generate_text_func_stream,
 )
+from ...toolkit.text_generation.training_utils import (
+    ALLOWED_TRAINING_ARGS,
+    infer_max_steps,
+    launch_training,
+    preprocess_function
+)
 from ...toolkit.verbalizer_utils import render_verbalizer
 from .peft_config import TuningType, get_peft_config, resolve_base_model
 
@@ -107,6 +116,7 @@ class PeftPromptTuning(ModuleBase):
         # TuningType.LORA: PeftType.LORA,
     }
 
+    RANDOM_SEED = 73
     supported_resources = [HFAutoCausalLM, HFAutoSeq2SeqLM]
 
     ################################ Constructor / Destructor #####################################
@@ -298,6 +308,7 @@ class PeftPromptTuning(ModuleBase):
         accumulate_steps: Optional[int] = 32,
         torch_dtype: Optional[str] = None,  # TODO: Optional[Union[torch.dtype, str]]
         silence_progress_bars: Optional[bool] = True,
+        random_seed: int = RANDOM_SEED,
         **kwargs,
     ) -> "PeftPromptTuning":
         """Run prompt tuning (vanilla or MPT) through PEFT on a CausalLM or Seq2seq model
@@ -399,6 +410,77 @@ class PeftPromptTuning(ModuleBase):
             use_iterable_dataset=False,
             random_seed=cls.RANDOM_SEED,
         )
+
+        ### Dtype based processing
+        # NOTE: Following is not exhaustive list of all parameters
+        # for all dtypes
+        if torch_dtype == torch.float16:
+            dtype_based_params = {
+                "fp16": True,
+            }
+        elif torch_dtype == torch.bfloat16:
+            dtype_based_params = {
+                "bf16": True,
+            }
+        else:
+            # default to float32
+            dtype_based_params = {}
+
+        # Filter **training_arguments to only process allowed ones
+        filtered_training_arguments = {
+            k: v for k, v in kwargs.items() if k in ALLOWED_TRAINING_ARGS
+        }
+
+        extra_training_args = set(kwargs.keys()).difference(
+            filtered_training_arguments.keys()
+        )
+
+        if extra_training_args:
+            log.warning(
+                "<NLP18647619W>",
+                f"{extra_training_args} parameter(s) not allowed by \
+                    {cls.__name__} currently and will be ignored!",
+            )
+
+
+        # Open an intermediate checkpoint directory until we've bootstrapped
+        # our model or we've early exited (if epochs < 1)
+        with tempfile.TemporaryDirectory() as checkpoint_dir:
+            training_args = {
+                "output_dir": checkpoint_dir,
+                "per_device_train_batch_size": batch_size,
+                "per_device_eval_batch_size": batch_size,
+                "num_train_epochs": num_epochs,
+                "seed": random_seed,
+                # NOTE: We have disabled evaluation for now
+                "do_eval": False,
+                "do_train": True,
+                "learning_rate": learning_rate,
+                "weight_decay": 0.01,
+                "save_total_limit": 3,
+                "push_to_hub": False,
+                "no_cuda": not torch.cuda.is_available(),  # Default
+                "remove_unused_columns": True,
+                "dataloader_pin_memory": False,
+                "gradient_accumulation_steps": accumulate_steps,
+                "gradient_checkpointing": True,
+                "logging_strategy": "steps",
+                "logging_steps": 1,  # logging at every step
+                # NOTE: This is explicitly set to false since it will
+                # negatively impact the performance
+                "full_determinism": False,
+                # Required for iterable dataset
+                "max_steps": infer_max_steps(num_epochs, batch_size, training_dataset),
+                # Some interesting parameters:
+                "auto_find_batch_size": True,
+                # NOTE: following can override above arguments in order
+                **filtered_training_arguments,
+                **dtype_based_params,
+            }
+
+            training_loss_history = launch_training(
+                    base_model, training_dataset, training_args, checkpoint_dir
+                )
 
         training_loss_tracker = cls._execute_train_loop(
             peft_model,
