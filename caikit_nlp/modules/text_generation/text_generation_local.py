@@ -14,7 +14,6 @@
 
 
 # Standard
-from datetime import datetime
 from typing import Any, Dict, Optional, Union
 import gc
 import json
@@ -24,7 +23,7 @@ import tempfile
 # Third Party
 from datasets import Dataset
 from datasets import IterableDataset as TransformersIterableDataset
-from transformers import AutoConfig, AutoTokenizer, TrainerCallback
+from transformers import AutoConfig, AutoTokenizer
 import torch
 
 # First Party
@@ -366,7 +365,7 @@ class TextGeneration(ModuleBase):
                 "gradient_accumulation_steps": accumulate_steps,
                 "gradient_checkpointing": True,
                 "logging_strategy": "steps",
-                "logging_steps": 1, #logging at every step
+                "logging_steps": 1,  # logging at every step
                 # NOTE: This is explicitly set to false since it will
                 # negatively impact the performance
                 "full_determinism": False,
@@ -398,7 +397,6 @@ class TextGeneration(ModuleBase):
                 get_config().master_addr,
                 get_config().master_port,
             )
-
 
             if torch.cuda.is_available():
                 # NOTE: torch distributed can hang if run on CPUs,
@@ -437,7 +435,7 @@ class TextGeneration(ModuleBase):
             sep_token=model.tokenizer.sep_token or None,
             eos_token=model.tokenizer.eos_token or None,
             pad_token=model.tokenizer.pad_token or None,
-            training_metadata={"loss": training_loss_history}
+            training_metadata={"loss": training_loss_history},
         )
 
     @classmethod
@@ -611,14 +609,9 @@ class TextGeneration(ModuleBase):
     ) -> None:
         """Utility function to wrap trainer and execute training"""
 
-        # logging_callback = LoggingCallback()
-
         trainer = base_model.get_trainer(
             train_dataset=training_dataset, **training_args
         )
-
-        # Add logging callback
-        # trainer.add_callback(logging_callback)
 
         # Start training via Trainer.train function
         trainer.train()

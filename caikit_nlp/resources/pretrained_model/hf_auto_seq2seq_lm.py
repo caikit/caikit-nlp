@@ -15,9 +15,7 @@
 Huggingface auto causal LM resource type
 """
 # Standard
-import os
 from collections.abc import Mapping
-from datetime import datetime
 from typing import Dict, List, Union
 
 # Third Party
@@ -29,7 +27,6 @@ from transformers import (
     Seq2SeqTrainingArguments,
 )
 from transformers.models.auto import modeling_auto
-import torch
 
 # First Party
 from caikit.core.modules import module
@@ -49,7 +46,6 @@ IGNORE_ID = -100
 
 
 class LoggingTrainer(Seq2SeqTrainer):
-
     def log(self, logs: Dict[str, float]) -> None:
         """
         Log `logs` on the various objects watching training.
@@ -61,7 +57,10 @@ class LoggingTrainer(Seq2SeqTrainer):
                 The values to log.
         """
         self.state = log_step(self.state, logs)
-        self.control = self.callback_handler.on_log(self.args, self.state, self.control, logs)
+        self.control = self.callback_handler.on_log(
+            self.args, self.state, self.control, logs
+        )
+
 
 @module(
     id="6759e891-287b-405b-bd8b-54a4a4d51c25",
