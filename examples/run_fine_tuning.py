@@ -344,7 +344,7 @@ if __name__ == "__main__":
     sample_text = "summarize: The Inflation Reduction Act lowers prescription drug costs, health care costs, and energy costs. It's the most aggressive action on tackling the climate crisis in American history, which will lift up American workers and create good-paying, union jobs across the country. It'll lower the deficit and ask the ultra-wealthy and corporations to pay their fair share. And no one making under $400,000 per year will pay a penny more in taxes."
     prediction_results = model.run(sample_text)
 
-    # print("Generated text: ", prediction_results)
+    print("Generated text: ", prediction_results)
 
     # Saving model
     model.save(args.output_dir)
