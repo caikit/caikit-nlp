@@ -21,8 +21,8 @@ from typing import Dict, List, Union
 import torch
 
 # First Party
+from caikit.core.exceptions import error_handler
 from caikit.core.modules import ModuleBase, ModuleLoader, ModuleSaver, module
-from caikit.core.toolkit import error_handler
 from caikit.interfaces.nlp.data_model import ClassificationResult, ClassificationResults
 from caikit.interfaces.nlp.tasks import TextClassificationTask
 import alog

@@ -28,8 +28,8 @@ import torch
 # First Party
 from caikit import get_config
 from caikit.core.data_model import DataStream
+from caikit.core.exceptions import error_handler
 from caikit.core.modules import ModuleBase, ModuleConfig, ModuleSaver, module
-from caikit.core.toolkit import error_handler
 from caikit.interfaces.nlp.data_model import GeneratedTextResult
 from caikit.interfaces.nlp.tasks import TextGenerationTask
 import alog

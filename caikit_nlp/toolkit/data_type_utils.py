@@ -20,7 +20,7 @@ import torch
 
 # First Party
 from caikit import get_config
-from caikit.core.toolkit import error_handler
+from caikit.core.exceptions import error_handler
 import alog
 
 log = alog.use_channel("DATA_UTIL")
