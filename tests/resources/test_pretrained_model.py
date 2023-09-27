@@ -113,7 +113,7 @@ def test_causal_lm_tokenize_func_contains_wrapped_stream(models_cache_dir):
         max_source_length=100,
         max_target_length=100,
         verbalizer="{{input}}",
-        use_seq2seq_tokenization=False,
+        use_seq2seq_approach=False,
     )
     map_stream = SAMPLE_TRAINING_DATA.map(tok_func)
     # Since tok_func for causal lm creates a datastream, we should get a stream
@@ -150,7 +150,7 @@ def test_causal_lm_tok_output_correctness(models_cache_dir, chunk_size, drop_rem
         max_target_length=100,
         verbalizer="{{input}}",
         task_ids=0,
-        use_seq2seq_tokenization=False,
+        use_seq2seq_approach=False,
         chunk_size=chunk_size,
         drop_remainder=drop_remainder,
     )
@@ -200,7 +200,7 @@ def test_causal_lm_batch_tokenization(models_cache_dir):
         "tokenizer": causal_lm.tokenizer,
         "max_source_length": 10,
         "max_target_length": 10,
-        "use_seq2seq_tokenization": False,
+        "use_seq2seq_approach": False,
     }
     # Create an iterable dataset by batching...
     def get(train_stream):
@@ -299,7 +299,7 @@ def test_causal_lm_seq2seq_tok_forward_no_batching(models_cache_dir):
         max_source_length=100,
         max_target_length=100,
         verbalizer="{{input}}",
-        use_seq2seq_tokenization=True,
+        use_seq2seq_approach=True,
     )[0]
     tok_func_seq2seq = HFAutoSeq2SeqLM.build_task_tokenize_closure(
         tokenizer=causal_lm.tokenizer,
@@ -332,10 +332,10 @@ def test_causal_lm_seq2seq_tok_forward_with_batching(models_cache_dir):
         "tokenizer": causal_lm.tokenizer,
         "max_source_length": 10,
         "max_target_length": 10,
-        "use_seq2seq_tokenization": True,
+        "use_seq2seq_approach": True,
     }
     seq2seq_kwargs = {
-        k: v for k, v in causal_lm_fn_kwargs.items() if k != "use_seq2seq_tokenization"
+        k: v for k, v in causal_lm_fn_kwargs.items() if k != "use_seq2seq_approach"
     }
 
     # Create an iterable dataset by batching...
