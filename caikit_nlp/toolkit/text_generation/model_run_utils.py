@@ -19,7 +19,7 @@ from typing import List, Optional, Tuple, Union
 
 # Third Party
 from peft.peft_model import PeftModel
-from transformers import StoppingCriteria, TextStreamer
+from transformers import AutoModel, AutoTokenizer, StoppingCriteria, TextStreamer
 import numpy as np
 import torch
 
@@ -131,10 +131,10 @@ class SequenceStoppingCriteria(StoppingCriteria):
 
 
 def generate_text_func(
-    model,
-    tokenizer,
+    model: "Union[PeftModel, AutoModel]",
+    tokenizer: "AutoTokenizer",
     producer_id: ProducerId,
-    eos_token: str,
+    eos_token: Optional[str],
     text: str,
     max_new_tokens: Optional[int] = 20,
     min_new_tokens: Optional[int] = 0,
