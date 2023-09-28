@@ -890,12 +890,13 @@ class PeftPromptTuning(ModuleBase):
             Callable
                 collate_fn to be used for processing batches from our datasets.
         """
-        if task_type == "CAUSAL_LM":
-            return DataCollatorForLanguageModeling(
-                tokenizer=tokenizer,
-                return_tensors="pt",
-                mlm=False,
-            )
+        # HACK: Do NOT use the causal LM collator (for now) because we want to set the labels ourselves...
+        # if task_type == "CAUSAL_LM":
+        #     return DataCollatorForLanguageModeling(
+        #         tokenizer=tokenizer,
+        #         return_tensors="pt",
+        #         mlm=False,
+        #     )
         return default_data_collator
 
     @staticmethod
