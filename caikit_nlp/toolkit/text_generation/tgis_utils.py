@@ -159,7 +159,6 @@ def validate_inf_params(
 
 def get_params(
     preserve_input_text,
-    eos_token,
     max_new_tokens,
     min_new_tokens,
     truncate_input_tokens,
@@ -177,8 +176,6 @@ def get_params(
     """Get generation parameters
 
     Args:
-        eos_token: str
-           A special token representing the end of a sentence.
         {}
     """.format(
         GENERATE_FUNCTION_TGIS_ARGS
@@ -205,7 +202,7 @@ def get_params(
         token_ranks=True,
     )
     stopping = generation_pb2.StoppingCriteria(
-        stop_sequences=stop_sequences or [eos_token] if eos_token else None,
+        stop_sequences=stop_sequences,
         max_new_tokens=max_new_tokens,
         min_new_tokens=min_new_tokens,
         time_limit_millis=int(max_time * 1000) if max_time else None,
@@ -313,7 +310,6 @@ class TGISGenerationClient:
 
         params = get_params(
             preserve_input_text=preserve_input_text,
-            eos_token=self.eos_token,
             max_new_tokens=max_new_tokens,
             min_new_tokens=min_new_tokens,
             truncate_input_tokens=truncate_input_tokens,
@@ -423,7 +419,6 @@ class TGISGenerationClient:
 
         params = get_params(
             preserve_input_text=preserve_input_text,
-            eos_token=self.eos_token,
             max_new_tokens=max_new_tokens,
             min_new_tokens=min_new_tokens,
             truncate_input_tokens=truncate_input_tokens,
