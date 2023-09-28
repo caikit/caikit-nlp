@@ -382,34 +382,19 @@ class HFAutoCausalLM(PretrainedModelBase):
         sample_input_ids = model_inputs[
             "input_ids"
         ]  # NOTE - combined source + target + <FINAL_TOK_ID>
-        # TODO: can we handle the padding through the collator?
+
+        label_input_ids = labels["input_ids"]
+        model_inputs = tokenizer.pad(
+            model_inputs,
+            padding="max_length",
+            max_length=max_source_length
+        )
+
         if tokenizer.padding_side.lower() == "left":
-            # Do left padding
-            # labels["input_ids"] = [IGNORE_ID] * len(
-            #     sample_input_ids
-            # ) + label_input_ids
-            label_input_ids = labels["input_ids"]
-            model_inputs["input_ids"] = [tokenizer.pad_token_id] * (
-                max_source_length - len(sample_input_ids)
-            ) + sample_input_ids
-            model_inputs["attention_mask"] = [0] * (
-                max_source_length - len(sample_input_ids)
-            ) + model_inputs["attention_mask"]
             labels["input_ids"] = [IGNORE_ID] * (
                 max_source_length - len(sample_input_ids)
             ) + label_input_ids
         else:
-            # Do right padding
-            # labels["input_ids"] = [IGNORE_ID] * len(
-            #     sample_input_ids
-            # ) + label_input_ids
-            label_input_ids = labels["input_ids"]
-            model_inputs["input_ids"] = sample_input_ids + [
-                tokenizer.pad_token_id
-            ] * (max_source_length - len(sample_input_ids))
-            model_inputs["attention_mask"] = model_inputs["attention_mask"] + [
-                0
-            ] * (max_source_length - len(sample_input_ids))
             labels["input_ids"] = label_input_ids + [IGNORE_ID] * (
                 max_source_length - len(sample_input_ids)
             )
