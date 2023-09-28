@@ -234,7 +234,9 @@ def generate_text_func(
         for g in generate_ids
     ]
 
-    if generate_ids[0][-1].item() == eos_token:
+    if (eos_token and tokenizer.decode(generate_ids[0, -1].item()) == eos_token) or (
+        generate_ids[0, -1] == tokenizer.eos_token_id
+    ):
         finish_reason = "EOS_TOKEN"
     elif generate_ids.size(1) - 1 == max_new_tokens:
         finish_reason = "MAX_TOKENS"
