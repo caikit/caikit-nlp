@@ -349,10 +349,13 @@ class PeftPromptTuning(ModuleBase):
                 Instance of this class with tuned prompt vectors.
         """
 
-        # HACK - These things can't be passed through the train API currently
+        torch_dtype = get_torch_dtype(torch_dtype)
 
         # NOTE: We are not support "metrics" at the moment
 
+        # Coerce the passed model into a resource; if we have one, this is a noop
+        # TODO: When splitting up this mono-module, use the configured resource
+        #   type of the concrete class to bootstrap
         base_model = resolve_base_model(base_model, cls, torch_dtype)
         # Enable gradient checkpointing on base model
         # PeftModel checks if the base_model has gradient checkpointing
@@ -373,11 +376,6 @@ class PeftPromptTuning(ModuleBase):
             torch_dtype,
             verbalizer,
         )
-
-        # Coerce the passed model into a resource; if we have one, this is a noop
-        # TODO: When splitting up this mono-module, use the configured resource
-        #   type of the concrete class to bootstrap
-        torch_dtype = get_torch_dtype(torch_dtype)
 
         train_stream = train_stream.map(convert_to_generation_record)
         if val_stream:
