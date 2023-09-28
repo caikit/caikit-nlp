@@ -21,6 +21,9 @@ torch_dtype: float32
 # Path of folder that will contain all the source prompts
 source_prompt_base: ""
 
+# Path for searching base models from
+base_models_dir: ""
+
 # Whether or not to purge TGIS prompts on model deletion
 unload_tgis_prompt_artifacts: false
 # Torchrun elastic launch configuration, e.g., for fine tuning on multiple GPUs
