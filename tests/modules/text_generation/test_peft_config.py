@@ -72,7 +72,6 @@ def test_get_peft_config(train_kwargs, dummy_model, request):
     assert peft_config.prompt_tuning_init_text == tuning_config.prompt_tuning_init_text
 
 
-
 def test_resolve_model_with_invalid_path_raises():
     """Test passing invalid path to resolve_model function raises"""
 
@@ -87,6 +86,7 @@ def test_resolve_model_with_valid_folder_path():
     model = resolve_base_model(SEQ2SEQ_LM_MODEL, TextGeneration, "float32")
 
     assert isinstance(model, HFAutoSeq2SeqLM)
+
 
 def test_resolve_model_works_preloaded_model():
 
