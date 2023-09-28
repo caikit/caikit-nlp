@@ -13,7 +13,6 @@
 # limitations under the License.
 """This module contains prompt tuning through PEFT"""
 # Standard
-from datetime import datetime
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
 import gc
 import json
@@ -21,7 +20,6 @@ import os
 import tempfile
 
 # Third Party
-from accelerate import Accelerator
 from datasets import Dataset
 from datasets import IterableDataset as TransformersIterableDataset
 from peft import (
@@ -33,16 +31,12 @@ from peft import (
     TaskType,
     get_peft_model,
 )
-from torch.optim import AdamW
-from torch.utils.data import DataLoader
-from tqdm import tqdm
 from transformers import (
     AutoModelForCausalLM,
     DataCollatorForLanguageModeling,
     default_data_collator,
 )
 from transformers.models.auto.tokenization_auto import AutoTokenizer
-from transformers.optimization import get_linear_schedule_with_warmup
 import numpy as np
 import torch
 
@@ -68,9 +62,7 @@ from ...data_model import (
 from ...resources.pretrained_model import (
     HFAutoCausalLM,
     HFAutoSeq2SeqLM,
-    PretrainedModelBase,
 )
-from ...toolkit.data_stream_wrapper import SimpleIterableStreamWrapper
 from ...toolkit.data_type_utils import get_torch_dtype, str_to_torch_dtype
 from ...toolkit.task_specific_utils import convert_to_generation_record
 from ...toolkit.text_generation.model_run_utils import (
