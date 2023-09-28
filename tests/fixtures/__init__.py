@@ -37,15 +37,15 @@ SEQ2SEQ_LM_MODEL = os.path.join(TINY_MODELS_DIR, "T5ForConditionalGeneration")
 
 
 dummy_train_stream = caikit.core.data_model.DataStream.from_iterable(
-            [
-                caikit_nlp.data_model.GenerationTrainRecord(
-                    input="@foo what a cute dog!", output="no complaint"
-                ),
-                caikit_nlp.data_model.GenerationTrainRecord(
-                    input="@bar this is the worst idea ever.", output="complaint"
-                ),
-            ]
-        )
+    [
+        caikit_nlp.data_model.GenerationTrainRecord(
+            input="@foo what a cute dog!", output="no complaint"
+        ),
+        caikit_nlp.data_model.GenerationTrainRecord(
+            input="@bar this is the worst idea ever.", output="complaint"
+        ),
+    ]
+)
 
 
 @pytest.fixture()

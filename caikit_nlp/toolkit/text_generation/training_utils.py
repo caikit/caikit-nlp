@@ -30,7 +30,6 @@ import alog
 from ...data_model import GenerationTrainRecord
 from ...resources.pretrained_model import PretrainedModelBase
 
-
 log = alog.use_channel("TXTGEN_TRN_UTLS")
 error = error_handler.get(log)
 
@@ -55,6 +54,7 @@ ALLOWED_TRAINING_ARGS = {
     "gradient_checkpointing",
     "full_determinism",
 }
+
 
 def preprocess_function(
     base_model: PretrainedModelBase,
@@ -93,8 +93,14 @@ def preprocess_function(
 
     return mapped_dataset
 
+
 def launch_training(
-    base_model, training_dataset, training_args, checkpoint_dir, trainer=None, tokenizer=None
+    base_model,
+    training_dataset,
+    training_args,
+    checkpoint_dir,
+    trainer=None,
+    tokenizer=None,
 ) -> None:
     """Utility function to wrap trainer and execute training"""
 
@@ -102,8 +108,8 @@ def launch_training(
         # If trainer is not provided fetch it from base_model
         if hasattr(base_model, "get_trainer"):
             trainer = base_model.get_trainer(
-                    train_dataset=training_dataset, **training_args
-                )
+                train_dataset=training_dataset, **training_args
+            )
         else:
             error("<NLP26155082E>", "could not resolve trainer. Check base model type!")
 
@@ -130,6 +136,7 @@ def launch_training(
     # if started in distributed fashion
     return trainer.state.log_history
 
+
 def infer_max_steps(
     num_epochs: int,
     batch_size: int,
@@ -152,6 +159,7 @@ def infer_max_steps(
     num_steps = num_batches * num_epochs
     log.debug("Number of inferred steps: [%s]", num_steps)
     return num_steps
+
 
 def get_record(train_stream):
     for data in train_stream:
