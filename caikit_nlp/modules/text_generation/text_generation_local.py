@@ -49,6 +49,7 @@ from ...toolkit.text_generation.model_run_utils import (
 )
 from ...toolkit.text_generation.training_utils import (
     ALLOWED_TRAINING_ARGS,
+    collect_trainer_arguments,
     infer_max_steps,
     launch_training,
     preprocess_function,
@@ -246,6 +247,18 @@ class TextGeneration(ModuleBase):
 
         error.type_check("<NLP03221895E>", PretrainedModelBase, base_model=base_model)
 
+        if num_epochs < 1:
+            log.warning(
+                "<NLP64076114W>",
+                f"Number of epochs configured is {num_epochs} which is less than minimum 1. \
+                    No training will be performed",
+            )
+
+            return TextGeneration(
+                model_name=base_model._model_name,
+                model=base_model,
+            )
+
         # TODO; For now, we don't support iterable datasets for causal LM, the reason
         # being that the dynamically padded collator breaks with FSDP/torch run when
         # multiple devices are used. This appears to be because each process fetches
@@ -278,21 +291,6 @@ class TextGeneration(ModuleBase):
             use_iterable_dataset=use_iterable_dataset,
             random_seed=cls.RANDOM_SEED,
         )
-
-        ### Dtype based processing
-        # NOTE: Following is not exhaustive list of all parameters
-        # for all dtypes
-        if torch_dtype == torch.float16:
-            dtype_based_params = {
-                "fp16": True,
-            }
-        elif torch_dtype == torch.bfloat16:
-            dtype_based_params = {
-                "bf16": True,
-            }
-        else:
-            # default to float32
-            dtype_based_params = {}
 
         ## TODO: Add automatic sharding selection based on number of parameters
         # in base model
@@ -333,50 +331,19 @@ class TextGeneration(ModuleBase):
         # Open an intermediate checkpoint directory until we've bootstrapped
         # our model or we've early exited (if epochs < 1)
         with tempfile.TemporaryDirectory() as checkpoint_dir:
-            training_args = {
-                "output_dir": checkpoint_dir,
-                "per_device_train_batch_size": batch_size,
-                "per_device_eval_batch_size": batch_size,
-                "num_train_epochs": num_epochs,
-                "seed": random_seed,
-                # NOTE: We have disabled evaluation for now
-                "do_eval": False,
-                "do_train": True,
-                "learning_rate": learning_rate,
-                "weight_decay": 0.01,
-                "save_total_limit": 3,
-                "push_to_hub": False,
-                "no_cuda": not torch.cuda.is_available(),  # Default
-                "remove_unused_columns": True,
-                "dataloader_pin_memory": False,
-                "gradient_accumulation_steps": accumulate_steps,
-                "gradient_checkpointing": True,
-                "logging_strategy": "steps",
-                "logging_steps": 1,  # logging at every step
-                # NOTE: This is explicitly set to false since it will
-                # negatively impact the performance
-                "full_determinism": False,
-                # Required for iterable dataset
-                "max_steps": infer_max_steps(num_epochs, batch_size, training_dataset),
-                # Some interesting parameters:
-                "auto_find_batch_size": True,
+            training_args = collect_trainer_arguments(
+                torch_dtype,
+                checkpoint_dir,
+                batch_size,
+                num_epochs,
+                random_seed,
+                learning_rate,
+                accumulate_steps,
+                max_steps=infer_max_steps(num_epochs, batch_size, training_dataset),
                 # NOTE: following can override above arguments in order
                 **filtered_training_arguments,
                 **processing_configuration,
-                **dtype_based_params,
-            }
-
-            if num_epochs < 1:
-                log.warning(
-                    "<NLP64076114W>",
-                    f"Number of epochs configured is {num_epochs} which is less than minimum 1. \
-                        No training will be performed",
-                )
-
-                return TextGeneration(
-                    model_name=base_model._model_name,
-                    model=base_model,
-                )
+            )
 
             launch_config = get_torch_elastic_launch_config(
                 get_config().master_addr,
