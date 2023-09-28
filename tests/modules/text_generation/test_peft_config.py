@@ -63,3 +63,4 @@ def test_get_peft_config(train_kwargs, dummy_model, request):
     assert peft_config.task_type == dummy_resource.TASK_TYPE
     assert peft_config.prompt_tuning_init == tuning_config.prompt_tuning_init_method
     assert peft_config.prompt_tuning_init_text == tuning_config.prompt_tuning_init_text
+
