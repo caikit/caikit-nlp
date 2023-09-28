@@ -20,6 +20,7 @@ from typing import Union
 from datasets import Dataset
 from datasets import IterableDataset as TransformersIterableDataset
 from transformers import AutoTokenizer
+import torch
 
 # First Party
 from caikit.core.data_model import DataStream
@@ -54,6 +55,72 @@ ALLOWED_TRAINING_ARGS = {
     "gradient_checkpointing",
     "full_determinism",
 }
+
+# Create trainer arguments
+def collect_trainer_arguments(
+    torch_dtype,
+    output_dir,
+    batch_size,
+    num_epochs,
+    random_seed,
+    learning_rate,
+    accumulate_steps,
+    max_steps,
+    silence_progress_bars=True,
+    **kwargs
+):
+    """Utility function to return processed HF Trainer argument dictionary"""
+
+    # NOTE: Following is not exhaustive list of all parameters
+    # for all dtypes
+    if torch_dtype == torch.float16:
+        dtype_based_params = {
+            "fp16": True,
+        }
+    elif torch_dtype == torch.bfloat16:
+        dtype_based_params = {
+            "bf16": True,
+        }
+    else:
+        # default to float32
+        dtype_based_params = {}
+
+    return {
+        # trainer settings
+        "output_dir": output_dir,
+        # NOTE: We have disabled evaluation for now
+        "do_eval": False,
+        "do_train": True,
+        "no_cuda": not torch.cuda.is_available(),
+        # NOTE: This is explicitly set to false since it will
+        # negatively impact the performance
+        "full_determinism": False,
+        # logging configuration
+        "logging_strategy": "steps",
+        "logging_steps": 1,  # logging at every step
+        "disable_tqdm": silence_progress_bars,
+        # computation configurations
+        "seed": random_seed,
+        "per_device_train_batch_size": batch_size,
+        "per_device_eval_batch_size": batch_size,
+        "num_train_epochs": num_epochs,
+        "learning_rate": learning_rate,
+        "weight_decay": 0.01,
+        "save_total_limit": 3,
+        "gradient_accumulation_steps": accumulate_steps,
+        "gradient_checkpointing": True,
+        # huggingface configurations
+        "push_to_hub": False,
+        # dataset configurations
+        "remove_unused_columns": True,
+        "dataloader_pin_memory": False,
+        # Required for iterable dataset
+        "max_steps": max_steps,
+        # others
+        "auto_find_batch_size": True,
+        **dtype_based_params,
+        **kwargs,
+    }
 
 
 def preprocess_function(

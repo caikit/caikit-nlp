@@ -59,10 +59,7 @@ from ...data_model import (
     PromptOutputModelType,
     TuningConfig,
 )
-from ...resources.pretrained_model import (
-    HFAutoCausalLM,
-    HFAutoSeq2SeqLM,
-)
+from ...resources.pretrained_model import HFAutoCausalLM, HFAutoSeq2SeqLM
 from ...toolkit.data_type_utils import get_torch_dtype, str_to_torch_dtype
 from ...toolkit.task_specific_utils import convert_to_generation_record
 from ...toolkit.text_generation.model_run_utils import (
@@ -72,6 +69,7 @@ from ...toolkit.text_generation.model_run_utils import (
 )
 from ...toolkit.text_generation.training_utils import (
     ALLOWED_TRAINING_ARGS,
+    collect_trainer_arguments,
     infer_max_steps,
     launch_training,
     preprocess_function,
@@ -411,21 +409,6 @@ class PeftPromptTuning(ModuleBase):
             random_seed=cls.RANDOM_SEED,
         )
 
-        ### Dtype based processing
-        # NOTE: Following is not exhaustive list of all parameters
-        # for all dtypes
-        if torch_dtype == torch.float16:
-            dtype_based_params = {
-                "fp16": True,
-            }
-        elif torch_dtype == torch.bfloat16:
-            dtype_based_params = {
-                "bf16": True,
-            }
-        else:
-            # default to float32
-            dtype_based_params = {}
-
         # Filter **training_arguments to only process allowed ones
         filtered_training_arguments = {
             k: v for k, v in kwargs.items() if k in ALLOWED_TRAINING_ARGS
@@ -464,38 +447,20 @@ class PeftPromptTuning(ModuleBase):
         # Open an intermediate checkpoint directory until we've bootstrapped
         # our model or we've early exited (if epochs < 1)
         with tempfile.TemporaryDirectory() as checkpoint_dir:
-            training_args = {
-                "output_dir": checkpoint_dir,
-                "per_device_train_batch_size": batch_size,
-                "per_device_eval_batch_size": batch_size,
-                "num_train_epochs": num_epochs,
-                "seed": random_seed,
-                # NOTE: We have disabled evaluation for now
-                "do_eval": False,
-                "do_train": True,
-                "learning_rate": learning_rate,
-                "weight_decay": 0.01,
-                "save_total_limit": 3,
-                "push_to_hub": False,
-                "no_cuda": not torch.cuda.is_available(),  # Default
-                "remove_unused_columns": True,
-                "dataloader_pin_memory": False,
-                "gradient_accumulation_steps": accumulate_steps,
-                "gradient_checkpointing": True,
-                "logging_strategy": "steps",
-                "logging_steps": 1,  # logging at every step
-                # NOTE: This is explicitly set to false since it will
-                # negatively impact the performance
-                "full_determinism": False,
-                "disable_tqdm": silence_progress_bars,
-                # Required for iterable dataset
-                "max_steps": infer_max_steps(num_epochs, batch_size, training_dataset),
-                # Some interesting parameters:
-                "auto_find_batch_size": True,
+
+            training_args = collect_trainer_arguments(
+                torch_dtype,
+                checkpoint_dir,
+                batch_size,
+                num_epochs,
+                random_seed,
+                learning_rate,
+                accumulate_steps,
+                max_steps=infer_max_steps(num_epochs, batch_size, training_dataset),
+                silence_progress_bars=silence_progress_bars,
                 # NOTE: following can override above arguments in order
                 **filtered_training_arguments,
-                **dtype_based_params,
-            }
+            )
 
             base_model_trainer = base_model.get_trainer(
                 train_dataset=training_dataset, **training_args
