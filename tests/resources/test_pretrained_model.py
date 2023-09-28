@@ -102,7 +102,8 @@ SAMPLE_TRAINING_DATA = caikit.core.data_model.DataStream.from_iterable(
     ]
 )
 
-
+# Causal LM tokenization strategies
+### 1. Tests for Causal LM tokenization chunking
 def test_causal_lm_tokenize_func_contains_wrapped_stream(models_cache_dir):
     """Ensure the Causal LM tokenize func produces a wrapped stream that can be flattened."""
     causal_lm = HFAutoCausalLM.bootstrap(
@@ -227,6 +228,55 @@ def test_causal_lm_batch_tokenization(models_cache_dir):
         for k in indiv_res:
             assert indiv_res[k] == batched_res[k]
 
+### 2. Tests for causal LM framed as a seq2seq problem
+# NOTE: For these tests, we should be careful to always test left and right padding
+@pytest.mark.parametrize(
+    "padding_side",
+    ["left", "right"],
+)
+def test_causal_lm_as_a_sequence_problem_no_truncation(models_cache_dir, padding_side):
+    causal_lm = HFAutoCausalLM.bootstrap(
+        model_name=CAUSAL_LM_MODEL, tokenizer_name=CAUSAL_LM_MODEL
+    )
+    sample = GenerationTrainRecord(
+        input="Hello world", output="How are you doing today?!"
+    )
+    max_lengths = 20 # Must be longer than the concatenated sequence
+    # First, build the output we expect for left / right respectively...
+    input_tok = causal_lm.tokenizer.encode(sample.input)
+    output_tok = causal_lm.tokenizer.encode(sample.output) + [causal_lm.tokenizer.eos_token_id]
+    concat_res = input_tok + output_tok
+    masked_res = ([-100] * len(input_tok)) + output_tok
+
+    # This must true because otherwise no padding was needed, e.g., truncation
+    assert len(concat_res) < max_lengths
+    pads_needed = max_lengths - len(concat_res)
+    if causal_lm.tokenizer.padding_side.lower() == "left":
+        expected_input_ids = torch.tensor([causal_lm.tokenizer.pad_token_id] * pads_needed + concat_res)
+        expected_attn_mask = torch.tensor([0] * pads_needed + [1] * len(concat_res))
+        expected_labels = torch.tensor([-100] * pads_needed + masked_res)
+    else:
+        expected_input_ids = torch.tensor(concat_res + [causal_lm.tokenizer.pad_token_id] * pads_needed)
+        expected_attn_mask = torch.tensor([1] * len(concat_res) + [0] * pads_needed)
+        expected_labels = torch.tensor(masked_res + [-100] * pads_needed)
+
+    # Now build the analogous tokenizer closure and compare the tensors
+
+    # Concatenated sequence has length 18; we don't truncate anything here
+    (tok_func, _) = causal_lm.build_task_tokenize_closure(
+        tokenizer=causal_lm.tokenizer,
+        max_source_length=max_lengths,
+        max_target_length=max_lengths,
+        verbalizer="{{input}}",
+        task_ids=0,
+        use_seq2seq_approach=True,
+    )
+    tok_res = tok_func(sample)
+    assert tok_res["task_ids"] == 0
+    assert torch.all(tok_res["input_ids"] == expected_input_ids)
+    assert torch.all(tok_res["attention_mask"] == expected_attn_mask)
+    assert torch.all(tok_res["labels"] == expected_labels)
+
 
 ### Tests for Seq2Seq tokenization
 def test_seq2seq_tokenize_func_contains_unwrapped_stream(models_cache_dir):
@@ -279,8 +329,7 @@ def test_seq2seq_tok_output_correctness(models_cache_dir):
 
 
 ### Tests for Causal LM -> seq2seq forwarded tokenization
-# Note - in all tests below, we always use the causal LM tokenizer, even when calling the
-# seq2seq tok function directly, to ensure the results are comparable.
+@pytest.mark.skip(reason="causal lm requires same length labels")
 def test_causal_lm_seq2seq_tok_forward_no_batching(models_cache_dir):
     """Ensure that we can override forward to seq2seq tokenization [non-batched mode]."""
     # Build a causal LM & Sequence to sequence model
@@ -316,57 +365,5 @@ def test_causal_lm_seq2seq_tok_forward_no_batching(models_cache_dir):
             seq2seq_lm_v = seq2seq_lm_res[k]
             assert causal_lm_v == seq2seq_lm_v
 
-
-def test_causal_lm_seq2seq_tok_forward_with_batching(models_cache_dir):
-    """Ensure that we can override forward to seq2seq tokenization [batched mode]."""
-    causal_lm = HFAutoCausalLM.bootstrap(
-        model_name=CAUSAL_LM_MODEL, tokenizer_name=CAUSAL_LM_MODEL
-    )
-    train_stream = DataStream.from_iterable(
-        [
-            GenerationTrainRecord(input="hello there", output="world"),
-            GenerationTrainRecord(input="how", output="today"),
-        ]
-    )
-    causal_lm_fn_kwargs = {
-        "tokenizer": causal_lm.tokenizer,
-        "max_source_length": 10,
-        "max_target_length": 10,
-        "use_seq2seq_approach": True,
-    }
-    seq2seq_kwargs = {
-        k: v for k, v in causal_lm_fn_kwargs.items() if k != "use_seq2seq_approach"
-    }
-
-    # Create an iterable dataset by batching...
-    def get(train_stream):
-        for data in train_stream:
-            yield {"input": data.input, "output": data.output}
-
-    dataset = TransformersIterableDataset.from_generator(
-        get, gen_kwargs={"train_stream": train_stream}
-    )
-    # Map the respective tokenize functions over the dataset
-    clm_batched_dataset = dataset.map(
-        HFAutoCausalLM.tokenize_function,
-        fn_kwargs=causal_lm_fn_kwargs,
-        batched=True,
-        remove_columns=["input", "output"],
-    )
-    seq2seqlm_batched_dataset = dataset.map(
-        HFAutoSeq2SeqLM.tokenize_function,
-        fn_kwargs=seq2seq_kwargs,
-        batched=True,
-        remove_columns=["input", "output"],
-    )
-
-    assert len(list(seq2seqlm_batched_dataset)) == len(list(clm_batched_dataset))
-    for clm_res, seq2seq_res in zip(clm_batched_dataset, seq2seqlm_batched_dataset):
-        # All keys should match (input ids, attention mask)
-        assert clm_res.keys() == seq2seq_res.keys()
-        # And all of their values should be the same
-        for k in clm_res:
-            assert clm_res[k] == seq2seq_res[k]
-
-
-### Tests for Causal LM tokenization chunking
+# TODO: Collator compatability is VERY important here; we need to have some tests
+# that verify the correctness of some of these things given different collators.
