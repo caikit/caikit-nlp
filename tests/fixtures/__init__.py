@@ -36,6 +36,18 @@ CAUSAL_LM_MODEL = os.path.join(TINY_MODELS_DIR, "BloomForCausalLM")
 SEQ2SEQ_LM_MODEL = os.path.join(TINY_MODELS_DIR, "T5ForConditionalGeneration")
 
 
+dummy_train_stream = caikit.core.data_model.DataStream.from_iterable(
+            [
+                caikit_nlp.data_model.GenerationTrainRecord(
+                    input="@foo what a cute dog!", output="no complaint"
+                ),
+                caikit_nlp.data_model.GenerationTrainRecord(
+                    input="@bar this is the worst idea ever.", output="complaint"
+                ),
+            ]
+        )
+
+
 @pytest.fixture()
 def set_cpu_device(request):
     """Fixture to set default cuda device.
@@ -115,7 +127,7 @@ def causal_lm_train_kwargs():
         "base_model": HFAutoCausalLM.bootstrap(
             model_name=CAUSAL_LM_MODEL, tokenizer_name=CAUSAL_LM_MODEL
         ),
-        "train_stream": caikit.core.data_model.DataStream.from_iterable([]),
+        "train_stream": dummy_train_stream,
         "num_epochs": 0,
         "tuning_config": caikit_nlp.data_model.TuningConfig(
             num_virtual_tokens=8, prompt_tuning_init_text="hello world"
@@ -149,7 +161,7 @@ def seq2seq_lm_train_kwargs():
         "base_model": HFAutoSeq2SeqLM.bootstrap(
             model_name=SEQ2SEQ_LM_MODEL, tokenizer_name=SEQ2SEQ_LM_MODEL
         ),
-        "train_stream": caikit.core.data_model.DataStream.from_iterable([]),
+        "train_stream": dummy_train_stream,
         "num_epochs": 0,
         "tuning_config": caikit_nlp.data_model.TuningConfig(
             num_virtual_tokens=16, prompt_tuning_init_text="hello world"
