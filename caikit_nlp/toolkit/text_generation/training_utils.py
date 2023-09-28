@@ -74,6 +74,7 @@ def preprocess_function(
         "max_source_length": max_source_length,
         "max_target_length": max_target_length,
     }
+    # TODO: Add check for empty training stream
     dataset = dataset_type.from_generator(
         get_record, gen_kwargs={"train_stream": train_stream}
     )
@@ -93,13 +94,18 @@ def preprocess_function(
     return mapped_dataset
 
 def launch_training(
-    base_model, training_dataset, training_args, checkpoint_dir
+    base_model, training_dataset, training_args, checkpoint_dir, trainer=None, tokenizer=None
 ) -> None:
     """Utility function to wrap trainer and execute training"""
 
-    trainer = base_model.get_trainer(
-            train_dataset=training_dataset, **training_args
-        )
+    if not trainer:
+        # If trainer is not provided fetch it from base_model
+        if hasattr(base_model, "get_trainer"):
+            trainer = base_model.get_trainer(
+                    train_dataset=training_dataset, **training_args
+                )
+        else:
+            error("<NLP26155082E>", "could not resolve trainer. Check base model type!")
 
     # Start training via Trainer.train function
     trainer.train()
@@ -113,7 +119,12 @@ def launch_training(
     trainer.save_model(checkpoint_dir)
 
     # save tokenizer explicitly
-    base_model.tokenizer.save_pretrained(checkpoint_dir)
+    if hasattr(base_model, "tokenizer"):
+        base_model.tokenizer.save_pretrained(checkpoint_dir)
+    elif tokenizer:
+        tokenizer.save_pretrained(checkpoint_dir)
+    else:
+        log.warning("<NLP47068212W>", "tokenizer not available to train function.")
 
     # Below will return log history but launch will automatically attach rank to it.
     # if started in distributed fashion

@@ -361,10 +361,20 @@ class PeftPromptTuning(ModuleBase):
 
         # HACK - These things can't be passed through the train API currently
 
-        metric = kwargs.get("metric")
+       # NOTE: We are not support "metrics" at the moment
 
         base_model = resolve_base_model(base_model, cls, torch_dtype)
+        # Enable gradient checkpointing on base model
+        # PeftModel checks if the base_model has gradient checkpointing
+        # enabled and then configures the tensors it creates with appropriate
+        # setting. If we do not enable this, then we will get `tensor 0` requires
+        # grad error, where `tensor 0` is created by peft
+        base_model.model.gradient_checkpointing_enable()
+
         base_model_name = base_model._model_name
+        # Get config of the base model
+        base_model_config = base_model.get_config()
+
         task_type, output_model_types, peft_config, tuning_type = get_peft_config(
             tuning_type,
             tuning_config,
@@ -393,8 +403,7 @@ class PeftPromptTuning(ModuleBase):
         # Convert our Peft model (not just the underlying
         # transformers model) to the right underlying type.
         device = cls._get_device(device)
-        cls.convert_peft_model_to_type(device, peft_model, torch_dtype)
-
+        # cls.convert_peft_model_to_type(device, peft_model, torch_dtype)
 
         ## Generate data loader from stream
         training_dataset: Union[
@@ -406,7 +415,6 @@ class PeftPromptTuning(ModuleBase):
             max_source_length=max_source_length,
             max_target_length=max_target_length,
             shuffle=True,
-            # FIX ME:
             use_iterable_dataset=False,
             random_seed=cls.RANDOM_SEED,
         )
@@ -442,6 +450,24 @@ class PeftPromptTuning(ModuleBase):
                     {cls.__name__} currently and will be ignored!",
             )
 
+        if num_epochs < 1:
+            log.warning(
+                "<NLP41930186W>",
+                f"Number of epochs configured is {num_epochs} which is less than minimum 1. \
+                    No training will be performed",
+            )
+
+            return PeftPromptTuning(
+                tokenizer=base_model.tokenizer,
+                model=peft_model,
+                base_model_config=base_model_config,
+                base_model_name=base_model_name,
+                verbalizer=verbalizer,
+                task_type=task_type,
+                tuning_type=tuning_type,
+                output_model_types=output_model_types,
+                training_metadata={"loss": []}
+            )
 
         # Open an intermediate checkpoint directory until we've bootstrapped
         # our model or we've early exited (if epochs < 1)
@@ -478,26 +504,14 @@ class PeftPromptTuning(ModuleBase):
                 **dtype_based_params,
             }
 
+            base_model_trainer = base_model.get_trainer(
+                train_dataset=training_dataset, **training_args
+            )
+
             training_loss_history = launch_training(
-                    base_model, training_dataset, training_args, checkpoint_dir
+                    peft_model, training_dataset, training_args, checkpoint_dir, trainer=base_model_trainer, tokenizer=base_model.tokenizer
                 )
 
-        training_loss_tracker = cls._execute_train_loop(
-            peft_model,
-            num_epochs,
-            train_dataloader,
-            device,
-            eval_dataloader=val_dataloader,
-            metric=metric,
-            learning_rate=learning_rate,
-            tokenizer=base_model.tokenizer,
-            accumulate_steps=accumulate_steps,
-            silence_progress_bars=silence_progress_bars,
-            torch_dtype=torch_dtype,
-        )
-
-        # Get config of the base model
-        base_model_config = base_model.get_config()
 
         # Remove _name_or_path field as a model can be
         # saved in different location but still same
@@ -518,7 +532,7 @@ class PeftPromptTuning(ModuleBase):
             task_type=task_type,
             tuning_type=tuning_type,
             output_model_types=output_model_types,
-            training_metadata=training_loss_tracker,
+            training_metadata={"loss": training_loss_history},
             # TODO: Export other training params to model as well
         )
 

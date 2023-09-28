@@ -88,7 +88,6 @@ def test_run_stream_out_model(causal_lm_dummy_model):
     pred_stream = causal_lm_dummy_model.run_stream_out("This text doesn't matter")
     assert isinstance(pred_stream, Iterable)
     for pred in pred_stream:
-        print(pred)
         assert isinstance(pred, GeneratedTextStreamResult)
 
 
@@ -143,7 +142,7 @@ def test_train_model(causal_lm_train_kwargs, set_cpu_device):
                 ),
             ]
         ),
-        "torch_dtype": torch.bfloat16,
+        "torch_dtype": torch.float32,
         "device": "cpu",
     }
     causal_lm_train_kwargs.update(patch_kwargs)
@@ -201,7 +200,7 @@ def test_train_model_classification_record(causal_lm_train_kwargs, set_cpu_devic
                 ),
             ]
         ),
-        "torch_dtype": torch.bfloat16,
+        "torch_dtype": torch.float32,
         "device": "cpu",
     }
     causal_lm_train_kwargs.update(patch_kwargs)
@@ -230,7 +229,7 @@ def test_prompt_output_types(causal_lm_train_kwargs):
                 ),
             ]
         ),
-        "torch_dtype": torch.bfloat16,
+        "torch_dtype": torch.float32,
         "device": "cpu",
         "tuning_config": caikit_nlp.data_model.TuningConfig(
             num_virtual_tokens=8,
