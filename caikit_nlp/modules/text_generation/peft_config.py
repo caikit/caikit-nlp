@@ -61,7 +61,7 @@ def resolve_base_model(base_model, cls, torch_dtype):
 
         error.value_check(
             "<NLP66932773E>",
-            re.search(SOURCE_DIR_VALIDATION_REGEX, base_model),
+            re.fullmatch(SOURCE_DIR_VALIDATION_REGEX, base_model),
             "invalid characters in base_model name"
         )
         if get_config().base_models_dir:
