@@ -82,7 +82,7 @@ from ...toolkit.text_generation.training_utils import (
     ALLOWED_TRAINING_ARGS,
     infer_max_steps,
     launch_training,
-    preprocess_function
+    preprocess_function,
 )
 from ...toolkit.verbalizer_utils import render_verbalizer
 from .peft_config import TuningType, get_peft_config, resolve_base_model
@@ -361,7 +361,7 @@ class PeftPromptTuning(ModuleBase):
 
         # HACK - These things can't be passed through the train API currently
 
-       # NOTE: We are not support "metrics" at the moment
+        # NOTE: We are not support "metrics" at the moment
 
         base_model = resolve_base_model(base_model, cls, torch_dtype)
         # Enable gradient checkpointing on base model
@@ -466,7 +466,7 @@ class PeftPromptTuning(ModuleBase):
                 task_type=task_type,
                 tuning_type=tuning_type,
                 output_model_types=output_model_types,
-                training_metadata={"loss": []}
+                training_metadata={"loss": []},
             )
 
         # Open an intermediate checkpoint directory until we've bootstrapped
@@ -495,6 +495,9 @@ class PeftPromptTuning(ModuleBase):
                 # NOTE: This is explicitly set to false since it will
                 # negatively impact the performance
                 "full_determinism": False,
+
+                "disable_tqdm": silence_progress_bars,
+
                 # Required for iterable dataset
                 "max_steps": infer_max_steps(num_epochs, batch_size, training_dataset),
                 # Some interesting parameters:
@@ -509,9 +512,13 @@ class PeftPromptTuning(ModuleBase):
             )
 
             training_loss_history = launch_training(
-                    peft_model, training_dataset, training_args, checkpoint_dir, trainer=base_model_trainer, tokenizer=base_model.tokenizer
-                )
-
+                peft_model,
+                training_dataset,
+                training_args,
+                checkpoint_dir,
+                trainer=base_model_trainer,
+                tokenizer=base_model.tokenizer,
+            )
 
         # Remove _name_or_path field as a model can be
         # saved in different location but still same
