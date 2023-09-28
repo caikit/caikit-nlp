@@ -395,7 +395,7 @@ if __name__ == "__main__":
         train_stream = subsample_stream(train_stream, args.num_shots)
     # Init the resource & Build the tuning config from our dataset/arg info
     print_colored("[Loading the base model resource...]")
-    base_model = model_type.bootstrap(args.model_name, tokenizer_name=args.model_name)
+    base_model = model_type.bootstrap(args.model_name, tokenizer_name=args.model_name, torch_dtype=args.torch_dtype)
     tuning_config = build_tuning_config(args, dataset_info)
     # Then actually train the model & save it
     print_colored("[Starting the training...]")
