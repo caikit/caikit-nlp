@@ -45,7 +45,8 @@ allowed_tuning_init_methods = [
 log = alog.use_channel("PFT_CNFG_TLKT")
 error = error_handler.get(log)
 
-SOURCE_DIR_VALIDATION_REGEX = re.compile('^[-a-zA-Z_0-9\/]+')
+SOURCE_DIR_VALIDATION_REGEX = re.compile("^[-a-zA-Z_0-9\/]+")
+
 
 class TuningType(str, Enum):
     PROMPT_TUNING = "PROMPT_TUNING"
@@ -62,11 +63,13 @@ def resolve_base_model(base_model, cls, torch_dtype):
         error.value_check(
             "<NLP66932773E>",
             re.fullmatch(SOURCE_DIR_VALIDATION_REGEX, base_model),
-            "invalid characters in base_model name"
+            "invalid characters in base_model name",
         )
         if get_config().base_models_dir:
 
-            base_model_full_path = os.path.join(get_config().base_models_dir, base_model)
+            base_model_full_path = os.path.join(
+                get_config().base_models_dir, base_model
+            )
             if os.path.exists(base_model_full_path):
                 base_model = base_model_full_path
 
