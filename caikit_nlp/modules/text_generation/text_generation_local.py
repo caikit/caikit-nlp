@@ -23,6 +23,7 @@ import tempfile
 # Third Party
 from datasets import Dataset
 from datasets import IterableDataset as TransformersIterableDataset
+from peft import LoraConfig
 from transformers import AutoConfig, AutoTokenizer
 import torch
 
@@ -182,6 +183,7 @@ class TextGeneration(ModuleBase):
         random_seed: int = RANDOM_SEED,
         lr: float = 2e-5,
         use_iterable_dataset: bool = True,
+        lora_config: LoraConfig = None,
         **kwargs,
     ) -> "TextGeneration":
         """
