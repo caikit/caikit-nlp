@@ -15,11 +15,13 @@ from caikit_nlp.modules.text_generation.peft_config import (
 )
 from caikit_nlp.resources.pretrained_model import HFAutoSeq2SeqLM
 from tests.fixtures import (
+    TINY_MODELS_DIR,
     SEQ2SEQ_LM_MODEL,
     causal_lm_dummy_model,
     causal_lm_train_kwargs,
     seq2seq_lm_dummy_model,
     seq2seq_lm_train_kwargs,
+    temp_config,
 )
 
 
@@ -93,3 +95,11 @@ def test_resolve_model_works_preloaded_model():
     base_model = HFAutoSeq2SeqLM.bootstrap(SEQ2SEQ_LM_MODEL)
     resolved_model = resolve_base_model(base_model, TextGeneration, "float32")
     assert isinstance(resolved_model, HFAutoSeq2SeqLM)
+
+
+def test_resolve_model_with_different_base_path_works():
+
+    base_model_name = "T5ForConditionalGeneration"
+    with temp_config(base_models_dir=TINY_MODELS_DIR):
+        resolved_model = resolve_base_model(base_model_name, TextGeneration, "float32")
+        assert isinstance(resolved_model, HFAutoSeq2SeqLM)
