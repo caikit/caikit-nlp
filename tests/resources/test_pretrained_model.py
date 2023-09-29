@@ -10,9 +10,9 @@ from unittest.mock import patch
 
 # Third Party
 from datasets import IterableDataset as TransformersIterableDataset
+from torch.utils.data import DataLoader
 import pytest
 import torch
-from torch.utils.data import DataLoader
 import transformers
 
 # First Party
@@ -229,6 +229,7 @@ def test_causal_lm_batch_tokenization(models_cache_dir):
         for k in indiv_res:
             assert indiv_res[k] == batched_res[k]
 
+
 ### 2. Tests for causal LM framed as a seq2seq problem
 # NOTE: For these tests, we should be careful to always test left and right padding
 @pytest.mark.parametrize(
@@ -245,7 +246,9 @@ def test_causal_lm_as_a_sequence_problem_no_truncation(models_cache_dir, padding
     max_lengths = 20
     # First, build the output we expect for left / right respectively...
     input_tok = causal_lm.tokenizer.encode(sample.input)
-    output_tok = causal_lm.tokenizer.encode(sample.output) + [causal_lm.tokenizer.eos_token_id]
+    output_tok = causal_lm.tokenizer.encode(sample.output) + [
+        causal_lm.tokenizer.eos_token_id
+    ]
     concat_res = input_tok + output_tok
     masked_res = ([-100] * len(input_tok)) + output_tok
 
@@ -254,11 +257,15 @@ def test_causal_lm_as_a_sequence_problem_no_truncation(models_cache_dir, padding
     assert len(output_tok) < (max_lengths + 1)
     pads_needed = (1 + 2 * max_lengths) - len(concat_res)
     if causal_lm.tokenizer.padding_side.lower() == "left":
-        expected_input_ids = torch.tensor([causal_lm.tokenizer.pad_token_id] * pads_needed + concat_res)
+        expected_input_ids = torch.tensor(
+            [causal_lm.tokenizer.pad_token_id] * pads_needed + concat_res
+        )
         expected_attn_mask = torch.tensor([0] * pads_needed + [1] * len(concat_res))
         expected_labels = torch.tensor([-100] * pads_needed + masked_res)
     else:
-        expected_input_ids = torch.tensor(concat_res + [causal_lm.tokenizer.pad_token_id] * pads_needed)
+        expected_input_ids = torch.tensor(
+            concat_res + [causal_lm.tokenizer.pad_token_id] * pads_needed
+        )
         expected_attn_mask = torch.tensor([1] * len(concat_res) + [0] * pads_needed)
         expected_labels = torch.tensor(masked_res + [-100] * pads_needed)
 
@@ -326,6 +333,7 @@ def test_seq2seq_tok_output_correctness(models_cache_dir):
     # Ensure we support MPT
     assert hasattr(tok_sample, "task_ids")
     assert tok_sample["task_ids"] == 0
+
 
 ### Tests for collator compatability
 # These tests should validate that we can use our tokenization function to
