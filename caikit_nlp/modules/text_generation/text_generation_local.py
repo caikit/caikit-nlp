@@ -361,7 +361,7 @@ class TextGeneration(ModuleBase):
                 "weight_decay": 0.01,
                 "save_total_limit": 3,
                 "push_to_hub": False,
-                "no_cuda": not torch.cuda.is_available(),  # Default
+                "use_cpu": not torch.cuda.is_available(),  # Default
                 "remove_unused_columns": True,
                 "dataloader_pin_memory": False,
                 "gradient_accumulation_steps": accumulate_steps,
