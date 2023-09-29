@@ -12,6 +12,7 @@ from unittest.mock import patch
 from datasets import IterableDataset as TransformersIterableDataset
 import pytest
 import torch
+from torch.utils.data import DataLoader
 import transformers
 
 # First Party
@@ -327,43 +328,80 @@ def test_seq2seq_tok_output_correctness(models_cache_dir):
     assert hasattr(tok_sample, "task_ids")
     assert tok_sample["task_ids"] == 0
 
+### Tests for collator compatability
+# These tests should validate that we can use our tokenization function to
+# build torch loaders around datasets using different collators.
+# TODO: Expand to cover transformer datasets, i.e., what is produced by
+# text gen preprocessing functions. For now, they only check the minimal
+# case with the default data collator.
+@pytest.mark.parametrize(
+    "collator_fn",
+    [transformers.default_data_collator],
+)
+def test_loader_can_batch_list_of_seq2seq_outputs(collator_fn):
+    # Build the dataset
+    train_stream = DataStream.from_iterable(
+        [
+            GenerationTrainRecord(input="hello world", output="how are you today?"),
+            GenerationTrainRecord(input="goodbye", output="world"),
+            GenerationTrainRecord(input="good morning", output="have a good day"),
+            GenerationTrainRecord(input="good night", output="have nice dreams"),
+        ]
+    )
+    seq2seq = HFAutoSeq2SeqLM.bootstrap(
+        model_name=SEQ2SEQ_LM_MODEL, tokenizer_name=SEQ2SEQ_LM_MODEL
+    )
+    (tok_func, _) = seq2seq.build_task_tokenize_closure(
+        tokenizer=seq2seq.tokenizer,
+        max_source_length=20,
+        max_target_length=20,
+        verbalizer="{{input}}",
+        task_ids=0,
+    )
+    tok_results = [tok_func(x) for x in list(train_stream)]
+    dl = DataLoader(
+        tok_results,
+        shuffle=False,
+        batch_size=2,
+        collate_fn=collator_fn,
+    )
+    # Loader should create 2 batches
+    loader_list = list(dl)
+    assert len(loader_list) == 2
 
-### Tests for Causal LM -> seq2seq forwarded tokenization
-@pytest.mark.skip(reason="causal lm requires same length labels")
-def test_causal_lm_seq2seq_tok_forward_no_batching(models_cache_dir):
-    """Ensure that we can override forward to seq2seq tokenization [non-batched mode]."""
-    # Build a causal LM & Sequence to sequence model
+
+@pytest.mark.parametrize(
+    "collator_fn",
+    [transformers.default_data_collator],
+)
+def test_loader_can_batch_list_of_causal_lm_outputs(collator_fn):
+    # Build the dataset
+    train_stream = DataStream.from_iterable(
+        [
+            GenerationTrainRecord(input="hello world", output="how are you today?"),
+            GenerationTrainRecord(input="goodbye", output="world"),
+            GenerationTrainRecord(input="good morning", output="have a good day"),
+            GenerationTrainRecord(input="good night", output="have nice dreams"),
+        ]
+    )
     causal_lm = HFAutoCausalLM.bootstrap(
         model_name=CAUSAL_LM_MODEL, tokenizer_name=CAUSAL_LM_MODEL
     )
-    # Build the dataset and tokenizer closures
-    train_stream = DataStream.from_iterable(
-        [
-            GenerationTrainRecord(input="hello there", output="world"),
-            GenerationTrainRecord(input="how", output="today"),
-        ]
-    )
-    tok_func_causal_lm = HFAutoCausalLM.build_task_tokenize_closure(
+    (tok_func, _) = causal_lm.build_task_tokenize_closure(
         tokenizer=causal_lm.tokenizer,
-        max_source_length=100,
-        max_target_length=100,
+        max_source_length=20,
+        max_target_length=20,
         verbalizer="{{input}}",
+        task_ids=0,
         use_seq2seq_approach=True,
-    )[0]
-    tok_func_seq2seq = HFAutoSeq2SeqLM.build_task_tokenize_closure(
-        tokenizer=causal_lm.tokenizer,
-        max_source_length=100,
-        max_target_length=100,
-        verbalizer="{{input}}",
-    )[0]
-    for elem in train_stream:
-        causal_lm_res = tok_func_causal_lm(elem)
-        seq2seq_lm_res = tok_func_seq2seq(elem)
-        # Compare the tokenization results...
-        assert causal_lm_res.keys() == seq2seq_lm_res.keys()
-        for k, causal_lm_v in causal_lm_res.items():
-            seq2seq_lm_v = seq2seq_lm_res[k]
-            assert causal_lm_v == seq2seq_lm_v
-
-# TODO: Collator compatability is VERY important here; we need to have some tests
-# that verify the correctness of some of these things given different collators.
+    )
+    tok_results = [tok_func(x) for x in list(train_stream)]
+    dl = DataLoader(
+        tok_results,
+        shuffle=False,
+        batch_size=2,
+        collate_fn=collator_fn,
+    )
+    # Loader should create 2 batches
+    loader_list = list(dl)
+    assert len(loader_list) == 2
