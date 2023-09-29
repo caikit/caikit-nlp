@@ -33,10 +33,7 @@ from peft import (
 from torch.optim import AdamW
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-from transformers import (
-    AutoModelForCausalLM,
-    default_data_collator,
-)
+from transformers import AutoModelForCausalLM, default_data_collator
 from transformers.models.auto.tokenization_auto import AutoTokenizer
 from transformers.optimization import get_linear_schedule_with_warmup
 import numpy as np
@@ -931,10 +928,7 @@ class PeftPromptTuning(ModuleBase):
             torch.utils.data.DataLoader
                 DataLoader to be used for training / evaluating the stream data.
         """
-        (
-            tokenize_function,
-            _,
-        ) = base_model.build_task_tokenize_closure(
+        (tokenize_function, _,) = base_model.build_task_tokenize_closure(
             tokenizer, max_source_length, max_target_length, verbalizer, task_ids=0
         )
         mapped_stream = train_stream.map(tokenize_function)

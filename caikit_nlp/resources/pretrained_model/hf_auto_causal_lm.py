@@ -19,13 +19,13 @@ from collections.abc import Mapping
 from typing import List, Union
 
 # Third Party
-import torch
 from transformers import (
     AutoModelForCausalLM,
     BatchEncoding,
     DataCollatorForLanguageModeling,
 )
 from transformers.models.auto import modeling_auto
+import torch
 
 # First Party
 from caikit.core.data_model import DataStream
@@ -37,7 +37,6 @@ import alog
 from ...data_model import GenerationTrainRecord, PromptOutputModelType
 from ...toolkit.verbalizer_utils import render_verbalizer
 from .base import PretrainedModelBase
-from .hf_auto_seq2seq_lm import HFAutoSeq2SeqLM
 
 log = alog.use_channel("HFRCLM")
 error = error_handler.get(log)
@@ -139,7 +138,6 @@ class HFAutoCausalLM(PretrainedModelBase):
             drop_remainder=drop_remainder,
         )
 
-
     def _get_data_collator(self, **kwargs) -> "transformers.DataCollator":
         """Function to return appropriate data collator based on resource.
 
@@ -169,11 +167,21 @@ class HFAutoCausalLM(PretrainedModelBase):
             tokenizer=self._tokenizer, return_tensors="pt", **collator_kwargs
         )
 
-
     ### Tokenization strategy implementations
     # Chunked causal language modeling
     @classmethod
-    def _causal_lm_as_chunked(cls, tokenizer, source, target,  max_source_length, max_target_length, batched_mode, task_ids, chunk_size, drop_remainder):
+    def _causal_lm_as_chunked(
+        cls,
+        tokenizer,
+        source,
+        target,
+        max_source_length,
+        max_target_length,
+        batched_mode,
+        task_ids,
+        chunk_size,
+        drop_remainder,
+    ):
         source_ids = tokenizer(source, max_length=max_source_length, truncation=True)
         target_ids = tokenizer(target, max_length=max_target_length, truncation=True)
 
@@ -196,7 +204,6 @@ class HFAutoCausalLM(PretrainedModelBase):
         # NOTE: it might be a good idea to deprecate this to force standardization
         # onto using batch encodings the way that they are intended to be
         return chunk_stream
-
 
     @staticmethod
     def _force_to_batch_encoding_list_of_chunks(
@@ -260,12 +267,10 @@ class HFAutoCausalLM(PretrainedModelBase):
             encodings += chunks
         return encodings
 
-
     @staticmethod
     def _concatenate_encodings(left, right):
         for k in left.keys():
             left[k] = left[k] + right[k]
-
 
     @staticmethod
     def _split_encoding_into_chunks(
@@ -304,7 +309,6 @@ class HFAutoCausalLM(PretrainedModelBase):
             enc["task_ids"] = task_ids
         return chunked_encodings
 
-
     @staticmethod
     def _collapse_stream_into_encoding(
         stream: DataStream[BatchEncoding],
@@ -335,7 +339,6 @@ class HFAutoCausalLM(PretrainedModelBase):
                 new_encoding[k].append(enc[k])
         return new_encoding
 
-
     # Causal language modeling as a sequence to sequence problem
     @staticmethod
     def _causal_lm_padding_as_seq2seq(
@@ -350,7 +353,7 @@ class HFAutoCausalLM(PretrainedModelBase):
         what seq2seq tokenization is doing, but some care needs be taken to ensure the labels
         are the same length as the input sequence because of the shifting mechanism implemented
         in most causal language models.
-        
+
         Collator compatability is extremely important here; because we are setting the labels
         directly, we should NOT use the causal lm collator, otherwise it will clobber it with a
         shifted input sequence.
@@ -385,9 +388,7 @@ class HFAutoCausalLM(PretrainedModelBase):
 
         label_input_ids = labels["input_ids"]
         model_inputs = tokenizer.pad(
-            model_inputs,
-            padding="max_length",
-            max_length=max_concat_length
+            model_inputs, padding="max_length", max_length=max_concat_length
         )
 
         if tokenizer.padding_side.lower() == "left":
