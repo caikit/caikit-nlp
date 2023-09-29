@@ -23,7 +23,7 @@ import tempfile
 # Third Party
 from datasets import Dataset
 from datasets import IterableDataset as TransformersIterableDataset
-from peft import LoraConfig
+from peft import LoraConfig, get_peft_model
 from transformers import AutoConfig, AutoTokenizer
 import torch
 
@@ -216,6 +216,9 @@ class TextGeneration(ModuleBase):
                 Indicates whether or not we should load the full dataset into memory
                 NOTE: use True for this option if you are fine tuning a causal LM with
                 a large target sequence length unless your dataset is VERY small!
+            lora_config: LoraConfig
+                If defined, the LoRA technique for fine tuning will be applied (as
+                opposed to a 'full' fine tuning).
             **kwargs:
                 Arguments supported by HF Training Arguments.
                 TrainingArguments:
@@ -432,15 +435,26 @@ class TextGeneration(ModuleBase):
                 torch_dtype=torch_dtype,
             )
 
-        return cls(
-            model_name=base_model._model_name,
-            model=model,
-            bos_token=model.tokenizer.bos_token or None,
-            sep_token=model.tokenizer.sep_token or None,
-            eos_token=model.tokenizer.eos_token or None,
-            pad_token=model.tokenizer.pad_token or None,
-            training_metadata={"loss": training_loss_history},
-        )
+        if lora_config is not None:
+            return cls(
+                model_name=base_model._model_name,
+                model=get_peft_model(model, lora_config),
+                bos_token=model.tokenizer.bos_token or None,
+                sep_token=model.tokenizer.sep_token or None,
+                eos_token=model.tokenizer.eos_token or None,
+                pad_token=model.tokenizer.pad_token or None,
+                training_metadata={"loss": training_loss_history},
+            )
+        else:
+            return cls(
+                model_name=base_model._model_name,
+                model=model,
+                bos_token=model.tokenizer.bos_token or None,
+                sep_token=model.tokenizer.sep_token or None,
+                eos_token=model.tokenizer.eos_token or None,
+                pad_token=model.tokenizer.pad_token or None,
+                training_metadata={"loss": training_loss_history},
+            )
 
     @classmethod
     def load(
