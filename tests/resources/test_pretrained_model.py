@@ -166,7 +166,8 @@ def test_causal_lm_tok_output_correctness(models_cache_dir, chunk_size, drop_rem
     has_remainder = False
     if len(concat_tok) > chunk_size:
         num_expected_chunks = len(concat_tok) // chunk_size
-        if num_expected_chunks * chunk_size != len(concat_tok):
+        # Should only care about the remainder if we are not dropping it
+        if num_expected_chunks * chunk_size != len(concat_tok) and not drop_remainder:
             has_remainder = True
     else:
         num_expected_chunks = 1
