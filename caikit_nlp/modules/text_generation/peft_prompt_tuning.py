@@ -33,7 +33,6 @@ from peft import (
 )
 from transformers import (
     AutoModelForCausalLM,
-    DataCollatorForLanguageModeling,
     default_data_collator,
 )
 from transformers.models.auto.tokenization_auto import AutoTokenizer
@@ -888,13 +887,8 @@ class PeftPromptTuning(ModuleBase):
             Callable
                 collate_fn to be used for processing batches from our datasets.
         """
-        # HACK: Do NOT use the causal LM collator (for now) because we want to set the labels ourselves...
-        # if task_type == "CAUSAL_LM":
-        #     return DataCollatorForLanguageModeling(
-        #         tokenizer=tokenizer,
-        #         return_tensors="pt",
-        #         mlm=False,
-        #     )
+        # HACK: Do NOT use the causal LM collator (for now) because
+        # want to set labels ourselves. TODO: centralize collator management.
         return default_data_collator
 
     @classmethod
