@@ -15,7 +15,6 @@ from caikit_nlp.modules.text_generation.peft_config import (
 )
 from caikit_nlp.resources.pretrained_model import HFAutoSeq2SeqLM
 from tests.fixtures import (
-    TINY_MODELS_DIR,
     SEQ2SEQ_LM_MODEL,
     TINY_MODELS_DIR,
     causal_lm_dummy_model,
