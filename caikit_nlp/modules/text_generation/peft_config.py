@@ -15,6 +15,7 @@
 # Standard
 from enum import Enum
 import os
+import re
 
 # Third Party
 from peft import MultitaskPromptTuningInit
@@ -44,6 +45,8 @@ allowed_tuning_init_methods = [
 log = alog.use_channel("PFT_CNFG_TLKT")
 error = error_handler.get(log)
 
+SOURCE_DIR_VALIDATION_REGEX = re.compile(r"^[-a-zA-Z_0-9\/]+")
+
 
 class TuningType(str, Enum):
     PROMPT_TUNING = "PROMPT_TUNING"
@@ -56,6 +59,20 @@ class TuningType(str, Enum):
 
 def resolve_base_model(base_model, cls, torch_dtype):
     if isinstance(base_model, str):
+
+        error.value_check(
+            "<NLP66932773E>",
+            re.fullmatch(SOURCE_DIR_VALIDATION_REGEX, base_model),
+            "invalid characters in base_model name",
+        )
+        if get_config().base_models_dir:
+
+            base_model_full_path = os.path.join(
+                get_config().base_models_dir, base_model
+            )
+            if os.path.exists(base_model_full_path):
+                base_model = base_model_full_path
+
         model_config = AutoConfig.from_pretrained(
             base_model, local_files_only=not get_config().allow_downloads
         )

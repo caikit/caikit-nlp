@@ -7,12 +7,21 @@ import pytest
 
 # Local
 from caikit_nlp.data_model import TuningConfig
-from caikit_nlp.modules.text_generation.peft_config import TuningType, get_peft_config
+from caikit_nlp.modules.text_generation import TextGeneration
+from caikit_nlp.modules.text_generation.peft_config import (
+    TuningType,
+    get_peft_config,
+    resolve_base_model,
+)
+from caikit_nlp.resources.pretrained_model import HFAutoSeq2SeqLM
 from tests.fixtures import (
+    SEQ2SEQ_LM_MODEL,
+    TINY_MODELS_DIR,
     causal_lm_dummy_model,
     causal_lm_train_kwargs,
     seq2seq_lm_dummy_model,
     seq2seq_lm_train_kwargs,
+    temp_config,
 )
 
 
@@ -63,3 +72,34 @@ def test_get_peft_config(train_kwargs, dummy_model, request):
     assert peft_config.task_type == dummy_resource.TASK_TYPE
     assert peft_config.prompt_tuning_init == tuning_config.prompt_tuning_init_method
     assert peft_config.prompt_tuning_init_text == tuning_config.prompt_tuning_init_text
+
+
+def test_resolve_model_with_invalid_path_raises():
+    """Test passing invalid path to resolve_model function raises"""
+
+    invalid_base_model = "path/../../important"
+    with pytest.raises(ValueError):
+        resolve_base_model(invalid_base_model, None, "foo")
+
+
+def test_resolve_model_with_valid_folder_path():
+    """Test passing valid folder path to resolve_model function works"""
+
+    model = resolve_base_model(SEQ2SEQ_LM_MODEL, TextGeneration, "float32")
+
+    assert isinstance(model, HFAutoSeq2SeqLM)
+
+
+def test_resolve_model_works_preloaded_model():
+
+    base_model = HFAutoSeq2SeqLM.bootstrap(SEQ2SEQ_LM_MODEL)
+    resolved_model = resolve_base_model(base_model, TextGeneration, "float32")
+    assert isinstance(resolved_model, HFAutoSeq2SeqLM)
+
+
+def test_resolve_model_with_different_base_path_works():
+
+    base_model_name = "T5ForConditionalGeneration"
+    with temp_config(base_models_dir=TINY_MODELS_DIR):
+        resolved_model = resolve_base_model(base_model_name, TextGeneration, "float32")
+        assert isinstance(resolved_model, HFAutoSeq2SeqLM)
