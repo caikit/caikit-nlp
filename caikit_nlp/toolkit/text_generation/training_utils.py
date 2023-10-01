@@ -181,7 +181,10 @@ def launch_training(
             error("<NLP26155082E>", "could not resolve trainer. Check base model type!")
 
     # Start training via Trainer.train function
-    trainer.train()
+    result = trainer.train()
+
+    # Log the output of the training. This will include stats about training
+    log.info("<NLP22028223I>", "Training completed. Summary: {}".format(result))
 
     # save the model temporarily and reload it
     # this is done, since otherwise the model might be distributed in different
