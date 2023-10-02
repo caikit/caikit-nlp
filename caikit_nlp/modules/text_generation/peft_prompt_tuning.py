@@ -405,6 +405,7 @@ class PeftPromptTuning(ModuleBase):
             shuffle=True,
             use_iterable_dataset=False,
             random_seed=cls.RANDOM_SEED,
+            task_ids=0,
         )
 
         # Filter **training_arguments to only process allowed ones
@@ -461,7 +462,7 @@ class PeftPromptTuning(ModuleBase):
             )
 
             base_model_trainer = base_model.get_trainer(
-                train_dataset=training_dataset, **training_args
+                train_dataset=training_dataset, model=peft_model, **training_args
             )
 
             training_loss_history = launch_training(
