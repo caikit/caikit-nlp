@@ -230,6 +230,14 @@ class HFAutoCausalLM(PretrainedModelBase):
         # Force everything to a list of batch encodings; for non-batch mode, this just
         # puts it into a list. For batch mode, we get a list of batch encodings,
         # allowing us to standardize subsequent processing a bit.
+        #
+        # For example, given chunk size 2, we might have something like:
+        # [
+        #   {'input_ids': [31, 48], 'attention_mask': [1, 1]},
+        #   {'input_ids': [47, 1], 'attention_mask': [1, 1]},
+        #   ...
+        # ]
+        # (where the above objects are batch encodings, which are a subclass of dict)
         source_id_chunks = cls._force_to_batch_encoding_list_of_chunks(
             source_ids, target_ids, batched_mode, task_ids, chunk_size, drop_remainder
         )
@@ -330,7 +338,7 @@ class HFAutoCausalLM(PretrainedModelBase):
                 encoding. Corresponds to target.
         """
         for k in left.keys():
-            left[k] = left[k] + right[k]
+            left[k].extend(right[k])
 
     @staticmethod
     def _split_encoding_into_chunks(
