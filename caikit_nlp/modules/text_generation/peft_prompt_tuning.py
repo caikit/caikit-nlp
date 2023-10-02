@@ -360,10 +360,6 @@ class PeftPromptTuning(ModuleBase):
         # but it can have impact on performance.
         # transformers.enable_full_determinism(seed)
 
-        # NOTE: Following can be uncommented to allow full determinism
-        # but it can have impact on performance.
-        # transformers.enable_full_determinism(seed)
-
         torch_dtype = get_torch_dtype(torch_dtype)
 
 
