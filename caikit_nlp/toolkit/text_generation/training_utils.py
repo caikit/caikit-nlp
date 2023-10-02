@@ -14,7 +14,7 @@
 """Utility script that contains logic for training"""
 
 # Standard
-from typing import Union
+from typing import List, Optional, Union
 
 # Third Party
 from datasets import Dataset
@@ -132,6 +132,7 @@ def preprocess_function(
     shuffle: bool,
     use_iterable_dataset: bool,
     random_seed: int,
+    task_ids: Optional[List[int]] = None
 ):
     """Pre-process each example to get it prepared for training."""
     dataset_type = TransformersIterableDataset if use_iterable_dataset else Dataset
@@ -141,6 +142,9 @@ def preprocess_function(
         "max_source_length": max_source_length,
         "max_target_length": max_target_length,
     }
+    if task_ids is not None:
+        fn_kwargs["task_ids"] = task_ids
+
     # TODO: Add check for empty training stream
     dataset = dataset_type.from_generator(
         get_record, gen_kwargs={"train_stream": train_stream}
@@ -180,8 +184,12 @@ def launch_training(
         else:
             error("<NLP26155082E>", "could not resolve trainer. Check base model type!")
 
+    breakpoint()
+
     # Start training via Trainer.train function
     result = trainer.train()
+
+
 
     # Log the output of the training. This will include stats about training
     log.info("<NLP22028223I>", "Training completed. Summary: {}".format(result))
