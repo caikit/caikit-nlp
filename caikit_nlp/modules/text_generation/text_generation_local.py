@@ -593,7 +593,7 @@ class TextGeneration(ModuleBase):
         mapped_dataset = dataset.map(
             base_model.tokenize_function,
             fn_kwargs=fn_kwargs,
-            batched=base_model.REQUIRES_TOKEN_UNWRAPPING,
+            batched=False,
             # Drop the input / output columns; we need to do this for dimensions to play
             # happily when operating on batched inputs for causal language modeling.
             remove_columns=["input", "output"],
