@@ -39,6 +39,7 @@ from transformers import (
 from transformers.models.auto.tokenization_auto import AutoTokenizer
 import numpy as np
 import torch
+import transformers
 
 # First Party
 from caikit.core.data_model import DataStream
@@ -344,12 +345,22 @@ class PeftPromptTuning(ModuleBase):
                 underpinning the resource will be converted in place to the correct torch dtype.
             silence_progress_bars: bool
                 Silences TQDM progress bars at train time. Default: True.
+            random_seed: int
+                Integer to be used as random seed for training.
         Returns:
             PeftPromptTuning
                 Instance of this class with tuned prompt vectors.
         """
 
+        # Configure random seed
+        transformers.set_seed(random_seed)
+
+        # NOTE: Following can be uncommented to allow full determinism
+        # but it can have impact on performance.
+        # transformers.enable_full_determinism(seed)
+
         torch_dtype = get_torch_dtype(torch_dtype)
+
 
         # NOTE: We are not support "metrics" at the moment
 
