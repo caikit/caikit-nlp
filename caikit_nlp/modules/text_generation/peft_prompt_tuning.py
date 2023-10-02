@@ -355,6 +355,9 @@ class PeftPromptTuning(ModuleBase):
 
         # Configure random seed
         transformers.set_seed(random_seed)
+        # NOTE: Following can be uncommented to allow full determinism
+        # but it can have impact on performance.
+        # transformers.enable_full_determinism(random_seed)
 
         # HACK - These things can't be passed through the train API currently
 
