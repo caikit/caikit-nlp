@@ -39,6 +39,7 @@ dependencies = [
 packages = ["caikit_nlp"]
 
 [tool.setuptools_scm]
+version_file = "caikit_nlp/_version.py"
 
 [project.urls]
 Source = "https://github.com/caikit/caikit-nlp"
