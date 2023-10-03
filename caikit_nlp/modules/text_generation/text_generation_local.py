@@ -224,7 +224,9 @@ class TextGeneration(ModuleBase):
             TextGeneration
                 Instance of this class with fine-tuned models.
         """
-        error.value_check("<NLP96406893E>", len(train_stream) > 0, "train_stream cannot be empty")
+        error.value_check(
+            "<NLP96406893E>", len(train_stream) > 0, "train_stream cannot be empty"
+        )
 
         torch_dtype = get_torch_dtype(torch_dtype)
 
