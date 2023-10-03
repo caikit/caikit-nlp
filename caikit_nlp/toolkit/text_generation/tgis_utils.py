@@ -121,19 +121,29 @@ def validate_inf_params(
     )
 
     error.value_check(
-        "<NLP28185344E>", temperature >= 0.05, "temperature must be >= 0.05"
+        "<NLP28185344E>",
+        not temperature or temperature >= 0.05,
+        "temperature must be >= 0.05",
     )
 
     error.value_check(
-        "<NLP28185346E>", top_p > 0.0 and top_p <= 1.0, "top_p must be > 0.0 and <= 1.0"
+        "<NLP28185346E>",
+        not top_p or top_p > 0.0 and top_p <= 1.0,
+        "top_p must be > 0.0 and <= 1.0",
     )
 
-    error.value_check("<NLP28185347E>", top_k >= 0, "top_k must be strictly positive")
-
-    error.value_check("<NLP28185348E>", typical_p <= 1.0, "typical_p must be <= 1.0")
+    error.value_check(
+        "<NLP28185347E>", not top_k or top_k >= 0, "top_k must be strictly positive"
+    )
 
     error.value_check(
-        "<NLP28185349E>", repetition_penalty > 0.0, "repetition_penalty must be > 0.0"
+        "<NLP28185348E>", not typical_p or typical_p <= 1.0, "typical_p must be <= 1.0"
+    )
+
+    error.value_check(
+        "<NLP28185349E>",
+        not repetition_penalty or repetition_penalty > 0.0,
+        "repetition_penalty must be > 0.0",
     )
 
     if exponential_decay_length_penalty:
@@ -150,7 +160,10 @@ def validate_inf_params(
         )
 
     if decoding_method == "GREEDY" and (
-        temperature != 1 or top_k != 0 or top_p != 1 or seed
+        temperature not in (1, None)
+        or top_k not in (0, None)
+        or top_p not in (1, None)
+        or seed
     ):
         raise ValueError(
             "sampling parameters (temperature/top_k/top_p/typical_p/seed) aren't applicable in greedy decoding mode"
