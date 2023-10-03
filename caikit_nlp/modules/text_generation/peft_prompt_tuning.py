@@ -298,7 +298,7 @@ class PeftPromptTuning(ModuleBase):
         accumulate_steps: Optional[int] = 32,
         torch_dtype: Optional[str] = None,  # TODO: Optional[Union[torch.dtype, str]]
         silence_progress_bars: Optional[bool] = True,
-        random_seed: int = RANDOM_SEED,
+        seed: int = RANDOM_SEED,
         **kwargs,
     ) -> "PeftPromptTuning":
         """Run prompt tuning (vanilla or MPT) through PEFT on a CausalLM or Seq2seq model
@@ -344,7 +344,7 @@ class PeftPromptTuning(ModuleBase):
                 underpinning the resource will be converted in place to the correct torch dtype.
             silence_progress_bars: bool
                 Silences TQDM progress bars at train time. Default: True.
-            random_seed: int
+            seed: int
                 Integer to be used as random seed for training.
         Returns:
             PeftPromptTuning
@@ -352,10 +352,10 @@ class PeftPromptTuning(ModuleBase):
         """
 
         # Configure random seed
-        transformers.set_seed(random_seed)
+        transformers.set_seed(seed)
         # NOTE: Following can be uncommented to allow full determinism
         # but it can have impact on performance.
-        # transformers.enable_full_determinism(random_seed)
+        # transformers.enable_full_determinism(seed)
 
         # NOTE: Following can be uncommented to allow full determinism
         # but it can have impact on performance.
