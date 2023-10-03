@@ -520,18 +520,19 @@ class TextGeneration(ModuleBase):
                 }
             )
             if self.model:
-                if self.is_lora:
-                    self.model.save_pretrained(lora_adapter, save_adapter=True, save_config=True)
-                    model_to_merge = PeftModel.from_pretrained(AutoModelForCausalLM.from_pretrained(self.model._model_name).to(“cuda”), lora_adapter)
-                    merged_model = model_to_merge.merge_and_unload()
-                    merged_model.save_pretrained(merged_model)
-                else:
-                    # This will save both tokenizer and base model
-                    self.model.save(
-                        model_path,
-                        tokenizer_dirname=artifacts_dir,
-                        base_model_dirname=artifacts_dir,
-                    )
+                # if self.is_lora:
+                #     self.model.save_pretrained(lora_adapter, save_adapter=True, save_config=True)
+                #     model_to_merge = PeftModel.from_pretrained(AutoModelForCausalLM.from_pretrained(self.model._model_name).to("cuda"), lora_adapter)
+                #     merged_model = model_to_merge.merge_and_unload()
+                #     merged_model.save_pretrained(merged_model)
+                # else:
+
+                # This will save both tokenizer and base model
+                self.model.save(
+                    model_path,
+                    tokenizer_dirname=artifacts_dir,
+                    base_model_dirname=artifacts_dir,
+                )
 
             training_loss_filename = TRAINING_LOSS_LOG_FILENAME
 
