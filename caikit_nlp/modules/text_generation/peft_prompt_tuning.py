@@ -31,17 +31,10 @@ from peft import (
     TaskType,
     get_peft_model,
 )
-<<<<<<< HEAD
 from transformers import (
     AutoModelForCausalLM,
     default_data_collator,
 )
-=======
-from torch.optim import AdamW
-from torch.utils.data import DataLoader
-from tqdm import tqdm
-from transformers import AutoModelForCausalLM, default_data_collator
->>>>>>> 560d5bc (linting and formatting)
 from transformers.models.auto.tokenization_auto import AutoTokenizer
 import numpy as np
 import torch
