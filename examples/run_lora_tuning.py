@@ -259,11 +259,15 @@ def show_experiment_configuration(args, dataset_info, model_type) -> None:
         "- Output Directory: [{}]".format(args.output_dir),
         "- Maximum source sequence length: [{}]".format(args.max_source_length),
         "- Maximum target sequence length: [{}]".format(args.max_target_length),
-        "- Gradient accumulation steps: [{}]".format(args.accumulate_steps),
         "- Enable evaluation: [{}]".format(args.evaluate),
         "- Evaluation metrics: [{}]".format(args.metrics),
         "- Torch dtype to use for training: [{}]".format(args.torch_dtype),
         "- Using iterable dataset: [{}]".format(args.iterable_dataset),
+        "- LoRA r: [{}]".format(args.lora_r),
+        "- LoRA Alpha: [{}]".format(args.lora_alpha),
+        "- LoRA Bias: [{}]".format(args.lora_bias),
+        "- LoRA Dropout: [{}]".format(args.lora_dropout),
+        "- LoRA Target Modules: [{}]".format(args.lora_target_modules)
     ]
     # Log and sleep for a few seconds in case people actually want to read this...
     print_colored("\n".join([print_str for print_str in print_strs if print_str]))
