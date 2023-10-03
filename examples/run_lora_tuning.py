@@ -127,7 +127,7 @@ def register_common_arguments(subparser: argparse.ArgumentParser) -> None:
         "--learning_rate",
         help="Learning rate to use while training",
         type=float,
-        default=2e-5,
+        default=1e-4,
     ),
     subparser.add_argument(
         "--batch_size", help="Batch size to use while training", type=int, default=8
@@ -365,8 +365,11 @@ if __name__ == "__main__":
         lora_dropout=args.lora_dropout,
         target_modules=args.lora_target_modules
     )
+
+
     # Then actually train the model & save it
     print_colored("[Starting the training...]")
+
     model = TextGeneration.train(
         base_model,
         train_stream,
@@ -379,6 +382,7 @@ if __name__ == "__main__":
         use_iterable_dataset=args.iterable_dataset,
     )
 
+    model.config.use_cache = True
     print_colored("[Training Complete]")
 
     # Prediction

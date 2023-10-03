@@ -263,6 +263,8 @@ class TextGeneration(ModuleBase):
             log.debug("Bootstrapping base resource [%s]", base_model)
             base_model = resource_type.bootstrap(base_model, torch_dtype=torch_dtype)
 
+            if lora_config is not None:
+                base_model.config.use_cache=False
         else:
             # base_model is actually a resource object
             resource_type = type(base_model)
