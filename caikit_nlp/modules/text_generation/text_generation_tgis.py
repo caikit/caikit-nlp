@@ -201,6 +201,7 @@ class TextGenerationTGIS(ModuleBase):
                 }
             )
 
+    # pylint: disable=duplicate-code
     @TextGenerationTask.taskmethod()
     def run(
         self,
