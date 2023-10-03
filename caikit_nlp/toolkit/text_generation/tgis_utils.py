@@ -125,7 +125,9 @@ def validate_inf_params(
     )
 
     error.value_check(
-        "<NLP28185346E>", top_p >= 0.0 and top_p <= 1.0, "top_p must be >= 0.0 and <= 1.0"
+        "<NLP28185346E>",
+        top_p >= 0.0 and top_p <= 1.0,
+        "top_p must be >= 0.0 and <= 1.0",
     )
 
     error.value_check("<NLP28185347E>", top_k >= 0, "top_k must be strictly positive")
