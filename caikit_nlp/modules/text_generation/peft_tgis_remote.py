@@ -196,16 +196,14 @@ class PeftPromptTuningTGIS(ModuleBase):  # pylint: disable=too-many-instance-att
         stop_sequences: Optional[List[str]] = None,
         preserve_input_text: bool = False,
     ) -> GeneratedTextResult:
-        """Run inference against the model running in TGIS.
+        f"""Run inference against the model running in TGIS.
 
         Args:
-           {}
+           {GENERATE_FUNCTION_TGIS_ARGS}
         Returns:
             GeneratedTextResult
                 Generated text result produced by TGIS.
-        """.format(
-            GENERATE_FUNCTION_TGIS_ARGS
-        )
+        """
 
         error.value_check(
             "<NLP87360638E>",
@@ -252,15 +250,13 @@ class PeftPromptTuningTGIS(ModuleBase):  # pylint: disable=too-many-instance-att
         stop_sequences: Optional[List[str]] = None,
         preserve_input_text: bool = False,
     ) -> Iterable[GeneratedTextStreamResult]:
-        """Run output stream inferencing against the model running in TGIS
+        f"""Run output stream inferencing against the model running in TGIS
 
         Args:
-            {}
+            {GENERATE_FUNCTION_TGIS_ARGS}
         Returns:
             Iterable[GeneratedTextStreamResult]
-        """.format(
-            GENERATE_FUNCTION_TGIS_ARGS
-        )
+        """
 
         error.value_check(
             "<NLP62995899E>",
