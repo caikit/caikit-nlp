@@ -382,7 +382,6 @@ if __name__ == "__main__":
         use_iterable_dataset=args.iterable_dataset,
     )
 
-    model.config.use_cache = True
     print_colored("[Training Complete]")
 
     # Prediction
