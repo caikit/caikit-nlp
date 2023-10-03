@@ -129,7 +129,7 @@ def validate_inf_params(
     error.value_check(
         "<NLP28185346E>",
         not top_p or top_p > 0.0 and top_p <= 1.0,
-        "top_p must be >= 0.0 and <= 1.0",
+        "top_p must be > 0.0 and <= 1.0",
     )
 
     error.value_check(
@@ -137,7 +137,7 @@ def validate_inf_params(
     )
 
     error.value_check(
-        "<NLP28185348E>", not typical_p or typical_p <= 1.0, "typical_p must be < 1.0"
+        "<NLP28185348E>", not typical_p or typical_p <= 1.0, "typical_p must be <= 1.0"
     )
 
     error.value_check(
