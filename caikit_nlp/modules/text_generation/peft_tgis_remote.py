@@ -175,6 +175,7 @@ class PeftPromptTuningTGIS(ModuleBase):  # pylint: disable=too-many-instance-att
                 }
             )
 
+    # pylint: disable=duplicate-code
     @TextGenerationTask.taskmethod()
     def run(
         self,
