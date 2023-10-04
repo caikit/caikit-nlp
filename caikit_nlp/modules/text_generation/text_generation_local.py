@@ -442,7 +442,6 @@ class TextGeneration(ModuleBase):
             merged_model = model_to_merge.merge_and_unload()
             merged_model.save_pretrained(merged_model)
 
-
             # return that
             return cls(
                 model_name=base_model._model_name,

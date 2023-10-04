@@ -11,8 +11,8 @@ import json
 import os
 import shutil
 
-from peft import LoraConfig
 # Third Party
+from peft import LoraConfig
 from tqdm import tqdm
 from transformers import AutoConfig
 from utils import (
@@ -178,7 +178,7 @@ def register_common_arguments(subparser: argparse.ArgumentParser) -> None:
         help="The names of the modules to apply Lora to",
         nargs="+",
         type=str,
-        default=None
+        default=None,
     )
     subparser.add_argument(
         "--evaluate",
@@ -267,7 +267,7 @@ def show_experiment_configuration(args, dataset_info, model_type) -> None:
         "- LoRA Alpha: [{}]".format(args.lora_alpha),
         "- LoRA Bias: [{}]".format(args.lora_bias),
         "- LoRA Dropout: [{}]".format(args.lora_dropout),
-        "- LoRA Target Modules: [{}]".format(args.lora_target_modules)
+        "- LoRA Target Modules: [{}]".format(args.lora_target_modules),
     ]
     # Log and sleep for a few seconds in case people actually want to read this...
     print_colored("\n".join([print_str for print_str in print_strs if print_str]))
@@ -363,9 +363,8 @@ if __name__ == "__main__":
         r=args.lora_r,
         bias=args.lora_bias,
         lora_dropout=args.lora_dropout,
-        target_modules=args.lora_target_modules
+        target_modules=args.lora_target_modules,
     )
-
 
     # Then actually train the model & save it
     print_colored("[Starting the training...]")

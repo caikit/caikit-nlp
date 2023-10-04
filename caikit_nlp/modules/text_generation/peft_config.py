@@ -17,7 +17,7 @@ from enum import Enum
 import os
 
 # Third Party
-from peft import MultitaskPromptTuningInit, LoraConfig
+from peft import LoraConfig, MultitaskPromptTuningInit
 from transformers import AutoConfig
 
 # First Party
@@ -79,15 +79,19 @@ def resolve_base_model(base_model, cls, torch_dtype):
 
 
 def get_peft_config(
-    tuning_type, tuning_config, base_model, cls, torch_dtype, verbalizer,
-        lora_r=8,
-        lora_target_modules=None,
-        lora_alpha=8,
-        lora_dropout=0.0,
-        lora_fan_in_fan_out=False,
-        lora_bias="none",
-        lora_modules_to_save=None
-
+    tuning_type,
+    tuning_config,
+    base_model,
+    cls,
+    torch_dtype,
+    verbalizer,
+    lora_r=8,
+    lora_target_modules=None,
+    lora_alpha=8,
+    lora_dropout=0.0,
+    lora_fan_in_fan_out=False,
+    lora_bias="none",
+    lora_modules_to_save=None,
 ):
 
     if tuning_type not in TuningType._member_names_:
@@ -202,7 +206,7 @@ def get_peft_config(
             lora_dropout=lora_dropout,
             fan_in_fan_out=lora_fan_in_fan_out,
             bias=lora_bias,
-            modules_to_save=lora_modules_to_save
+            modules_to_save=lora_modules_to_save,
         )
     else:
         # Build the peft config; this is how we determine that we want a sequence classifier.
