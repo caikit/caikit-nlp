@@ -23,7 +23,7 @@ import tempfile
 # Third Party
 from datasets import Dataset
 from datasets import IterableDataset as TransformersIterableDataset
-from peft import LoraConfig, get_peft_model, PeftModel
+from peft import LoraConfig, get_peft_model
 from transformers import AutoConfig, AutoTokenizer
 import torch
 
@@ -100,7 +100,6 @@ class TextGeneration(ModuleBase):
         eos_token: Optional[str] = None,
         pad_token: Optional[str] = None,
         training_metadata: Union[Dict[str, Any], None] = None,
-        is_lora: Optional[bool] = False
     ):
         super().__init__()
 
@@ -115,7 +114,6 @@ class TextGeneration(ModuleBase):
         self.training_metadata = (
             training_metadata if training_metadata is not None else {}
         )
-        model.is_lora = is_lora
 
     # pylint: disable=duplicate-code
     def __del__(self):
@@ -454,7 +452,6 @@ class TextGeneration(ModuleBase):
                 eos_token=model.tokenizer.eos_token or None,
                 pad_token=model.tokenizer.pad_token or None,
                 training_metadata={"loss": training_loss_history},
-                is_lora=True
             )
         else:
             return cls(
@@ -520,13 +517,6 @@ class TextGeneration(ModuleBase):
                 }
             )
             if self.model:
-                # if self.is_lora:
-                #     self.model.save_pretrained(lora_adapter, save_adapter=True, save_config=True)
-                #     model_to_merge = PeftModel.from_pretrained(AutoModelForCausalLM.from_pretrained(self.model._model_name).to("cuda"), lora_adapter)
-                #     merged_model = model_to_merge.merge_and_unload()
-                #     merged_model.save_pretrained(merged_model)
-                # else:
-
                 # This will save both tokenizer and base model
                 self.model.save(
                     model_path,
