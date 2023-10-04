@@ -16,15 +16,13 @@
 
 # Standard
 from typing import List, Union
-import json
 
 # Third Party
-from py_to_proto.dataclass_to_proto import Annotated, FieldNumber, OneofField
 import numpy as np
 
 # First Party
 from caikit.core import DataObjectBase, dataobject
-from caikit.core.toolkit import error_handler
+from caikit.core.exceptions import error_handler
 import alog
 
 log = alog.use_channel("DATAM")
@@ -32,84 +30,88 @@ error = error_handler.get(log)
 
 
 @dataobject(package="caikit_data_model.caikit_nlp")
-class FloatValue(DataObjectBase):
-    float_value: Union[
-        Annotated[float, OneofField("data_float"), FieldNumber(1)],
-        Annotated[np.float32, OneofField("data_float32"), FieldNumber(2)],
-        Annotated[np.float64, OneofField("data_float64"), FieldNumber(3)],
-    ]
+class PyFloatSequence(DataObjectBase):
+    values: List[float]
+
+
+@dataobject(package="caikit_data_model.caikit_nlp")
+class NpFloat32Sequence(DataObjectBase):
+    values: List[np.float32]
+
+
+@dataobject(package="caikit_data_model.caikit_nlp")
+class NpFloat64Sequence(DataObjectBase):
+    values: List[np.float64]
 
 
 @dataobject(package="caikit_data_model.caikit_nlp")
 class Vector1D(DataObjectBase):
-    """Data representation for a 1 dimension vector.
-    NOTE: This only support float types
-    """
+    """Data representation for a 1 dimension vector of float-type data."""
 
-    data: List[FloatValue]
+    data: Union[
+        PyFloatSequence,
+        NpFloat32Sequence,
+        NpFloat64Sequence,
+    ]
 
-    def _convert_np_to_list(self, values):
-        return values.tolist()
-
-    def _convert_to_floatvalue(self, values):
-
-        if isinstance(values, np.ndarray):
-            if values.dtype == np.float32:
-                return [FloatValue(data_float32=val).to_proto() for val in values]
-            if values.dtype == np.float64:
-                return [FloatValue(data_float64=val).to_proto() for val in values]
-        return [FloatValue(val).to_proto() for val in values]
+    # Classes to wrap values for one-of
+    WRAP_MAP = {
+        "data_pyfloatsequence": PyFloatSequence,
+        "data_npfloat32sequence": NpFloat32Sequence,
+        "data_npfloat64sequence": NpFloat64Sequence,
+    }
+    WRAP_DEFAULT = PyFloatSequence
 
     def to_dict(self) -> dict:
+        woo = self.which_oneof("data")  # determine which one of to set
+        if not woo:
+            woo = "data"
+            values = self.data
+        else:
+            values = self.data.values
 
-        # If data is in np.ndarray format, convert it to python list
-        if isinstance(self.data, np.ndarray):
-            return {"data": self._convert_np_to_list(self.data)}
-
-        return {"data": self.data}
-
-    def fill_proto(self, proto):
-        data_proto = getattr(proto, "data")
-        data_proto.extend(self._convert_to_floatvalue(self.data))
-
-        return proto
+        return {
+            woo: {
+                # coerce numpy.ndarray and numpy.float32 into JSON serializable list of floats
+                "values": [float(x) for x in values]
+            }
+        }
 
     @classmethod
     def from_proto(cls, proto):
-        data = []
-        for datum in proto.data:
-            value_type = FloatValue.from_proto(datum).which_oneof("float_value")
-            data.append(getattr(datum, value_type))
-        return cls(**{"data": data})
-
-    @classmethod
-    def from_json(cls, json_str):
-        """Function to convert json_str to DataBase object
-
-        NOTE: Since JSON doesn't support variety of float formats
-              we would only be able to convert all the values to python floats here.
-              So there would be a loss of information when converting to and from JSON
-
-        Args:
-            json_str: str or dict
-                A stringified JSON specification/dict of the data_model
-
-        Returns:
-            caikit.core.data_model.DataBase
-                A DataBase object.
-        """
-        error.type_check("<NLP97633962E>", dict, str, json_str=json_str)
-        if isinstance(json_str, str):
-            json_str = json.loads(json_str)
-
-        error.value_check(
-            "<NLP49158301E>", "data" in json_str, "invalid json_str provided!"
+        woo_key = "data"
+        woo = proto.WhichOneof(woo_key)
+        woo_data = getattr(proto, woo)
+        return cls(
+            **{woo_key: (cls.WRAP_MAP.get(woo, cls.WRAP_DEFAULT)(woo_data.values))}
         )
 
-        data = []
-        for datum in json_str["data"]:
-            data.append(datum)
-        return cls(data=data)
+    def fill_proto(self, proto):
+
+        if hasattr(self.data, "values"):
+            values = self.data.values
+        else:
+            values = self.data
+
+        if len(values) > 0:
+            sample = values[0]
+            if isinstance(sample, np.float64):
+                proto.data_npfloat64sequence.values.extend(
+                    list(np.array(values, dtype=np.float64))
+                )
+            elif isinstance(sample, np.float32):
+                proto.data_npfloat32sequence.values.extend(
+                    list(np.array(values, dtype=np.float32))
+                )
+            elif isinstance(sample, float):
+                proto.data_pyfloatsequence.values.extend(values)
+            else:
+                error(
+                    "<NLP58452707E>",
+                    "unsupported type of data value. Expecting a float type",
+                )
+
+        return proto
 
 
 @dataobject(package="caikit_data_model.caikit_nlp")
@@ -117,72 +119,3 @@ class EmbeddingResult(DataObjectBase):
     """Data representation for an embedding matrix holding 2D vectors"""
 
     data: List[Vector1D]
-
-    def _convert_np_to_vector1d(self, values):
-        if values.ndim == 1:
-            return [Vector1D(values)]
-
-        if values.ndim == 2:
-            return [Vector1D(vector) for vector in values]
-
-        error(
-            "<NLP18185885E>",
-            f"Unsupported dimensions {values.ndim} for EmbeddingResult",
-        )
-
-    def _convert_list_to_vector1d(self, values):
-        temp_data = None
-        if isinstance(values[0], list):
-            temp_data = [Vector1D(vector) for vector in values]
-        else:
-            temp_data = [Vector1D(values)]
-
-        return temp_data
-
-    def to_dict(self) -> dict:
-
-        vector_2d: Union(List[Vector1D], None) = None
-
-        # if data is in np.ndarray format, convert it into Vector1D
-        if isinstance(self.data, np.ndarray):
-            vector_2d = self._convert_np_to_vector1d(self.data)
-        elif isinstance(self.data, list):
-            vector_2d = self._convert_list_to_vector1d(self.data)
-        else:
-            error(
-                "<NLP69094934E>",
-                f"Only list and np.ndarray supported currently. Provided {type(self.data)}",
-            )
-
-        return {"data": [vector.to_dict() for vector in vector_2d]}
-
-    def fill_proto(self, proto):
-        vector_proto = getattr(proto, "data")
-
-        proto_values = None
-        if isinstance(self.data, list):
-            proto_values = self._convert_list_to_vector1d(self.data)
-        elif isinstance(self.data, np.ndarray):
-            proto_values = self._convert_np_to_vector1d(self.data)
-        else:
-            error(
-                "<NLP58452707E>",
-                "unsupported type for data. Only list and np.ndarray supported",
-            )
-
-        vector_proto.extend([val.to_proto() for val in proto_values])
-
-        return proto
-
-    @classmethod
-    def from_json(cls, json_str):
-        error.type_check("<NLP83742499E>", dict, str, json_str=json_str)
-
-        if isinstance(json_str, str):
-            json_str = json.loads(json_str)
-
-        error.value_check(
-            "<NLP64229346E>", "data" in json_str, "invalid json_str provided!"
-        )
-
-        return cls(data=[Vector1D.from_json(datum) for datum in json_str["data"]])

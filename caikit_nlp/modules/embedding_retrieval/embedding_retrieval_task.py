@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Standard
+from typing import List
+
 # First Party
 from caikit.core import TaskBase, task
 
@@ -20,7 +23,7 @@ from ...data_model import EmbeddingResult
 
 
 @task(
-    required_parameters={"text": str},
+    required_parameters={"input": List[str]},
     output_type=EmbeddingResult,
 )
 class EmbeddingRetrievalTask(TaskBase):

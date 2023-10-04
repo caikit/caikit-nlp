@@ -13,4 +13,5 @@
 # limitations under the License.
 
 # Local
+from .embedding import EmbeddingModule
 from .embedding_retrieval_task import EmbeddingRetrievalTask
