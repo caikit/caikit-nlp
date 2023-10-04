@@ -6,8 +6,6 @@ import tempfile
 # Third Party
 from pytest import approx
 
-# First Party
-
 # Local
 from caikit_nlp.data_model import EmbeddingResult, Vector1D
 from caikit_nlp.modules.embedding_retrieval import EmbeddingModule
@@ -35,7 +33,9 @@ def test_bootstrap_and_run_list():
     embedding_result = model.run(TEXTS)
 
     assert isinstance(embedding_result, EmbeddingResult)
-    assert len(embedding_result.data) == 2 == len(TEXTS)  # 2 vectors for 2 input sentences
+    assert (
+        len(embedding_result.data) == 2 == len(TEXTS)
+    )  # 2 vectors for 2 input sentences
     assert isinstance(embedding_result.data[0], Vector1D)
     assert len(embedding_result.data[0].data) == 32
     assert embedding_result.data[0].data[0] == 0.3244932293891907
@@ -48,7 +48,7 @@ def test_bootstrap_and_run_str():
     model = BOOTSTRAPPED_MODEL
     embedding_result = model.run(TEXTS[0])  # string input will be converted to list
     assert isinstance(embedding_result, EmbeddingResult)
-    assert len(embedding_result.data) == 1   # 1 vector for one input sentence
+    assert len(embedding_result.data) == 1  # 1 vector for one input sentence
     assert isinstance(embedding_result.data[0], Vector1D)
     assert approx(embedding_result.data[0].data[0]) == 0.32449323
 
@@ -61,7 +61,9 @@ def test_load_save_and_run_model():
 
     embedding_result = new_model.run(input=TEXTS)
     assert isinstance(embedding_result, EmbeddingResult)
-    assert len(embedding_result.data) == 2 == len(TEXTS)  # 2 vectors for 2 input sentences
+    assert (
+        len(embedding_result.data) == 2 == len(TEXTS)
+    )  # 2 vectors for 2 input sentences
     assert isinstance(embedding_result.data[0], Vector1D)
     assert len(embedding_result.data[0].data) == 32
     assert embedding_result.data[0].data[0] == 0.3244932293891907

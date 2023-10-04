@@ -12,18 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import alog
-from caikit.core import ModuleBase, ModuleConfig, ModuleSaver, module
-from caikit.core.exceptions import error_handler
-from caikit_nlp.data_model.embedding_vectors import EmbeddingResult, Vector1D
-
-from sentence_transformers import SentenceTransformer
-
-from .embedding_retrieval_task import EmbeddingRetrievalTask
-
-import os
+# Standard
 from pathlib import Path
 from typing import List
+import os
+
+# Third Party
+from sentence_transformers import SentenceTransformer
+
+# First Party
+from caikit.core import ModuleBase, ModuleConfig, ModuleSaver, module
+from caikit.core.exceptions import error_handler
+import alog
+
+# Local
+from .embedding_retrieval_task import EmbeddingRetrievalTask
+from caikit_nlp.data_model.embedding_vectors import EmbeddingResult, Vector1D
 
 logger = alog.use_channel("<EMBD_BLK>")
 error = error_handler.get(logger)
@@ -39,14 +43,12 @@ DEFAULT_HF_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
     EmbeddingRetrievalTask,
 )
 class EmbeddingModule(ModuleBase):
-
     def __init__(
         self,
         model: SentenceTransformer,
     ):
         super().__init__()
         self.model = model
-
 
     @classmethod
     def load(cls, model_path: str) -> "EmbeddingModule":
@@ -79,7 +81,7 @@ class EmbeddingModule(ModuleBase):
         return cls.bootstrap(artifact_path)
 
     def run(
-            self, input: List[str], **kwargs   # pylint: disable=redefined-builtin
+        self, input: List[str], **kwargs  # pylint: disable=redefined-builtin
     ) -> EmbeddingResult:
         """Run inference on model.
         Args:
@@ -113,7 +115,7 @@ class EmbeddingModule(ModuleBase):
         """
         model = SentenceTransformer(
             base_model_path,
-            cache_folder=f"{HOME}/.cache/huggingface/sentence_transformers"
+            cache_folder=f"{HOME}/.cache/huggingface/sentence_transformers",
         )
         return cls(
             model=model,
