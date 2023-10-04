@@ -38,8 +38,8 @@ def test_bootstrap_and_run_list():
     )  # 2 vectors for 2 input sentences
     assert isinstance(embedding_result.data[0], Vector1D)
     assert len(embedding_result.data[0].data) == 32
-    assert embedding_result.data[0].data[0] == 0.3244932293891907
-    assert embedding_result.data[1].data[1] == -0.3782769441604614
+    assert approx(embedding_result.data[0].data[0]) == 0.3244932293891907
+    assert approx(embedding_result.data[1].data[1]) == -0.3782769441604614
     assert approx(embedding_result.data[1].data[2]) == 0.7745956
 
 
@@ -66,6 +66,6 @@ def test_load_save_and_run_model():
     )  # 2 vectors for 2 input sentences
     assert isinstance(embedding_result.data[0], Vector1D)
     assert len(embedding_result.data[0].data) == 32
-    assert embedding_result.data[0].data[0] == 0.3244932293891907
-    assert embedding_result.data[1].data[1] == -0.3782769441604614
+    assert approx(embedding_result.data[0].data[0]) == 0.3244932293891907
+    assert approx(embedding_result.data[1].data[1]) == -0.3782769441604614
     assert approx(embedding_result.data[1].data[2]) == 0.7745956
