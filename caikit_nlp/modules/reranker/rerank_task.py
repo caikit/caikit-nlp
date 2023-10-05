@@ -11,11 +11,23 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Common data model containing all data structures that are passed in and out of blocks.
-"""
 
-# Local
-from . import embedding_vectors, generation
-from .embedding_vectors import *
-from .generation import *
-from .reranker import *
+import alog
+from caikit.core import TaskBase, task
+from caikit.core.exceptions import error_handler
+from caikit_nlp.data_model.reranker import RerankPrediction, RerankDocuments
+
+from typing import List
+
+logger = alog.use_channel("<SMPL_BLK>")
+error = error_handler.get(logger)
+
+@task(
+    required_parameters={
+        "documents": RerankDocuments,
+        "queries": List[str],
+    },
+    output_type=RerankPrediction,
+)
+class RerankTask(TaskBase):
+    pass
