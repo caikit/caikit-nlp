@@ -71,6 +71,20 @@ class PretrainedModelBase(ABC, ModuleBase):
     _MODEL_ARTIFACTS_CONFIG_KEY = "model_artifacts"
     _LEFT_PAD_MODEL_TYPES = ("gpt", "opt", "bloom")
 
+    def named_modules(self):
+        print("here it is, v2!!!")
+        for v in self._model.named_modules():
+            print(v)
+        return self._model.named_modules()
+
+    def get_submodule(self, target: str):
+        return self._model.get_submodule(target)
+
+    def named_parameters(
+        self, prefix: str = "", recurse: bool = True, remove_duplicate: bool = True
+    ):
+        return self._model.named_parameters(prefix, recurse, remove_duplicate)
+
     @classmethod
     @property
     def REQUIRES_TOKEN_UNWRAPPING(cls) -> str:

@@ -440,7 +440,6 @@ class TextGeneration(ModuleBase):
             # Merge Model Here so it is returned
             model_to_merge = get_peft_model(model, lora_config)
             merged_model = model_to_merge.merge_and_unload()
-            merged_model.save_pretrained(merged_model)
 
             # return that
             return cls(
@@ -452,16 +451,15 @@ class TextGeneration(ModuleBase):
                 pad_token=model.tokenizer.pad_token or None,
                 training_metadata={"loss": training_loss_history},
             )
-        else:
-            return cls(
-                model_name=base_model._model_name,
-                model=model,
-                bos_token=model.tokenizer.bos_token or None,
-                sep_token=model.tokenizer.sep_token or None,
-                eos_token=model.tokenizer.eos_token or None,
-                pad_token=model.tokenizer.pad_token or None,
-                training_metadata={"loss": training_loss_history},
-            )
+        return cls(
+            model_name=base_model._model_name,
+            model=model,
+            bos_token=model.tokenizer.bos_token or None,
+            sep_token=model.tokenizer.sep_token or None,
+            eos_token=model.tokenizer.eos_token or None,
+            pad_token=model.tokenizer.pad_token or None,
+            training_metadata={"loss": training_loss_history},
+        )
 
     @classmethod
     def load(
