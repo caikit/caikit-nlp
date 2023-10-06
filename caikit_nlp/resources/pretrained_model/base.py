@@ -72,8 +72,6 @@ class PretrainedModelBase(ABC, ModuleBase):
     _LEFT_PAD_MODEL_TYPES = ("gpt", "opt", "bloom")
 
     def named_modules(self):
-        for v in self._model.named_modules():
-            print(v)
         return self._model.named_modules()
 
     def get_submodule(self, target: str):
