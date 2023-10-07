@@ -245,10 +245,9 @@ def generate_text_func(
         )
     ):
         finish_reason = "STOP_SEQUENCE"
-    elif generate_ids.size(1) - 1 == max_new_tokens:
-        finish_reason = "MAX_TOKENS"
     else:
-        finish_reason = "OTHER"
+        finish_reason = "MAX_TOKENS"
+
     return GeneratedTextResult(
         generated_tokens=token_count,
         generated_text=preds[0],
