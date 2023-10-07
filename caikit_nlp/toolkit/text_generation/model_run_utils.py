@@ -190,7 +190,7 @@ def generate_text_func(
     )
     inputs = {k: v.to(model.device) for k, v in tok_tensors.items()}
 
-    input_token_count = len(tok_tensors)
+    input_token_count = tok_tensors["input_ids"].size(1)
 
     gen_optional_params = __process_gen_args(
         tokenizer,
