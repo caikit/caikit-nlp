@@ -216,7 +216,7 @@ def test_train_model_classification_record(causal_lm_train_kwargs, set_cpu_devic
 
 
 def test_prompt_output_types(causal_lm_train_kwargs):
-    # Try training a model with outpout_model_types set to a list of strings
+    # Try training a model with output_model_types set to a list of strings
     patch_kwargs = {
         "num_epochs": 1,
         "verbalizer": "Tweet text : {{input}} Label : ",
@@ -255,6 +255,19 @@ def test_prompt_output_types(causal_lm_train_kwargs):
         **causal_lm_train_kwargs
     )
     assert model
+
+
+def test_error_empty_stream(causal_lm_train_kwargs):
+    patch_kwargs = {
+        "num_epochs": 1,
+        "verbalizer": "Tweet text : {{input}} Label : ",
+        "train_stream": caikit.core.data_model.DataStream.from_iterable([]),
+    }
+    causal_lm_train_kwargs.update(patch_kwargs)
+    with pytest.raises(ValueError):
+        caikit_nlp.modules.text_generation.PeftPromptTuning.train(
+            **causal_lm_train_kwargs
+        )
 
 
 ### Implementation details
