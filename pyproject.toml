@@ -14,7 +14,7 @@ classifiers=[
     "License :: OSI Approved :: Apache Software License"
 ]
 dependencies = [
-    "caikit[runtime-grpc,runtime-http]>=0.18.1,<0.21.0",
+    "caikit[runtime-grpc,runtime-http]>=0.18.1,<0.22.0",
     "caikit-tgis-backend>=0.1.17,<0.2.0",
     # TODO: loosen dependencies
     "accelerate>=0.22.0",
