@@ -142,15 +142,15 @@ def export_model_preds(preds_file, predictions, validation_stream, verbalizer):
     """
     pred_objs = []
     for pred, record in zip(predictions, validation_stream):
-        src, target = record.input, record.output
-        pred_objs.append(
-            {
-                "source": record.input,
-                "target": record.output,
-                "predicted_target": pred,
-                "verbalized_source": render_verbalizer(verbalizer, record),
-            }
-        )
+        res = {
+            "source": record.input,
+            "target": record.output,
+            "predicted_target": pred,
+        }
+        if verbalizer is not None:
+            res["verbalized_source"] = render_verbalizer(verbalizer, record)
+        pred_objs.append(res)
+
     with open(preds_file, "w") as jfile:
         json.dump(pred_objs, jfile, indent=4, sort_keys=True)
 
@@ -184,7 +184,10 @@ if __name__ == "__main__":
         )
     )
     export_model_preds(
-        args.preds_file, predictions, validation_stream, model.verbalizer
+        args.preds_file,
+        predictions,
+        validation_stream,
+        getattr(model, "verbalizer", None),
     )
 
     for metric_func in metric_funcs:
