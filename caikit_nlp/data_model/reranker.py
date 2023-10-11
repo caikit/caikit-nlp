@@ -12,46 +12,44 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Standard
+from dataclasses import dataclass
+from typing import List
+
+# First Party
+from caikit.core import DataObjectBase, dataobject
 from caikit.core.data_model.json_dict import JsonDict
-from caikit.core import (
-    dataobject,
-    DataObjectBase,
-)
-
-from typing import List, Dict
 
 
-@dataobject()
-class RerankDocument(DataObjectBase):
-    """An input document with key of text else _text else empty string used for comparison"""
-    document: Dict[str, str]  # TODO: get any JsonDict working for input
-
-
-@dataobject()
+@dataobject(package="caikit_data_model.caikit_nlp")
+@dataclass
 class RerankDocuments(DataObjectBase):
-    """An input list of documents"""
-    documents: List[RerankDocument]
+    """An input list of JSON documents"""
 
-    @classmethod
-    def from_proto(cls, proto):
-        return cls([{"document": dict(d.document.items())} for d in proto.documents])
+    documents: List[JsonDict]
 
 
-@dataobject()
+@dataobject(package="caikit_data_model.caikit_nlp")
+@dataclass
 class RerankScore(DataObjectBase):
     """The score for one document (one query)"""
+
     document: JsonDict
     corpus_id: int
     score: float
 
 
-@dataobject()
+@dataobject(package="caikit_data_model.caikit_nlp")
+@dataclass
 class RerankQueryResult(DataObjectBase):
     """Result for one query in a rerank task"""
+
     scores: List[RerankScore]
 
 
-@dataobject()
+@dataobject(package="caikit_data_model.caikit_nlp")
+@dataclass
 class RerankPrediction(DataObjectBase):
     """Result for a rerank task"""
+
     results: List[RerankQueryResult]

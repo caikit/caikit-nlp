@@ -12,19 +12,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import alog
+# Standard
+from typing import List
+
+# First Party
 from caikit.core import TaskBase, task
 from caikit.core.exceptions import error_handler
-from caikit_nlp.data_model.reranker import RerankPrediction, RerankDocuments
+import alog
 
-from typing import List
+# Local
+from caikit_nlp.data_model.reranker import RerankPrediction
+from caikit.core.data_model.json_dict import JsonDict
 
 logger = alog.use_channel("<SMPL_BLK>")
 error = error_handler.get(logger)
 
+
 @task(
     required_parameters={
-        "documents": RerankDocuments,
+        "documents": List[JsonDict],
         "queries": List[str],
     },
     output_type=RerankPrediction,
