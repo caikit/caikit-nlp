@@ -216,7 +216,7 @@ def test_train_model_classification_record(causal_lm_train_kwargs, set_cpu_devic
 
 
 def test_prompt_output_types(causal_lm_train_kwargs):
-    # Try training a model with outpout_model_types set to a list of strings
+    # Try training a model with output_model_types set to a list of strings
     patch_kwargs = {
         "num_epochs": 1,
         "verbalizer": "Tweet text : {{input}} Label : ",
