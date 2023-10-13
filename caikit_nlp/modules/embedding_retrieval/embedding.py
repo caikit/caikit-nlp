@@ -78,12 +78,12 @@ class EmbeddingModule(ModuleBase):
             model_name_or_path = os.path.abspath(
                 os.path.join(model_path, artifacts_path)
             )
-            error.dir_check("<NLP76915062E>", model_name_or_path)
+            error.dir_check("<NLP34197772E>", model_name_or_path)
         else:
             # If no artifacts_path, look for hf_model Hugging Face model by name (or path)
             model_name_or_path = config.get(cls._HF_HUB_KEY)
             error.value_check(
-                "<NLP83666130E>",
+                "<NLP07391618E>",
                 model_name_or_path,
                 ValueError(
                     f"Model config missing '{cls._ARTIFACTS_PATH_KEY}' or '{cls._HF_HUB_KEY}'"
@@ -133,25 +133,43 @@ class EmbeddingModule(ModuleBase):
         return cls(model=SentenceTransformer(model_name_or_path=model_name_or_path))
 
     def save(self, model_path: str, *args, **kwargs):
-        """Save model in target path
+        """Save model using config in model_path
 
         Args:
             model_path: str
-                Path to store model artifact(s)
+                Path to model config
         """
+
+        error.type_check("<NLP82314992E>", str, model_path=model_path)
+        error.value_check(
+            "<NLP40145207E>",
+            model_path is not None and model_path.strip(),
+            f"model_path '{model_path}' is invalid",
+        )
+
+        model_path = os.path.abspath(
+            model_path.strip()
+        )  # No leading/trailing spaces sneaky weirdness
+
+        if os.path.exists(model_path):
+            error(
+                "<NLP44708517E>",
+                FileExistsError(f"model_path '{model_path}' already exists"),
+            )
+
         saver = ModuleSaver(
-            self,
+            module=self,
             model_path=model_path,
         )
 
-        # Save artifacts
+        # Save update config (artifacts_path) and save artifacts
         with saver:
             artifacts_path = saver.config.get(self._ARTIFACTS_PATH_KEY)
             if not artifacts_path:
                 artifacts_path = self._ARTIFACTS_PATH_DEFAULT
                 saver.update_config({self._ARTIFACTS_PATH_KEY: artifacts_path})
             if self.model:  # This condition allows for empty placeholders
-                artifacts_abspath = os.path.abspath(
+                artifacts_path = os.path.abspath(
                     os.path.join(model_path, artifacts_path)
                 )
-                self.model.save(artifacts_abspath, create_model_card=True)
+                self.model.save(artifacts_path, create_model_card=True)

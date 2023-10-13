@@ -133,7 +133,6 @@ def test_vector1d_dm(float_seq_class, random_values, float_type):
 
     # Test json
     dm_to_json = dm_init.to_json()
-    print("DM_TO_JSON", dm_to_json)
     dm_from_json = dm.Vector1D.from_json(dm_to_json)
     _assert_array_check(
         dm_from_json, random_values, float

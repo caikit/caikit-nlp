@@ -1,10 +1,12 @@
 """Tests for sequence classification module
 """
 # Standard
+import os
 import tempfile
 
 # Third Party
 from pytest import approx
+import pytest
 
 # Local
 from caikit_nlp.data_model import EmbeddingResult, Vector1D
@@ -55,9 +57,11 @@ def test_bootstrap_and_run_str():
 
 def test_load_save_and_run_model():
     """Check if we can load and run a saved model successfully"""
-    with tempfile.TemporaryDirectory() as model_dir:
-        BOOTSTRAPPED_MODEL.save(model_dir)
-        new_model = EmbeddingModule.load(model_dir)
+    model_id = "model_id"
+    with tempfile.TemporaryDirectory(suffix="-1st") as model_dir:
+        model_path = os.path.join(model_dir, model_id)
+        BOOTSTRAPPED_MODEL.save(model_path)
+        new_model = EmbeddingModule.load(model_path)
 
     embedding_result = new_model.run(input=TEXTS)
     assert isinstance(embedding_result, EmbeddingResult)
@@ -69,3 +73,37 @@ def test_load_save_and_run_model():
     assert approx(embedding_result.results[0].data.values[0]) == 0.3244932293891907
     assert approx(embedding_result.results[1].data.values[1]) == -0.3782769441604614
     assert approx(embedding_result.results[1].data.values[2]) == 0.7745956
+
+
+@pytest.mark.parametrize(
+    "model_path", ["", " ", " " * 100], ids=["empty", "space", "spaces"]
+)
+def test_save_value_checks(model_path):
+    with pytest.raises(ValueError):
+        BOOTSTRAPPED_MODEL.save(model_path)
+
+
+@pytest.mark.parametrize(
+    "model_path",
+    ["..", "../" * 100, "/", ".", " / ", " . "],
+)
+def test_save_exists_checks(model_path):
+    """Tests for model paths are always existing dirs that should not be clobbered"""
+    with pytest.raises(FileExistsError):
+        BOOTSTRAPPED_MODEL.save(model_path)
+
+
+def test_second_save_hits_exists_check():
+    """Using a new path the first save should succeed but second fails"""
+    model_id = "model_id"
+    with tempfile.TemporaryDirectory(suffix="-2nd") as model_dir:
+        model_path = os.path.join(model_dir, model_id)
+        BOOTSTRAPPED_MODEL.save(model_path)
+        with pytest.raises(FileExistsError):
+            BOOTSTRAPPED_MODEL.save(model_path)
+
+
+@pytest.mark.parametrize("model_path", [None, {}, object(), 1], ids=type)
+def test_save_type_checks(model_path):
+    with pytest.raises(TypeError):
+        BOOTSTRAPPED_MODEL.save(model_path)
