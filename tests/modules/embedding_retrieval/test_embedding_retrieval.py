@@ -34,13 +34,13 @@ def test_bootstrap_and_run_list():
 
     assert isinstance(embedding_result, EmbeddingResult)
     assert (
-        len(embedding_result.data) == 2 == len(TEXTS)
+        len(embedding_result.results) == 2 == len(TEXTS)
     )  # 2 vectors for 2 input sentences
-    assert isinstance(embedding_result.data[0], Vector1D)
-    assert len(embedding_result.data[0].data) == 32
-    assert approx(embedding_result.data[0].data[0]) == 0.3244932293891907
-    assert approx(embedding_result.data[1].data[1]) == -0.3782769441604614
-    assert approx(embedding_result.data[1].data[2]) == 0.7745956
+    assert isinstance(embedding_result.results[0], Vector1D)
+    assert len(embedding_result.results[0].data.values) == 32
+    assert approx(embedding_result.results[0].data.values[0]) == 0.3244932293891907
+    assert approx(embedding_result.results[1].data.values[1]) == -0.3782769441604614
+    assert approx(embedding_result.results[1].data.values[2]) == 0.7745956
 
 
 def test_bootstrap_and_run_str():
@@ -48,9 +48,9 @@ def test_bootstrap_and_run_str():
     model = BOOTSTRAPPED_MODEL
     embedding_result = model.run(TEXTS[0])  # string input will be converted to list
     assert isinstance(embedding_result, EmbeddingResult)
-    assert len(embedding_result.data) == 1  # 1 vector for one input sentence
-    assert isinstance(embedding_result.data[0], Vector1D)
-    assert approx(embedding_result.data[0].data[0]) == 0.32449323
+    assert len(embedding_result.results) == 1  # 1 vector for one input sentence
+    assert isinstance(embedding_result.results[0], Vector1D)
+    assert approx(embedding_result.results[0].data.values[0]) == 0.32449323
 
 
 def test_load_save_and_run_model():
@@ -62,10 +62,10 @@ def test_load_save_and_run_model():
     embedding_result = new_model.run(input=TEXTS)
     assert isinstance(embedding_result, EmbeddingResult)
     assert (
-        len(embedding_result.data) == 2 == len(TEXTS)
+        len(embedding_result.results) == 2 == len(TEXTS)
     )  # 2 vectors for 2 input sentences
-    assert isinstance(embedding_result.data[0], Vector1D)
-    assert len(embedding_result.data[0].data) == 32
-    assert approx(embedding_result.data[0].data[0]) == 0.3244932293891907
-    assert approx(embedding_result.data[1].data[1]) == -0.3782769441604614
-    assert approx(embedding_result.data[1].data[2]) == 0.7745956
+    assert isinstance(embedding_result.results[0], Vector1D)
+    assert len(embedding_result.results[0].data.values) == 32
+    assert approx(embedding_result.results[0].data.values[0]) == 0.3244932293891907
+    assert approx(embedding_result.results[1].data.values[1]) == -0.3782769441604614
+    assert approx(embedding_result.results[1].data.values[2]) == 0.7745956

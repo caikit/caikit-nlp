@@ -13,12 +13,12 @@
 # limitations under the License.
 
 # Standard
-from pathlib import Path
 from typing import List
 import os
 
 # Third Party
 from sentence_transformers import SentenceTransformer
+import numpy as np
 
 # First Party
 from caikit.core import ModuleBase, ModuleConfig, ModuleSaver, module
@@ -27,13 +27,16 @@ import alog
 
 # Local
 from .embedding_retrieval_task import EmbeddingRetrievalTask
-from caikit_nlp.data_model.embedding_vectors import EmbeddingResult, Vector1D
+from caikit_nlp.data_model.embedding_vectors import (
+    EmbeddingResult,
+    NpFloat32Sequence,
+    NpFloat64Sequence,
+    PyFloatSequence,
+    Vector1D,
+)
 
 logger = alog.use_channel("<EMBD_BLK>")
 error = error_handler.get(logger)
-
-HOME = Path.home()
-DEFAULT_HF_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 
 
 @module(
@@ -43,6 +46,11 @@ DEFAULT_HF_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
     EmbeddingRetrievalTask,
 )
 class EmbeddingModule(ModuleBase):
+
+    _ARTIFACTS_PATH_KEY = "artifacts_path"
+    _ARTIFACTS_PATH_DEFAULT = "artifacts"
+    _HF_HUB_KEY = "hf_model"
+
     def __init__(
         self,
         model: SentenceTransformer,
@@ -52,7 +60,7 @@ class EmbeddingModule(ModuleBase):
 
     @classmethod
     def load(cls, model_path: str) -> "EmbeddingModule":
-        """Load a sequence classification model
+        """Load model
 
         Args:
             model_path: str
@@ -64,21 +72,25 @@ class EmbeddingModule(ModuleBase):
         """
 
         config = ModuleConfig.load(model_path)
-        load_path = config.get("model_artifacts")
 
-        artifact_path = False
-        if load_path:
-            if os.path.isabs(load_path) and os.path.isdir(load_path):
-                artifact_path = load_path
-            else:
-                full_path = os.path.join(model_path, load_path)
-                if os.path.isdir(full_path):
-                    artifact_path = full_path
+        artifacts_path = config.get(cls._ARTIFACTS_PATH_KEY)
+        if artifacts_path:
+            model_name_or_path = os.path.abspath(
+                os.path.join(model_path, artifacts_path)
+            )
+            error.dir_check("<NLP76915062E>", model_name_or_path)
+        else:
+            # If no artifacts_path, look for hf_model Hugging Face model by name (or path)
+            model_name_or_path = config.get(cls._HF_HUB_KEY)
+            error.value_check(
+                "<NLP83666130E>",
+                model_name_or_path,
+                ValueError(
+                    f"Model config missing '{cls._ARTIFACTS_PATH_KEY}' or '{cls._HF_HUB_KEY}'"
+                ),
+            )
 
-        if not artifact_path:
-            artifact_path = config.get("hf_model", DEFAULT_HF_MODEL)
-
-        return cls.bootstrap(artifact_path)
+        return cls.bootstrap(model_name_or_path=model_name_or_path)
 
     def run(
         self, input: List[str], **kwargs  # pylint: disable=redefined-builtin
@@ -101,27 +113,26 @@ class EmbeddingModule(ModuleBase):
 
         vectors: List[Vector1D] = []
         for vector in result:
-            vectors.append(Vector1D(vector))
+            if vector.dtype == np.float32:
+                vectors.append(Vector1D(NpFloat32Sequence(vector)))
+            elif vector.dtype == np.float64:
+                vectors.append(Vector1D(NpFloat64Sequence(vector)))
+            else:
+                vectors.append(Vector1D(PyFloatSequence(vector)))
 
         return EmbeddingResult(vectors)
 
     @classmethod
-    def bootstrap(cls, base_model_path: str) -> "EmbeddingModule":
-        """Bootstrap a HuggingFace transformer-based sequence classification model
+    def bootstrap(cls, model_name_or_path: str) -> "EmbeddingModule":
+        """Bootstrap a sentence-transformers model
 
         Args:
-            base_model_path: str
-                Path to the model to be loaded.
+            model_name_or_path: str
+                Model name (Hugging Face hub) or path to model to load.
         """
-        model = SentenceTransformer(
-            base_model_path,
-            cache_folder=f"{HOME}/.cache/huggingface/sentence_transformers",
-        )
-        return cls(
-            model=model,
-        )
+        return cls(model=SentenceTransformer(model_name_or_path=model_name_or_path))
 
-    def save(self, model_path: str):
+    def save(self, model_path: str, *args, **kwargs):
         """Save model in target path
 
         Args:
@@ -133,8 +144,14 @@ class EmbeddingModule(ModuleBase):
             model_path=model_path,
         )
 
-        # Extract object to be saved
+        # Save artifacts
         with saver:
-            saver.update_config({"model_artifacts": "."})
+            artifacts_path = saver.config.get(self._ARTIFACTS_PATH_KEY)
+            if not artifacts_path:
+                artifacts_path = self._ARTIFACTS_PATH_DEFAULT
+                saver.update_config({self._ARTIFACTS_PATH_KEY: artifacts_path})
             if self.model:  # This condition allows for empty placeholders
-                self.model.save(model_path)
+                artifacts_abspath = os.path.abspath(
+                    os.path.join(model_path, artifacts_path)
+                )
+                self.model.save(artifacts_abspath, create_model_card=True)
