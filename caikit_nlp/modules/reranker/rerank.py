@@ -13,7 +13,7 @@
 # limitations under the License.
 
 # Standard
-from typing import List, Type, Optional
+from typing import List, Optional
 import os
 
 # Third Party
@@ -22,8 +22,8 @@ from sentence_transformers.util import dot_score, normalize_embeddings, semantic
 
 # First Party
 from caikit.core import ModuleBase, ModuleConfig, ModuleSaver, module
-from caikit.core.exceptions import error_handler
 from caikit.core.data_model.json_dict import JsonDict
+from caikit.core.exceptions import error_handler
 import alog
 
 # Local
@@ -46,9 +46,9 @@ error = error_handler.get(logger)
 )
 class Rerank(ModuleBase):
 
-    _MODEL_ARTIFACTS_CONFIG_KEY = "artifacts_path"
-    _MODEL_ARTIFACTS_CONFIG_DEFAULT = "artifacts"
-    _MODEL_HF_HUB_KEY = "hf_model"
+    _ARTIFACTS_PATH_KEY = "artifacts_path"
+    _ARTIFACTS_PATH_DEFAULT = "artifacts"
+    _HF_HUB_KEY = "hf_model"
 
     def __init__(
         self,
@@ -62,7 +62,7 @@ class Rerank(ModuleBase):
         self.model = model
 
     @classmethod
-    def load(cls, model_path: str) -> Type["Rerank"]:
+    def load(cls, model_path: str) -> "Rerank":
         """Load a model
 
         Args:
@@ -76,26 +76,30 @@ class Rerank(ModuleBase):
 
         config = ModuleConfig.load(model_path)
 
-        artifacts_path = config.get(cls._MODEL_ARTIFACTS_CONFIG_KEY)
+        artifacts_path = config.get(cls._ARTIFACTS_PATH_KEY)
         if artifacts_path:
-            # artifacts_path is used to find the model artifacts (can be absolute or relative to model config)
-            model_name_or_path = os.path.abspath(os.path.join(model_path, artifacts_path))
+            model_name_or_path = os.path.abspath(
+                os.path.join(model_path, artifacts_path)
+            )
             error.dir_check("<NLP01027299E>", model_name_or_path)
         else:
             # If no artifacts_path, look for hf_model Hugging Face model by name (or path)
-            model_name_or_path = config.get(cls._MODEL_HF_HUB_KEY)
+            model_name_or_path = config.get(cls._HF_HUB_KEY)
             error.value_check(
                 "<NLP22444208E>",
                 model_name_or_path,
-                ValueError(f"Model config missing '{cls._MODEL_ARTIFACTS_CONFIG_KEY}' or '{cls._MODEL_HF_HUB_KEY}'")
+                ValueError(
+                    f"Model config missing '{cls._ARTIFACTS_CONFIG_KEY}' or '{cls._HF_HUB_KEY}'"
+                ),
             )
 
         return cls.bootstrap(model_name_or_path=model_name_or_path)
 
     def run(
-        self, queries: List[str],
-            documents: List[JsonDict],
-            top_n: Optional[int] = None,
+        self,
+        queries: List[str],
+        documents: List[JsonDict],
+        top_n: Optional[int] = None,
     ) -> RerankPrediction:
         """Run inference on model.
         Args:
@@ -109,22 +113,18 @@ class Rerank(ModuleBase):
         error.type_check(
             "<NLP09038249E>",
             list,
-            queries=queries, documents=documents,
+            queries=queries,
+            documents=documents,
         )
 
-        if len(queries) < 1:
-            return RerankPrediction()
-
-        if len(documents) < 1:
-            return RerankPrediction()
+        if len(queries) < 1 or len(documents) < 1:
+            return RerankPrediction([])
 
         if top_n is None or top_n < 1:
             top_n = len(documents)
 
         # Using input document dicts so get "text" else "_text" else default to ""
-        doc_texts = [
-            srd.get("text") or srd.get("_text", "") for srd in documents
-        ]
+        doc_texts = [srd.get("text") or srd.get("_text", "") for srd in documents]
 
         doc_embeddings = self.model.encode(doc_texts, convert_to_tensor=True)
         doc_embeddings = doc_embeddings.to(self.model.device)
@@ -140,7 +140,7 @@ class Rerank(ModuleBase):
 
         for r in res:
             for x in r:
-                x["document"] = documents[x["corpus_id"]]  # TODO: .document
+                x["document"] = documents[x["corpus_id"]]
 
         results = [RerankQueryResult([RerankScore(**x) for x in r]) for r in res]
 
@@ -154,26 +154,45 @@ class Rerank(ModuleBase):
             model_name_or_path: str
                 Model name (Hugging Face hub) or path to model to load.
         """
-        return cls(model=(SentenceTransformer(model_name_or_path=model_name_or_path)))
+        return cls(model=SentenceTransformer(model_name_or_path=model_name_or_path))
 
     def save(self, model_path: str, *args, **kwargs):
-        """Save model in target path
+        """Save model using config in model_path
 
         Args:
             model_path: str
-                Path to store model artifact(s)
+                Path to model config
         """
+        error.type_check("<NLP82314992E>", str, model_path=model_path)
+        error.value_check(
+            "<NLP40145207E>",
+            model_path is not None and model_path.strip(),
+            f"model_path '{model_path}' is invalid",
+        )
+
+        model_path = os.path.abspath(
+            model_path.strip()
+        )  # No leading/trailing spaces sneaky weirdness
+
+        if os.path.exists(model_path):
+            error(
+                "<NLP44708517E>",
+                FileExistsError(f"model_path '{model_path}' already exists"),
+            )
+
         saver = ModuleSaver(
-            self,
+            module=self,
             model_path=model_path,
         )
 
-        # Save artifacts
+        # Save update config (artifacts_path) and save artifacts
         with saver:
-            artifacts_path = saver.config.get(self._MODEL_ARTIFACTS_CONFIG_KEY)
+            artifacts_path = saver.config.get(self._ARTIFACTS_PATH_KEY)
             if not artifacts_path:
-                artifacts_path = self._MODEL_ARTIFACTS_CONFIG_DEFAULT
-                saver.update_config({self._MODEL_ARTIFACTS_CONFIG_KEY: artifacts_path})
+                artifacts_path = self._ARTIFACTS_PATH_DEFAULT
+                saver.update_config({self._ARTIFACTS_PATH_KEY: artifacts_path})
             if self.model:  # This condition allows for empty placeholders
-                artifacts_abspath = os.path.abspath(os.path.join(model_path, artifacts_path))
-                self.model.save(artifacts_abspath, create_model_card=True)
+                artifacts_path = os.path.abspath(
+                    os.path.join(model_path, artifacts_path)
+                )
+                self.model.save(artifacts_path, create_model_card=True)

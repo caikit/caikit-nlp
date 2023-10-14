@@ -1,13 +1,15 @@
 """Tests for sequence classification module
 """
 # Standard
-import tempfile
 from typing import List
+import os
+import tempfile
 
+# Third Party
 import pytest
 
-from caikit_nlp import RerankQueryResult, RerankScore
 # Local
+from caikit_nlp import RerankQueryResult, RerankScore
 from caikit_nlp.data_model import RerankPrediction
 from caikit_nlp.modules.reranker import Rerank
 from tests.fixtures import SEQ_CLASS_MODEL
@@ -52,7 +54,9 @@ def test_bootstrap():
     assert isinstance(BOOTSTRAPPED_MODEL, Rerank), "bootstrap error"
 
 
-@pytest.mark.parametrize("queries,docs", [("test string", DOCS), (QUERIES, {"testdict": "not list"})])
+@pytest.mark.parametrize(
+    "queries,docs", [("test string", DOCS), (QUERIES, {"testdict": "not list"})]
+)
 def test_run_type_error(queries, docs):
     """type error check ensures params are lists and not just 1 string or just one doc (for example)"""
     with pytest.raises(TypeError):
@@ -65,7 +69,17 @@ def test_run_no_type_error():
     BOOTSTRAPPED_MODEL.run(queries=QUERIES, documents=DOCS)
 
 
-@pytest.mark.parametrize("top_n, expected", [(1, 1), (2, 2), (None, len(DOCS)), (-1, len(DOCS)), (0, len(DOCS)), (9999, len(DOCS))])
+@pytest.mark.parametrize(
+    "top_n, expected",
+    [
+        (1, 1),
+        (2, 2),
+        (None, len(DOCS)),
+        (-1, len(DOCS)),
+        (0, len(DOCS)),
+        (9999, len(DOCS)),
+    ],
+)
 def test_run_top_n(top_n, expected):
     """no type error with list of string queries and list of dict documents"""
     res = BOOTSTRAPPED_MODEL.run(queries=QUERIES, documents=DOCS, top_n=top_n)
@@ -77,9 +91,12 @@ def test_run_top_n(top_n, expected):
 
 def test_save_and_load_and_run_model():
     """Save and load and run a model"""
-    with tempfile.TemporaryDirectory() as model_dir:
-        BOOTSTRAPPED_MODEL.save(model_dir)
-        new_model = Rerank.load(model_dir)
+
+    model_id = "model_id"
+    with tempfile.TemporaryDirectory(suffix="-1st") as model_dir:
+        model_path = os.path.join(model_dir, model_id)
+        BOOTSTRAPPED_MODEL.save(model_path)
+        new_model = Rerank.load(model_path)
 
     assert isinstance(new_model, Rerank), "save and load error"
     assert new_model != BOOTSTRAPPED_MODEL, "did not load a new model"
@@ -90,9 +107,7 @@ def test_save_and_load_and_run_model():
 
     results = rerank_result.results
     assert isinstance(results, list)
-    assert (
-        len(results) == 2 == len(QUERIES)
-    )  # 2 queries yields 2 result(s)
+    assert len(results) == 2 == len(QUERIES)  # 2 queries yields 2 result(s)
 
     # Collect some of the pass-through extras to verify we can do some types
     str_test = None
@@ -111,7 +126,9 @@ def test_save_and_load_and_run_model():
             assert score.document == DOCS[score.corpus_id]
 
             # Test pass-through score (None or 9999) is independent of the result score
-            assert score.score != score.document.get("score"), "unexpected passthru score same as result score"
+            assert score.score != score.document.get(
+                "score"
+            ), "unexpected passthru score same as result score"
 
             # Gather various type test values
             str_test = score.document.get("str_test", str_test)
@@ -121,4 +138,3 @@ def test_save_and_load_and_run_model():
     assert type(str_test) == str, "passthru str value type check"
     assert type(int_test) == int, "passthru int value type check"
     assert type(float_test) == float, "passthru float value type check"
-
