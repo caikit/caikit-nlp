@@ -89,7 +89,7 @@ class Rerank(ModuleBase):
                 "<NLP22444208E>",
                 model_name_or_path,
                 ValueError(
-                    f"Model config missing '{cls._ARTIFACTS_CONFIG_KEY}' or '{cls._HF_HUB_KEY}'"
+                    f"Model config missing '{cls._ARTIFACTS_PATH_KEY}' or '{cls._HF_HUB_KEY}'"
                 ),
             )
 

@@ -8,6 +8,9 @@ import tempfile
 # Third Party
 import pytest
 
+# First Party
+from caikit.core import ModuleConfig
+
 # Local
 from caikit_nlp import RerankQueryResult, RerankScore
 from caikit_nlp.data_model import RerankPrediction
@@ -89,6 +92,22 @@ def test_run_top_n(top_n, expected):
         assert len(result.scores) == expected
 
 
+@pytest.mark.parametrize(
+    "queries, docs",
+    [
+        ([], DOCS),
+        (QUERIES, []),
+        ([], []),
+    ],
+    ids=["no queries", "no docs", "no queries and no docs"],
+)
+def test_run_no_queries_or_no_docs(queries, docs):
+    """No queries and/or no docs therefore result is zero results"""
+    res = BOOTSTRAPPED_MODEL.run(queries=queries, documents=docs, top_n=9)
+    assert isinstance(res, RerankPrediction)
+    assert len(res.results) == 0
+
+
 def test_save_and_load_and_run_model():
     """Save and load and run a model"""
 
@@ -138,3 +157,43 @@ def test_save_and_load_and_run_model():
     assert type(str_test) == str, "passthru str value type check"
     assert type(int_test) == int, "passthru int value type check"
     assert type(float_test) == float, "passthru float value type check"
+
+
+@pytest.mark.parametrize(
+    "model_path", ["", " ", " " * 100], ids=["empty", "space", "spaces"]
+)
+def test_save_value_checks(model_path):
+    with pytest.raises(ValueError):
+        BOOTSTRAPPED_MODEL.save(model_path)
+
+
+@pytest.mark.parametrize(
+    "model_path",
+    ["..", "../" * 100, "/", ".", " / ", " . "],
+)
+def test_save_exists_checks(model_path):
+    """Tests for model paths are always existing dirs that should not be clobbered"""
+    with pytest.raises(FileExistsError):
+        BOOTSTRAPPED_MODEL.save(model_path)
+
+
+def test_second_save_hits_exists_check():
+    """Using a new path the first save should succeed but second fails"""
+    model_id = "model_id"
+    with tempfile.TemporaryDirectory(suffix="-2nd") as model_dir:
+        model_path = os.path.join(model_dir, model_id)
+        BOOTSTRAPPED_MODEL.save(model_path)
+        with pytest.raises(FileExistsError):
+            BOOTSTRAPPED_MODEL.save(model_path)
+
+
+@pytest.mark.parametrize("model_path", [None, {}, object(), 1], ids=type)
+def test_save_type_checks(model_path):
+    with pytest.raises(TypeError):
+        BOOTSTRAPPED_MODEL.save(model_path)
+
+
+def test_load_without_artifacts_or_hf_model():
+    """Test coverage for the error message when config has no artifacts and no hf_model to load"""
+    with pytest.raises(ValueError):
+        Rerank.load(ModuleConfig({}))
