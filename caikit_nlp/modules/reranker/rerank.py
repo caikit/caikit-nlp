@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 # Standard
 from typing import List, Optional
 import os
@@ -97,6 +96,47 @@ class Rerank(ModuleBase):
 
     def run(
         self,
+        query: str,
+        documents: List[JsonDict],
+        top_n: Optional[int] = None,
+    ) -> RerankQueryResult:
+        """Run inference on model.
+        Args:
+            query: str
+            documents:  List[JsonDict]
+            top_n:  Optional[int]
+        Returns:
+            RerankQueryResult
+        """
+
+        error.type_check(
+            "<NLP69209913E>",
+            str,
+            query=query,
+        )
+
+        error.type_check(
+            "<NLP89091320E>",
+            list,
+            documents=documents,
+        )
+
+        batch_results = self.run_queries(
+            queries=[query], documents=documents, top_n=top_n
+        )
+        results = batch_results.results
+
+        if len(results) > 1:
+            error(
+                "<NLP83462769E>",
+                ValueError(f"expected single query result, but got {len(results)}"),
+            )
+
+        # Return the single result, creating an empty one if results was empty
+        return results[0] if len(results) == 1 else RerankQueryResult([])
+
+    def run_queries(
+        self,
         queries: List[str],
         documents: List[JsonDict],
         top_n: Optional[int] = None,
@@ -117,10 +157,17 @@ class Rerank(ModuleBase):
             documents=documents,
         )
 
+        error.type_check(
+            "<NLTP>",
+            int,
+            allow_none=True,
+            top_n=top_n,
+        )
+
         if len(queries) < 1 or len(documents) < 1:
             return RerankPrediction([])
 
-        if top_n is None or top_n < 1:
+        if top_n is None or int(top_n) < 1:
             top_n = len(documents)
 
         # Using input document dicts so get "text" else "_text" else default to ""

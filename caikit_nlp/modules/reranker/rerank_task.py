@@ -22,10 +22,21 @@ from caikit.core.exceptions import error_handler
 import alog
 
 # Local
-from caikit_nlp.data_model.reranker import RerankPrediction
+from caikit_nlp.data_model.reranker import RerankPrediction, RerankQueryResult
 
 logger = alog.use_channel("<SMPL_BLK>")
 error = error_handler.get(logger)
+
+
+@task(
+    required_parameters={
+        "documents": List[JsonDict],
+        "query": str,
+    },
+    output_type=RerankQueryResult,
+)
+class RerankTask(TaskBase):
+    pass
 
 
 @task(
@@ -35,5 +46,5 @@ error = error_handler.get(logger)
     },
     output_type=RerankPrediction,
 )
-class RerankTask(TaskBase):
+class ReranksTask(TaskBase):
     pass
