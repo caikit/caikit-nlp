@@ -201,6 +201,7 @@ class TextGenerationTGIS(ModuleBase):
                 }
             )
 
+    # pylint: disable=duplicate-code
     @TextGenerationTask.taskmethod()
     def run(
         self,
@@ -222,16 +223,14 @@ class TextGenerationTGIS(ModuleBase):
         stop_sequences: Optional[List[str]] = None,
         preserve_input_text: bool = False,
     ) -> GeneratedTextResult:
-        """Run inference against the model running in TGIS.
+        f"""Run inference against the model running in TGIS.
 
         Args:
-           {}
+           {GENERATE_FUNCTION_TGIS_ARGS}
         Returns:
             GeneratedTextResult
                 Generated text result produced by TGIS.
-        """.format(
-            GENERATE_FUNCTION_TGIS_ARGS
-        )
+        """
 
         if self._model_loaded:
             return self.tgis_generation_client.unary_generate(
@@ -273,15 +272,13 @@ class TextGenerationTGIS(ModuleBase):
         stop_sequences: Optional[List[str]] = None,
         preserve_input_text: bool = False,
     ) -> Iterable[GeneratedTextStreamResult]:
-        """Run output stream inferencing for text generation module.
+        f"""Run output stream inferencing for text generation module.
 
         Args:
-            {}
+            {GENERATE_FUNCTION_TGIS_ARGS}
         Returns:
             Iterable[GeneratedTextStreamResult]
-        """.format(
-            GENERATE_FUNCTION_TGIS_ARGS
-        )
+        """
 
         if self._model_loaded:
             return self.tgis_generation_client.stream_generate(
