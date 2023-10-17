@@ -106,6 +106,11 @@ class FilteredSpanClassification(ModuleBase):
             any(tasks_intersection),
             f"classifier does not implement one of required tasks: {ALLOWED_TASKS}",
         )
+        error.value_check(
+            "<NLP41319815E>",
+            len(tasks_intersection) == 1,
+            f"classifier should implement only one task in: {ALLOWED_TASKS}",
+        )
         self.lang = lang
         self.tokenizer = tokenizer
         self.classifier = classifier
