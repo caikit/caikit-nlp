@@ -87,7 +87,7 @@ class FilteredSpanClassification(ModuleBase):
         error.type_check("<NLP79642537E>", ModuleBase, tokenizer=tokenizer)
         error.value_check(
             "<NLP42736791E>",
-            tokenizer.TASK_CLASS == TokenizationTask,
+            TokenizationTask in type(tokenizer).tasks,
             "tokenizer does not implement TokenizationTask",
         )
         error.type_check(
@@ -99,18 +99,24 @@ class FilteredSpanClassification(ModuleBase):
         error.type_check_all(
             "<NLP71653678E>", str, allow_none=True, labels_to_output=labels_to_output
         )
-        classification_task = classifier.TASK_CLASS
+        classification_tasks = type(classifier).tasks
+        tasks_intersection = [i for i in classification_tasks if i in ALLOWED_TASKS]
         error.value_check(
             "<NLP41319814E>",
-            classification_task in ALLOWED_TASKS,
+            any(tasks_intersection),
             f"classifier does not implement one of required tasks: {ALLOWED_TASKS}",
+        )
+        error.value_check(
+            "<NLP41319815E>",
+            len(tasks_intersection) == 1,
+            f"classifier should implement only one task in: {ALLOWED_TASKS}",
         )
         self.lang = lang
         self.tokenizer = tokenizer
         self.classifier = classifier
         self.default_threshold = default_threshold
         self.labels_to_output = labels_to_output
-        self.classification_task = classification_task
+        self.classification_task = tasks_intersection[0]
 
     ################################## API functions #############################################
 
