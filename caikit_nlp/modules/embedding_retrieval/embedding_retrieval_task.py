@@ -13,18 +13,17 @@
 # limitations under the License.
 
 # Standard
-from typing import List
 
 # First Party
 from caikit.core import TaskBase, task
 
 # Local
-from ...data_model import EmbeddingResult
+from ...data_model import Vector1D
 
 
 @task(
-    required_parameters={"input": List[str]},
-    output_type=EmbeddingResult,
+    required_parameters={"input": str},
+    output_type=Vector1D,
 )
 class EmbeddingRetrievalTask(TaskBase):
     pass

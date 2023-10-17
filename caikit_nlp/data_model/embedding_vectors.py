@@ -141,36 +141,3 @@ class Vector1D(DataObjectBase):
                 proto.data_pyfloatsequence.values.extend(values)
 
         return proto
-
-
-@dataobject(package="caikit_data_model.caikit_nlp")
-class EmbeddingResult(DataObjectBase):
-    """Data representation for an embedding matrix holding 2D vectors"""
-
-    results: List[Vector1D]
-
-    def __post_init__(self):
-        error.type_check("<NLP94336739E>", list, results=self.results)
-        error.type_check_all("<NLP94783841E>", Vector1D, results=self.results)
-
-    @classmethod
-    def from_json(cls, json_str):
-        """Fill in the vector data in an appropriate data_<float type sequence>"""
-
-        json_obj = json.loads(json_str) if isinstance(json_str, str) else json_str
-        for v in json_obj["results"]:
-            data = v.pop("data")
-            if data is not None:
-                v["data_pyfloatsequence"] = data
-        json_str = json.dumps(json_obj)
-        try:
-            # Parse given JSON into google.protobufs.pyext.cpp_message.GeneratedProtocolMessageType
-            parsed_proto = json_format.Parse(
-                json_str, cls.get_proto_class()(), ignore_unknown_fields=False
-            )
-
-            # Use from_proto to return the DataBase object from the parsed proto
-            return cls.from_proto(parsed_proto)
-
-        except json_format.ParseError as ex:
-            error("<NLPE>", ValueError(ex))

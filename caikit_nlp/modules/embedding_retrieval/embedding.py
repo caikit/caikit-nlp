@@ -13,7 +13,6 @@
 # limitations under the License.
 
 # Standard
-from typing import List
 import os
 
 # Third Party
@@ -28,7 +27,6 @@ import alog
 # Local
 from .embedding_retrieval_task import EmbeddingRetrievalTask
 from caikit_nlp.data_model.embedding_vectors import (
-    EmbeddingResult,
     NpFloat32Sequence,
     NpFloat64Sequence,
     PyFloatSequence,
@@ -49,7 +47,6 @@ class EmbeddingModule(ModuleBase):
 
     _ARTIFACTS_PATH_KEY = "artifacts_path"
     _ARTIFACTS_PATH_DEFAULT = "artifacts"
-    _HF_HUB_KEY = "hf_model"
 
     def __init__(
         self,
@@ -59,12 +56,12 @@ class EmbeddingModule(ModuleBase):
         self.model = model
 
     @classmethod
-    def load(cls, model_path: str) -> "EmbeddingModule":
+    def load(cls, model_path: str, *args, **kwargs) -> "EmbeddingModule":
         """Load model
 
         Args:
             model_path: str
-                Path to the config dir of the model to be loaded.
+                Path to the config dir under the model_id (where the config.yml lives)
 
         Returns:
             EmbeddingModule
@@ -72,55 +69,42 @@ class EmbeddingModule(ModuleBase):
         """
 
         config = ModuleConfig.load(model_path)
-
         artifacts_path = config.get(cls._ARTIFACTS_PATH_KEY)
-        if artifacts_path:
-            model_name_or_path = os.path.abspath(
-                os.path.join(model_path, artifacts_path)
-            )
-            error.dir_check("<NLP34197772E>", model_name_or_path)
-        else:
-            # If no artifacts_path, look for hf_model Hugging Face model by name (or path)
-            model_name_or_path = config.get(cls._HF_HUB_KEY)
-            error.value_check(
-                "<NLP07391618E>",
-                model_name_or_path,
-                ValueError(
-                    f"Model config missing '{cls._ARTIFACTS_PATH_KEY}' or '{cls._HF_HUB_KEY}'"
-                ),
-            )
 
-        return cls.bootstrap(model_name_or_path=model_name_or_path)
+        error.value_check(
+            "<NLP07391618E>",
+            artifacts_path,
+            ValueError(f"Model config missing '{cls._ARTIFACTS_PATH_KEY}'"),
+        )
+
+        artifacts_path = os.path.abspath(os.path.join(model_path, artifacts_path))
+        error.dir_check("<NLP34197772E>", artifacts_path)
+
+        return cls.bootstrap(model_name_or_path=artifacts_path)
 
     def run(
-        self, input: List[str], **kwargs  # pylint: disable=redefined-builtin
-    ) -> EmbeddingResult:
+        self, input: str, **kwargs  # pylint: disable=redefined-builtin
+    ) -> Vector1D:
         """Run inference on model.
         Args:
-            input: List[str]
+            input: str
                 Input text to be processed
         Returns:
-            EmbeddingResult: the output
+            Vector1D: the output
         """
 
-        sentences: List[str]
-        if isinstance(input, str):
-            sentences = [input]
+        error.type_check("<NLP27491611E>", str, input=input)
+
+        embeddings = self.model.encode(input)
+
+        if embeddings.dtype == np.float32:
+            data = NpFloat32Sequence(embeddings)
+        elif embeddings.dtype == np.float64:
+            data = NpFloat64Sequence(embeddings)
         else:
-            sentences = input
+            data = PyFloatSequence(embeddings)
 
-        result = self.model.encode(sentences)
-
-        vectors: List[Vector1D] = []
-        for vector in result:
-            if vector.dtype == np.float32:
-                vectors.append(Vector1D(NpFloat32Sequence(vector)))
-            elif vector.dtype == np.float64:
-                vectors.append(Vector1D(NpFloat64Sequence(vector)))
-            else:
-                vectors.append(Vector1D(PyFloatSequence(vector)))
-
-        return EmbeddingResult(vectors)
+        return Vector1D(data)
 
     @classmethod
     def bootstrap(cls, model_name_or_path: str) -> "EmbeddingModule":
@@ -140,36 +124,36 @@ class EmbeddingModule(ModuleBase):
                 Path to model config
         """
 
-        error.type_check("<NLP82314992E>", str, model_path=model_path)
+        model_config_path = model_path  # because the param name is misleading
+
+        error.type_check("<NLP82314992E>", str, model_path=model_config_path)
         error.value_check(
             "<NLP40145207E>",
-            model_path is not None and model_path.strip(),
-            f"model_path '{model_path}' is invalid",
+            model_config_path is not None and model_config_path.strip(),
+            f"model_path '{model_config_path}' is invalid",
         )
 
-        model_path = os.path.abspath(
-            model_path.strip()
+        model_config_path = os.path.abspath(
+            model_config_path.strip()
         )  # No leading/trailing spaces sneaky weirdness
 
-        if os.path.exists(model_path):
-            error(
-                "<NLP44708517E>",
-                FileExistsError(f"model_path '{model_path}' already exists"),
-            )
-
+        os.makedirs(model_config_path, exist_ok=False)
         saver = ModuleSaver(
             module=self,
-            model_path=model_path,
+            model_path=model_config_path,
         )
 
-        # Save update config (artifacts_path) and save artifacts
-        with saver:
-            artifacts_path = saver.config.get(self._ARTIFACTS_PATH_KEY)
-            if not artifacts_path:
-                artifacts_path = self._ARTIFACTS_PATH_DEFAULT
-                saver.update_config({self._ARTIFACTS_PATH_KEY: artifacts_path})
-            if self.model:  # This condition allows for empty placeholders
-                artifacts_path = os.path.abspath(
-                    os.path.join(model_path, artifacts_path)
-                )
-                self.model.save(artifacts_path, create_model_card=True)
+        # Get and update config (artifacts_path)
+        artifacts_path = saver.config.get(self._ARTIFACTS_PATH_KEY)
+        if not artifacts_path:
+            artifacts_path = self._ARTIFACTS_PATH_DEFAULT
+            saver.update_config({self._ARTIFACTS_PATH_KEY: artifacts_path})
+
+        # Save the model
+        artifacts_path = os.path.abspath(
+            os.path.join(model_config_path, artifacts_path)
+        )
+        self.model.save(artifacts_path, create_model_card=True)
+
+        # Save the config
+        ModuleConfig(saver.config).save(model_config_path)

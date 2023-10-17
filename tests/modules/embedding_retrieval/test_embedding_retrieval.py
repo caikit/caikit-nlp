@@ -6,56 +6,51 @@ import tempfile
 
 # Third Party
 from pytest import approx
+import numpy as np
 import pytest
 
 # Local
-from caikit_nlp.data_model import EmbeddingResult, Vector1D
+from caikit_nlp.data_model import Vector1D
 from caikit_nlp.modules.embedding_retrieval import EmbeddingModule
 from tests.fixtures import SEQ_CLASS_MODEL
 
 ## Setup ########################################################################
 
-# Bootstrapped sequence classification model for reusability across tests
+# Bootstrapped sequence classification model for reuse across tests
 # .bootstrap is tested separately in the first test
 BOOTSTRAPPED_MODEL = EmbeddingModule.bootstrap(SEQ_CLASS_MODEL)
 
-TEXTS = [
-    "The quick brown fox jumps over the lazy dog.",
-    "Once upon a time in a land far away",
-]
+INPUT = "The quick brown fox jumps over the lazy dog."
 
 ## Tests ########################################################################
-# Exact numbers here from the tiny model are not particularly important,
-# but we check them here to make sure that the arrays are re-ordered correctly
 
 
-def test_bootstrap_and_run_list():
+def _assert_is_expected_vector(vector):
+    assert isinstance(vector, Vector1D)
+    assert isinstance(vector.data.values[0], np.float32)
+    assert len(vector.data.values) == 32
+    # Just testing a few values for readability
+    assert approx(vector.data.values[0]) == 0.3244932293891907
+    assert approx(vector.data.values[1]) == -0.4934631288051605
+    assert approx(vector.data.values[2]) == 0.5721234083175659
+
+
+def test_bootstrap_and_run():
     """Check if we can bootstrap and run embedding"""
     model = EmbeddingModule.bootstrap(SEQ_CLASS_MODEL)
-    embedding_result = model.run(TEXTS)
-
-    assert isinstance(embedding_result, EmbeddingResult)
-    assert (
-        len(embedding_result.results) == 2 == len(TEXTS)
-    )  # 2 vectors for 2 input sentences
-    assert isinstance(embedding_result.results[0], Vector1D)
-    assert len(embedding_result.results[0].data.values) == 32
-    assert approx(embedding_result.results[0].data.values[0]) == 0.3244932293891907
-    assert approx(embedding_result.results[1].data.values[1]) == -0.3782769441604614
-    assert approx(embedding_result.results[1].data.values[2]) == 0.7745956
+    vector = model.run(INPUT)
+    _assert_is_expected_vector(vector)
 
 
-def test_bootstrap_and_run_str():
-    """Check if we can bootstrap and run when given a string as input"""
+def test_run_type_check():
+    """Input cannot be a list"""
     model = BOOTSTRAPPED_MODEL
-    embedding_result = model.run(TEXTS[0])  # string input will be converted to list
-    assert isinstance(embedding_result, EmbeddingResult)
-    assert len(embedding_result.results) == 1  # 1 vector for one input sentence
-    assert isinstance(embedding_result.results[0], Vector1D)
-    assert approx(embedding_result.results[0].data.values[0]) == 0.32449323
+    with pytest.raises(TypeError):
+        model.run([INPUT])
+        pytest.fail("Should not reach here")
 
 
-def test_load_save_and_run_model():
+def test_save_load_and_run_model():
     """Check if we can load and run a saved model successfully"""
     model_id = "model_id"
     with tempfile.TemporaryDirectory(suffix="-1st") as model_dir:
@@ -63,16 +58,8 @@ def test_load_save_and_run_model():
         BOOTSTRAPPED_MODEL.save(model_path)
         new_model = EmbeddingModule.load(model_path)
 
-    embedding_result = new_model.run(input=TEXTS)
-    assert isinstance(embedding_result, EmbeddingResult)
-    assert (
-        len(embedding_result.results) == 2 == len(TEXTS)
-    )  # 2 vectors for 2 input sentences
-    assert isinstance(embedding_result.results[0], Vector1D)
-    assert len(embedding_result.results[0].data.values) == 32
-    assert approx(embedding_result.results[0].data.values[0]) == 0.3244932293891907
-    assert approx(embedding_result.results[1].data.values[1]) == -0.3782769441604614
-    assert approx(embedding_result.results[1].data.values[2]) == 0.7745956
+    vector = new_model.run(input=INPUT)
+    _assert_is_expected_vector(vector)
 
 
 @pytest.mark.parametrize(
