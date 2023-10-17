@@ -17,7 +17,6 @@ import os
 
 # Third Party
 from sentence_transformers import SentenceTransformer
-import numpy as np
 
 # First Party
 from caikit.core import ModuleBase, ModuleConfig, ModuleSaver, module
@@ -26,12 +25,7 @@ import alog
 
 # Local
 from .embedding_retrieval_task import EmbeddingRetrievalTask
-from caikit_nlp.data_model.embedding_vectors import (
-    NpFloat32Sequence,
-    NpFloat64Sequence,
-    PyFloatSequence,
-    Vector1D,
-)
+from caikit_nlp.data_model.embedding_vectors import Vector1D
 
 logger = alog.use_channel("<EMBD_BLK>")
 error = error_handler.get(logger)
@@ -92,19 +86,9 @@ class EmbeddingModule(ModuleBase):
         Returns:
             Vector1D: the output
         """
-
         error.type_check("<NLP27491611E>", str, input=input)
 
-        embeddings = self.model.encode(input)
-
-        if embeddings.dtype == np.float32:
-            data = NpFloat32Sequence(embeddings)
-        elif embeddings.dtype == np.float64:
-            data = NpFloat64Sequence(embeddings)
-        else:
-            data = PyFloatSequence(embeddings)
-
-        return Vector1D(data)
+        return Vector1D.from_embeddings(self.model.encode(input))
 
     @classmethod
     def bootstrap(cls, model_name_or_path: str) -> "EmbeddingModule":

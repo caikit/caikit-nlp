@@ -44,7 +44,7 @@ class NpFloat32Sequence(DataObjectBase):
 
     @classmethod
     def from_proto(cls, proto):
-        values = [np.float32(x) for x in proto.values]
+        values = np.asarray(proto.values, dtype=np.float32)
         return cls(values)
 
 
@@ -55,7 +55,7 @@ class NpFloat64Sequence(DataObjectBase):
 
     @classmethod
     def from_proto(cls, proto):
-        values = [np.float64(x) for x in proto.values]
+        values = np.asarray(proto.values, dtype=np.float64)
         return cls(values)
 
 
@@ -76,6 +76,16 @@ class Vector1D(DataObjectBase):
             hasattr(self.data, "values"),
             ValueError("Vector1D requires a float sequence data object with values."),
         )
+
+    @classmethod
+    def from_embeddings(cls, embeddings):
+        if embeddings.dtype == np.float32:
+            data = NpFloat32Sequence(embeddings)
+        elif embeddings.dtype == np.float64:
+            data = NpFloat64Sequence(embeddings)
+        else:
+            data = PyFloatSequence(embeddings)
+        return cls(data=data)
 
     @classmethod
     def from_json(cls, json_str):
@@ -105,7 +115,9 @@ class Vector1D(DataObjectBase):
         return {
             "data": {
                 # coerce numpy.ndarray and numpy.float32 into JSON serializable list of floats
-                "values": [float(x) for x in values]
+                "values": values.tolist()
+                if isinstance(values, np.ndarray)
+                else values
             }
         }
 
