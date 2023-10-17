@@ -100,23 +100,18 @@ class FilteredSpanClassification(ModuleBase):
             "<NLP71653678E>", str, allow_none=True, labels_to_output=labels_to_output
         )
         classification_tasks = type(classifier).tasks
+        tasks_intersection = [i for i in classification_tasks if i in ALLOWED_TASKS]
         error.value_check(
             "<NLP41319814E>",
-            any([i for i in classification_tasks if i in ALLOWED_TASKS]),
+            any(tasks_intersection),
             f"classifier does not implement one of required tasks: {ALLOWED_TASKS}",
-        )
-        classification_task_set = set(classification_tasks)
-        error.value_check(
-            "<NLP41319815E>",
-            len(classification_task_set) == 1,
-            f"classifier should implement only one task in: {ALLOWED_TASKS}",
         )
         self.lang = lang
         self.tokenizer = tokenizer
         self.classifier = classifier
         self.default_threshold = default_threshold
         self.labels_to_output = labels_to_output
-        self.classification_task = list(classification_task_set)[0]
+        self.classification_task = tasks_intersection[0]
 
     ################################## API functions #############################################
 
