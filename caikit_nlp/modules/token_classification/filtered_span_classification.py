@@ -87,7 +87,7 @@ class FilteredSpanClassification(ModuleBase):
         error.type_check("<NLP79642537E>", ModuleBase, tokenizer=tokenizer)
         error.value_check(
             "<NLP42736791E>",
-            TokenizationTask in tokenizer._TASK_CLASSES,
+            TokenizationTask in type(tokenizer).tasks,
             "tokenizer does not implement TokenizationTask",
         )
         error.type_check(
@@ -99,7 +99,7 @@ class FilteredSpanClassification(ModuleBase):
         error.type_check_all(
             "<NLP71653678E>", str, allow_none=True, labels_to_output=labels_to_output
         )
-        classification_tasks = classifier._TASK_CLASSES
+        classification_tasks = type(classifier).tasks
         error.value_check(
             "<NLP41319814E>",
             any([i for i in classification_tasks if i in ALLOWED_TASKS]),
