@@ -29,6 +29,7 @@ from .config import *
 from .data_model import *
 from .modules import *
 from .resources import *
+from .version import __version__, __version_tuple__
 
 # Configure the library with library-specific configuration file
 CONFIG_PATH = os.path.realpath(
