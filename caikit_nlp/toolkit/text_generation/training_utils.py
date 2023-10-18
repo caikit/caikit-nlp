@@ -152,7 +152,9 @@ def preprocess_function(
     mapped_dataset = dataset.map(
         base_model.tokenize_function,
         fn_kwargs=fn_kwargs,
-        batched=base_model.REQUIRES_TOKEN_UNWRAPPING,
+        # Temporary hardwire until the below can be fixed.
+        batched = False,         
+        #batched=base_model.REQUIRES_TOKEN_UNWRAPPING,
         # Drop the input / output columns; we need to do this for dimensions to play
         # happily when operating on batched inputs for causal language modeling.
         remove_columns=["input", "output"],
@@ -184,7 +186,7 @@ def launch_training(
         else:
             error("<NLP26155082E>", "could not resolve trainer. Check base model type!")
 
-    breakpoint()
+    #breakpoint()
 
     # Start training via Trainer.train function
     result = trainer.train()
