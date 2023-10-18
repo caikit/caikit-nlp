@@ -1060,7 +1060,9 @@ class PeftPromptTuning(ModuleBase):
                         optimizer.zero_grad()
                         step_loss_log[step_count] = loss
                         step_count += 1
-                except torch.cuda.OutOfMemoryError:
+                except (
+                    torch.cuda.OutOfMemoryError  # pylint: disable=catching-non-exception
+                ):
                     error(
                         "<NLP07175292E>",
                         MemoryError("Not enough memory available for training!"),

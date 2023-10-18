@@ -35,8 +35,10 @@ dependencies = [
     "peft@git+https://github.com/huggingface/peft.git#8c17d556a8fe9522e10d73d7bd3fad46a6ecae14"
 ]
 
-[tool.setuptools]
-packages = ["caikit_nlp"]
+[tool.setuptools.packages.find]
+exclude = ["tests", "tests.*"]
+namespaces = false
+
 
 [tool.setuptools_scm]
 version_file = "caikit_nlp/_version.py"
