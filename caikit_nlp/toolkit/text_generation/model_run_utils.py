@@ -34,7 +34,7 @@ from caikit.interfaces.nlp.data_model import (
 import alog
 
 # Local
-from ...data_model import ExponentialDecayLengthPenalty
+from caikit_nlp.data_model import ExponentialDecayLengthPenalty
 
 log = alog.use_channel("RUN_UTILS")
 error = error_handler.get(log)
@@ -111,6 +111,7 @@ class Streamer(TextStreamer):
 
 
 class SequenceStoppingCriteria(StoppingCriteria):
+    # pylint: disable-next=super-init-not-called # false positive: StoppingCriteria is an abc and has no __init__
     def __init__(self, target_sequence_ids):
         self.target_sequence_ids = target_sequence_ids
 
