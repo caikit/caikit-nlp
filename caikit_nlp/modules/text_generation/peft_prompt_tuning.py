@@ -472,7 +472,7 @@ class PeftPromptTuning(ModuleBase):
                 checkpoint_dir,
                 batch_size,
                 num_epochs,
-                random_seed,
+                cls.RANDOM_SEED,
                 learning_rate,
                 accumulate_steps,
                 max_steps=infer_max_steps(num_epochs, batch_size, training_dataset),
