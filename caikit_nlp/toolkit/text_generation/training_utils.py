@@ -153,7 +153,7 @@ def preprocess_function(
         base_model.tokenize_function,
         fn_kwargs=fn_kwargs,
         # Temporary hardwire until the below can be fixed.
-        batched = False,         
+        batched = False,
         #batched=base_model.REQUIRES_TOKEN_UNWRAPPING,
         # Drop the input / output columns; we need to do this for dimensions to play
         # happily when operating on batched inputs for causal language modeling.
