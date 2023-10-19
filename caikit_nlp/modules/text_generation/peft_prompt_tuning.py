@@ -31,10 +31,7 @@ from peft import (
     TaskType,
     get_peft_model,
 )
-from transformers import (
-    AutoModelForCausalLM,
-    default_data_collator,
-)
+from transformers import AutoModelForCausalLM, default_data_collator
 from transformers.models.auto.tokenization_auto import AutoTokenizer
 import numpy as np
 import torch
