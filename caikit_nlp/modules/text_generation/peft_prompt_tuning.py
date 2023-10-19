@@ -343,9 +343,6 @@ class PeftPromptTuning(ModuleBase):
             PeftPromptTuning
                 Instance of this class with tuned prompt vectors.
         """
-        error.value_check(
-            "<NLP46653367E>", len(train_stream) > 0, "train_stream cannot be empty"
-        )
 
         # Configure random seed
         transformers.set_seed(seed)
