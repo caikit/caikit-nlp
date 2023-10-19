@@ -81,9 +81,6 @@ GENERATE_FUNCTION_ARGS = """
         The value used to modulate the next token probabilities.
         Only applicable when decoding_method is SAMPLING.
         Default: 1.0 - means disabled - equivalent to 1.0
-    seed: numpy.uint64
-        Random seed to control sampling. Only applicable when decoding_method
-        is SAMPLING. Default: None
     repetition_penalty: float
         The more a token is used within generation the more it is penalized
         to not be picked in successive generation passes.
@@ -100,6 +97,9 @@ GENERATE_FUNCTION_ARGS = """
         of exponential decay
     stop_sequences: List[str]
         List of strings to be used as stopping criteria
+    seed: numpy.uint64
+        Random seed to control sampling. Only applicable when decoding_method
+        is SAMPLING. Default: None
 """
 
 
