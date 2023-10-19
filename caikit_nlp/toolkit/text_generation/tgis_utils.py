@@ -128,7 +128,7 @@ def validate_inf_params(
 
     error.value_check(
         "<NLP28185346E>",
-        not top_p or top_p > 0.0 and top_p <= 1.0,
+        not top_p or 0 < top_p <= 1.0,
         "top_p must be > 0.0 and <= 1.0",
     )
 
@@ -166,7 +166,8 @@ def validate_inf_params(
         or seed
     ):
         raise ValueError(
-            "sampling parameters (temperature/top_k/top_p/typical_p/seed) aren't applicable in greedy decoding mode"
+            "sampling parameters (temperature/top_k/top_p/typical_p/seed) aren't "
+            "applicable in greedy decoding mode"
         )
 
 

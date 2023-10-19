@@ -166,3 +166,4 @@ prompt_prefixes
 sample_prompt
 transformers_cache
 generated_interfaces
+/caikit_nlp/_version.py
