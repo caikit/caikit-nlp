@@ -323,7 +323,8 @@ if __name__ == "__main__":
     dataset_info = SUPPORTED_DATASETS[args.dataset]
     warnings = {}
     if args.accumulate_steps != 1:
-        warnings[Warnings.GRADIENT_ACCUMULATION] = f"WARNING: Only a value of 1 is supported. Submitted value: {args.accumulate_steps}"
+        warnings[Warnings.GRADIENT_ACCUMULATION] = \
+            f"WARNING: Only a value of 1 is supported. Submitted value: {args.accumulate_steps}"
         args.accumulate_steps = 1
     show_experiment_configuration(args, dataset_info, model_type, warnings)
     # Convert the loaded dataset to a stream

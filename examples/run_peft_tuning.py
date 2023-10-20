@@ -50,7 +50,7 @@ from caikit_nlp.resources.pretrained_model import (
 
 class Warnings(Enum):
     GRADIENT_ACCUMULATION = 1
-    
+
 def subsample_stream(
     train_stream: DataStream[GenerationTrainRecord], num_shots: int
 ) -> DataStream[GenerationTrainRecord]:
@@ -395,7 +395,8 @@ if __name__ == "__main__":
     dataset_info = SUPPORTED_DATASETS[args.dataset]
     warnings = {}
     if args.accumulate_steps != 1:
-        warnings[Warnings.GRADIENT_ACCUMULATION] = f"WARNING: Only a value of 1 is supported. Submitted value: {args.accumulate_steps}"
+        warnings[Warnings.GRADIENT_ACCUMULATION] = \
+            f"WARNING: Only a value of 1 is supported. Submitted value: {args.accumulate_steps}"
         args.accumulate_steps = 1
     show_experiment_configuration(args, dataset_info, model_type, warnings)
     # Convert the loaded dataset to a stream
