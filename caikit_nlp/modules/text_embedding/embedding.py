@@ -13,19 +13,38 @@
 # limitations under the License.
 
 # Standard
+from typing import List, Optional
 import os
 
 # Third Party
 from sentence_transformers import SentenceTransformer
+from sentence_transformers.util import (
+    cos_sim,
+    dot_score,
+    normalize_embeddings,
+    semantic_search,
+)
 
 # First Party
 from caikit.core import ModuleBase, ModuleConfig, ModuleSaver, module
+from caikit.core.data_model.json_dict import JsonDict
 from caikit.core.exceptions import error_handler
 import alog
 
 # Local
-from .embedding_tasks import EmbeddingTask
-from caikit_nlp.data_model.embedding_vectors import EmbeddingResult, Vector1D
+from .embedding_tasks import EmbeddingTask, EmbeddingTasks
+from .rerank_task import RerankTask, RerankTasks
+from .sentence_similarity_task import SentenceSimilarityTask, SentenceSimilarityTasks
+from caikit_nlp.data_model import (
+    EmbeddingResult,
+    ListOfVector1D,
+    RerankPrediction,
+    RerankQueryResult,
+    RerankScore,
+    SentenceListScores,
+    SentenceScores,
+    Vector1D,
+)
 
 logger = alog.use_channel("TXT_EMB")
 error = error_handler.get(logger)
@@ -35,7 +54,14 @@ error = error_handler.get(logger)
     "eeb12558-b4fa-4f34-a9fd-3f5890e9cd3f",
     "EmbeddingModule",
     "0.0.1",
-    EmbeddingTask,
+    tasks=[
+        EmbeddingTask,
+        EmbeddingTasks,
+        SentenceSimilarityTask,
+        SentenceSimilarityTasks,
+        RerankTask,
+        RerankTasks,
+    ],
 )
 class EmbeddingModule(ModuleBase):
 
@@ -76,19 +102,39 @@ class EmbeddingModule(ModuleBase):
 
         return cls.bootstrap(model_name_or_path=artifacts_path)
 
-    def run(
-        self, input: str, **kwargs  # pylint: disable=redefined-builtin
-    ) -> EmbeddingResult:
-        """Run inference on model.
+    @EmbeddingTask.taskmethod()
+    def run_embedding(self, text: str) -> EmbeddingResult:  # pylint: disable=redefined-builtin
+        """Get embedding for a string.
         Args:
-            input: str
+            text: str
                 Input text to be processed
         Returns:
             EmbeddingResult: the result vector nicely wrapped up
         """
-        error.type_check("<NLP27491611E>", str, input=input)
+        error.type_check("<NLP27491611E>", str, text=text)
 
-        return EmbeddingResult(Vector1D.from_vector(self.model.encode(input)))
+        return EmbeddingResult(Vector1D.from_vector(self.model.encode(text)))
+
+    @EmbeddingTasks.taskmethod()
+    def run_embeddings(
+        self, texts: List[str]  # pylint: disable=redefined-builtin
+    ) -> ListOfVector1D:
+        """Run inference on model.
+        Args:
+            texts: List[str]
+                List of input texts to be processed
+        Returns:
+            List[Vector1D]: List vectors. One for each input text (in order).
+             Each vector is a list of floats (supports various float types).
+        """
+        if isinstance(
+            texts, str
+        ):  # encode allows str, but the result would lack a dimension
+            texts = [texts]
+
+        embeddings = self.model.encode(texts)
+        results = [Vector1D.from_embeddings(e) for e in embeddings]
+        return ListOfVector1D(results=results)
 
     @classmethod
     def bootstrap(cls, model_name_or_path: str) -> "EmbeddingModule":

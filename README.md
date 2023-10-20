@@ -8,13 +8,18 @@ Caikit-NLP implements concept of "task" from `caikit` framework to define (and c
 
 Capabilities provided by `caikit-nlp`:
 
-| Task                 | Module(s)                                 | Salient Feature(s)                                                                                                                                          |
-|----------------------|-------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Text Generation      | 1. `PeftPromptTuning` <br> 2. `TextGeneration` | 1. Prompt Tuning, Multi-task Prompt tuning <br> 2. Fine-tuning  Both modules above provide optimized inference capability using Text Generation Inference Server |
-| Text Classification  | 1. `SequenceClassification`               | 1. (Work in progress..)                                                                                                                                     |
-| Token Classification | 1. `FilteredSpanClassification`           | 1. (Work in progress..)                                                                                                                                     |
-| Tokenization         | 1. `RegexSentenceSplitter`                | 1. Demo purposes only                                                                                                                                       |
-| Embedding         | [COMING SOON]                | [COMING SOON]                                                                                                                                       |
+| Task                    | Module(s)                                      | Salient Feature(s)                                                                                                                                                         |
+|-------------------------|------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| TextGenerationTask      | 1. `PeftPromptTuning` <br> 2. `TextGeneration` | 1. Prompt Tuning, Multi-task Prompt tuning <br> 2. Fine-tuning  Both modules above provide optimized inference capability using Text Generation Inference Server           |
+| TextClassificationTask  | 1. `SequenceClassification`                    | 1. (Work in progress..)                                                                                                                                                    |
+| TokenClassificationTask | 1. `FilteredSpanClassification`                | 1. (Work in progress..)                                                                                                                                                    |
+| TokenizationTask        | 1. `RegexSentenceSplitter`                     | 1. Demo purposes only                                                                                                                                                      |
+| EmbeddingTask           | 1. `TextEmbedding`                             | 1. text/embedding from a local sentence-transformers model                                                                                                                 
+| EmbeddingTasks          | 1. `TextEmbedding`                             | 1. Same as EmbeddingTask but multiple sentences (texts) as input and corresponding list of outputs.                                                                        
+| SentenceSimilarityTask  | 1. `TextEmbedding`                             | 1. text/sentence-similarity from a local sentence-transformers model (Hugging Face style API returns scores only in order of input sentences)                              |
+| SentenceSimilarityTasks | 1. `TextEmbedding`                             | 1. Same as SentenceSimilarityTask but multiple source_sentences (each to be compared to same list of sentences) as input and corresponding lists of outputs.               |
+| RerankTask              | 1. `TextEmbedding`                             | 1. text/rerank from a local sentence-transformers model (Cohere style API returns top_n scores in order of relevance with index to source and optionally returning inputs) |
+| RerankTasks             | 1. `TextEmbedding`                             | 1. Same as RerankTask but multiple queries as input and corresponding lists of outputs. Same list of documents for all queries.                                            |
 
 ## Getting Started
 

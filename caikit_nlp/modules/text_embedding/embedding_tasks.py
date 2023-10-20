@@ -13,17 +13,27 @@
 # limitations under the License.
 
 # Standard
+from typing import List
 
 # First Party
 from caikit.core import TaskBase, task
 
 # Local
 from ...data_model import EmbeddingResult
+from ...data_model import ListOfVector1D
 
 
 @task(
-    required_parameters={"input": str},
+    required_parameters={"text": str},
     output_type=EmbeddingResult,
 )
 class EmbeddingTask(TaskBase):
-    pass
+    """Return a text embedding for the input text string"""
+
+
+@task(
+    required_parameters={"texts": List[str]},
+    output_type=ListOfVector1D,
+)
+class EmbeddingTasks(TaskBase):
+    """Return a text embedding for each text string in the input list"""

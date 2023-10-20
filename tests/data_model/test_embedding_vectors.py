@@ -113,3 +113,18 @@ def test_vector1d_dm(float_seq_class, random_values, float_type):
     _assert_array_check(
         dm_from_json, random_values, float
     )  # NOTE: always float after json
+
+
+@pytest.mark.parametrize(
+    "float_seq_class, random_values, float_type",
+    [
+        (dm.PyFloatSequence, random_python_vector1d_float, float),
+        (dm.NpFloat32Sequence, random_numpy_vector1d_float32, np.float32),
+        (dm.NpFloat64Sequence, random_numpy_vector1d_float64, np.float64),
+    ],
+)
+def test_vector1d_dm_from_embeddings(float_seq_class, random_values, float_type):
+    v = dm.Vector1D.from_embeddings(random_values)
+    assert isinstance(v.data, float_seq_class)
+    assert isinstance(v.data.values[0], float_type)
+    _assert_array_check(v, random_values, float_type)

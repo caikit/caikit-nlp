@@ -19,3 +19,4 @@ from . import embedding_vectors, generation
 from .embedding_vectors import *
 from .generation import *
 from .reranker import *
+from .sentence_similarity import *

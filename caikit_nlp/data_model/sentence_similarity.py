@@ -11,40 +11,26 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+"""Data structures for embedding vector representations
+"""
 # Standard
 from typing import List
 
 # First Party
-from caikit.core import TaskBase, task
-from caikit.core.data_model.json_dict import JsonDict
+from caikit.core import DataObjectBase, dataobject
 from caikit.core.exceptions import error_handler
 import alog
 
-# Local
-from caikit_nlp.data_model.reranker import RerankPrediction, RerankQueryResult
-
-logger = alog.use_channel("<SMPL_BLK>")
-error = error_handler.get(logger)
+log = alog.use_channel("DATAM")
+error = error_handler.get(log)
 
 
-@task(
-    required_parameters={
-        "documents": List[JsonDict],
-        "query": str,
-    },
-    output_type=RerankQueryResult,
-)
-class RerankTask(TaskBase):
-    pass
+@dataobject(package="caikit_data_model.caikit_nlp")
+class SentenceScores(DataObjectBase):
+    scores: List[float]
 
 
-@task(
-    required_parameters={
-        "documents": List[JsonDict],
-        "queries": List[str],
-    },
-    output_type=RerankPrediction,
-)
-class ReranksTask(TaskBase):
-    pass
+@dataobject(package="caikit_data_model.caikit_nlp")
+class SentenceListScores(DataObjectBase):
+
+    results: List[SentenceScores]

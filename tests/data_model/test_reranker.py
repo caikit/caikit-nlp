@@ -49,20 +49,23 @@ input_documents = [input_document, input_random_document]
 
 input_score = {
     "document": input_document,
-    "corpus_id": 1234,
+    "index": 1234,
     "score": 9876.54321,
+    "text": "this is the input text",
 }
 
 input_random_score = {
     "document": input_random_document,
-    "corpus_id": random.randint(-99999, 99999),
+    "index": random.randint(-99999, 99999),
     "score": random.uniform(-99999, 99999),
+    "text": "".join(random.choices(string.printable, k=100)),
 }
 
 input_random_score_3 = {
     "document": {"text": "random foo3"},
-    "corpus_id": random.randint(-99999, 99999),
+    "index": random.randint(-99999, 99999),
     "score": random.uniform(-99999, 99999),
+    "text": "".join(random.choices(string.printable, k=100)),
 }
 
 input_scores = [dm.RerankScore(**input_score), dm.RerankScore(**input_random_score)]
@@ -70,9 +73,24 @@ input_scores2 = [
     dm.RerankScore(**input_random_score),
     dm.RerankScore(**input_random_score_3),
 ]
+
+input_result_1 = {"query": "foo", "scores": input_scores}
+input_result_2 = {"query": "bar", "scores": input_scores2}
 input_results = [
-    dm.RerankQueryResult(scores=input_scores),
-    dm.RerankQueryResult(scores=input_scores2),
+    dm.RerankQueryResult(**input_result_1),
+    dm.RerankQueryResult(**input_result_2),
+]
+
+input_sentence_similarity_scores_1 = {
+    "scores": [random.uniform(-99999, 99999) for _ in range(10)]
+}
+input_sentence_similarity_scores_2 = {
+    "scores": [random.uniform(-99999, 99999) for _ in range(10)]
+}
+
+input_sentence_similarities_scores = [
+    dm.SentenceScores(**input_sentence_similarity_scores_1),
+    dm.SentenceScores(**input_sentence_similarity_scores_2),
 ]
 
 
@@ -82,11 +100,12 @@ input_results = [
 @pytest.mark.parametrize(
     "data_object, inputs",
     [
-        (dm.RerankDocuments, {"documents": input_documents}),
         (dm.RerankScore, input_score),
         (dm.RerankScore, input_random_score),
-        (dm.RerankQueryResult, {"scores": input_scores}),
+        (dm.RerankQueryResult, input_result_1),
         (dm.RerankPrediction, {"results": input_results}),
+        (dm.SentenceScores, input_sentence_similarity_scores_1),
+        (dm.SentenceListScores, {"results": input_sentence_similarities_scores}),
     ],
 )
 def test_data_object(data_object, inputs):
