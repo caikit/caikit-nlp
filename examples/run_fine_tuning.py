@@ -312,6 +312,9 @@ if __name__ == "__main__":
     # Unpack the dataset dictionary into a loaded dataset & verbalizer
     dataset_info = SUPPORTED_DATASETS[args.dataset]
     show_experiment_configuration(args, dataset_info, model_type)
+    if args.accumulate_steps:
+        print_colored(f"WARNING: --accumulate_steps argument set to {args.accumulate_steps}. \
+                      This argument is currently ignored, and will be set to 1")    
     # Convert the loaded dataset to a stream
     print_colored("[Loading the dataset...]")
     # TODO - conditionally enable validation stream

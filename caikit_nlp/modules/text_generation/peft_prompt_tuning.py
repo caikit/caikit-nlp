@@ -288,7 +288,7 @@ class PeftPromptTuning(ModuleBase):
         batch_size: Optional[int] = 8,
         max_source_length: Optional[int] = 256,
         max_target_length: Optional[int] = 128,
-        accumulate_steps: Optional[int] = 32,
+        accumulate_steps: Optional[int] = 1,
         torch_dtype: Optional[str] = None,  # TODO: Optional[Union[torch.dtype, str]]
         silence_progress_bars: Optional[bool] = True,
         seed: int = RANDOM_SEED,

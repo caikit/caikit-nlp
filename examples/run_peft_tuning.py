@@ -379,7 +379,6 @@ def show_experiment_configuration(args, dataset_info, model_type) -> None:
     # Log and sleep for a few seconds in case people actually want to read this...
     print_colored("\n".join([print_str for print_str in print_strs if print_str]))
 
-
 if __name__ == "__main__":
     configure_random_seed_and_logging()
     args = parse_args()
@@ -387,6 +386,9 @@ if __name__ == "__main__":
     # Unpack the dataset dictionary into a loaded dataset & verbalizer
     dataset_info = SUPPORTED_DATASETS[args.dataset]
     show_experiment_configuration(args, dataset_info, model_type)
+    if args.accumulate_steps:
+        print_colored(f"WARNING: --accumulate_steps argument set to {args.accumulate_steps}. \
+                      This argument is currently ignored, and will be set to 1")
     # Convert the loaded dataset to a stream
     print_colored("[Loading the dataset...]")
     # TODO - conditionally enable validation stream

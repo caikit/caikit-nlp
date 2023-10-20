@@ -163,7 +163,7 @@ class TextGeneration(ModuleBase):
         max_target_length: int = 128,
         batch_size: int = 8,
         num_epochs: int = 5,
-        accumulate_steps: int = 32,
+        accumulate_steps: int = 1,
         random_seed: int = RANDOM_SEED,
         learning_rate: float = 2e-5,
         use_iterable_dataset: bool = True,
