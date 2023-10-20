@@ -12,16 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# First Party
-from caikit.core import TaskBase, task
+# Standard
 from typing import List
 
+# First Party
+from caikit.core import TaskBase, task
+
+# Local
 from ...data_model import SentenceListScores, SentenceScores
 
 
 @task(
     required_parameters={"source_sentence": str, "sentences": List[str]},
-    output_type=SentenceScores
+    output_type=SentenceScores,
 )
 class SentenceSimilarityTask(TaskBase):
     """Compare the source_sentence to each of the sentences.
@@ -31,7 +34,7 @@ class SentenceSimilarityTask(TaskBase):
 
 @task(
     required_parameters={"source_sentences": List[str], "sentences": List[str]},
-    output_type=SentenceListScores
+    output_type=SentenceListScores,
 )
 class SentenceSimilarityTasks(TaskBase):
     """Compare each of the source_sentences to each of the sentences.
