@@ -16,6 +16,7 @@ import pathlib
 import random
 import shutil
 import time
+from enum import Enum
 
 # Third Party
 from peft.tuners.multitask_prompt_tuning import MultitaskPromptTuningInit
@@ -47,7 +48,9 @@ from caikit_nlp.resources.pretrained_model import (
     PretrainedModelBase,
 )
 
-
+class Warnings(Enum):
+    GRADIENT_ACCUMULATION = 1
+    
 def subsample_stream(
     train_stream: DataStream[GenerationTrainRecord], num_shots: int
 ) -> DataStream[GenerationTrainRecord]:
@@ -337,7 +340,7 @@ def build_tuning_config(args: argparse.Namespace, dataset_info: DatasetInfo):
     return TuningConfig(**base_kwargs)
 
 
-def show_experiment_configuration(args, dataset_info, model_type) -> None:
+def show_experiment_configuration(args, dataset_info, model_type, warnings) -> None:
     """Show the complete configuration for this experiment, i.e., the model info,
     the resource type we built, the training params, metadata about the dataset where
     possible, and so on.
@@ -374,8 +377,13 @@ def show_experiment_configuration(args, dataset_info, model_type) -> None:
         "- Number of shots: [{}]".format(args.num_shots),
         "- Maximum source sequence length: [{}]".format(args.max_source_length),
         "- Maximum target sequence length: [{}]".format(args.max_target_length),
-        "- Gradient accumulation steps: [{}]".format(args.accumulate_steps),
     ]
+    gradient = "- Gradient accumulation steps: [{}]".format(args.accumulate_steps)
+    if Warnings.GRADIENT_ACCUMULATION in warnings:
+        gradient = "- Gradient accumulation steps: [{}] {}".format(
+            args.accumulate_steps, warnings[Warnings.GRADIENT_ACCUMULATION]) 
+    print_strs.append(gradient)
+
     # Log and sleep for a few seconds in case people actually want to read this...
     print_colored("\n".join([print_str for print_str in print_strs if print_str]))
 
@@ -385,10 +393,11 @@ if __name__ == "__main__":
     model_type = get_resource_type(args.model_name)
     # Unpack the dataset dictionary into a loaded dataset & verbalizer
     dataset_info = SUPPORTED_DATASETS[args.dataset]
-    show_experiment_configuration(args, dataset_info, model_type)
-    if args.accumulate_steps:
-        print_colored(f"WARNING: --accumulate_steps argument set to {args.accumulate_steps}. \
-                      This argument is currently ignored, and will be set to 1")
+    warnings = {}
+    if args.accumulate_steps != 1:
+        warnings[Warnings.GRADIENT_ACCUMULATION] = f"WARNING: Only a value of 1 is supported. Submitted value: {args.accumulate_steps}"
+        args.accumulate_steps = 1
+    show_experiment_configuration(args, dataset_info, model_type, warnings)
     # Convert the loaded dataset to a stream
     print_colored("[Loading the dataset...]")
     # TODO - conditionally enable validation stream
@@ -397,7 +406,7 @@ if __name__ == "__main__":
         train_stream = subsample_stream(train_stream, args.num_shots)
     # Init the resource & Build the tuning config from our dataset/arg info
     print_colored("[Loading the base model resource...]")
-    base_model = model_type.bootstrap(args.model_name, tokenizer_name=args.model_name, torch_dtype=args.torch_dtype)
+    base_model = model_type.bootstrap(args.model_name, tokenizer_name=args.model_name)
     tuning_config = build_tuning_config(args, dataset_info)
     # Then actually train the model & save it
     print_colored("[Starting the training...]")
@@ -410,7 +419,7 @@ if __name__ == "__main__":
         max_target_length=args.max_target_length,
         tuning_type=args.tuning_type,
         num_epochs=args.num_epochs,
-        learning_rate=args.learning_rate,
+        lr=args.learning_rate,
         batch_size=args.batch_size,
         verbalizer=dataset_info.verbalizer,
         silence_progress_bars=not args.verbose,

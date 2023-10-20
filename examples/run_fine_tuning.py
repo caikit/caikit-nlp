@@ -10,6 +10,7 @@ import argparse
 import json
 import os
 import shutil
+from enum import Enum
 
 # Third Party
 from tqdm import tqdm
@@ -37,6 +38,9 @@ from caikit_nlp.resources.pretrained_model import (
     HFAutoSeq2SeqLM,
     PretrainedModelBase,
 )
+
+class Warnings(Enum):
+    GRADIENT_ACCUMULATION = 1
 
 # TODO: Remove me once fine-tuning is out of WIP
 wip_decorator.disable_wip()
@@ -204,7 +208,7 @@ def validate_common_args(args: argparse.Namespace):
         shutil.rmtree(args.output_dir)
 
 
-def show_experiment_configuration(args, dataset_info, model_type) -> None:
+def show_experiment_configuration(args, dataset_info, model_type, warnings) -> None:
     """Show the complete configuration for this experiment, i.e., the model info,
     the resource type we built, the training params, metadata about the dataset where
     possible, and so on.
@@ -228,12 +232,18 @@ def show_experiment_configuration(args, dataset_info, model_type) -> None:
         "- Output Directory: [{}]".format(args.output_dir),
         "- Maximum source sequence length: [{}]".format(args.max_source_length),
         "- Maximum target sequence length: [{}]".format(args.max_target_length),
-        "- Gradient accumulation steps: [{}]".format(args.accumulate_steps),
         "- Enable evaluation: [{}]".format(args.evaluate),
         "- Evaluation metrics: [{}]".format(args.metrics),
         "- Torch dtype to use for training: [{}]".format(args.torch_dtype),
         "- Using iterable dataset: [{}]".format(args.iterable_dataset),
     ]
+
+    gradient = "- Gradient accumulation steps: [{}]".format(args.accumulate_steps)
+    if Warnings.GRADIENT_ACCUMULATION in warnings:
+        gradient = "- Gradient accumulation steps: [{}] {}".format(
+            args.accumulate_steps, warnings[Warnings.GRADIENT_ACCUMULATION]) 
+    print_strs.append(gradient)
+
     # Log and sleep for a few seconds in case people actually want to read this...
     print_colored("\n".join([print_str for print_str in print_strs if print_str]))
 
@@ -311,10 +321,11 @@ if __name__ == "__main__":
     model_type = get_resource_type(args.model_name)
     # Unpack the dataset dictionary into a loaded dataset & verbalizer
     dataset_info = SUPPORTED_DATASETS[args.dataset]
-    show_experiment_configuration(args, dataset_info, model_type)
-    if args.accumulate_steps:
-        print_colored(f"WARNING: --accumulate_steps argument set to {args.accumulate_steps}. \
-                      This argument is currently ignored, and will be set to 1")    
+    warnings = {}
+    if args.accumulate_steps != 1:
+        warnings[Warnings.GRADIENT_ACCUMULATION] = f"WARNING: Only a value of 1 is supported. Submitted value: {args.accumulate_steps}"
+        args.accumulate_steps = 1
+    show_experiment_configuration(args, dataset_info, model_type, warnings)
     # Convert the loaded dataset to a stream
     print_colored("[Loading the dataset...]")
     # TODO - conditionally enable validation stream
