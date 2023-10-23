@@ -534,16 +534,14 @@ class TextGeneration(ModuleBase):
         **kwargs,
     ) -> GeneratedTextResult:
 
+        f"""
+        Run the full text generation model.
+        Args:
+            {GENERATE_FUNCTION_ARGS}
+        Returns:
+            GeneratedTextResult
+                Generated text result produced by the model.
         """
-            Run the full text generation model.
-            Args:
-                {}
-            Returns:
-                GeneratedTextResult
-                    Generated text result produced by the model.
-        """.format(
-            GENERATE_FUNCTION_ARGS
-        )
 
         # TODO: Beam search currently not supported
 

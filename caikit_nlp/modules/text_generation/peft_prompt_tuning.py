@@ -162,24 +162,22 @@ class PeftPromptTuning(ModuleBase):
         top_p: Optional[float] = None,
         typical_p: Optional[float] = None,
         temperature: Optional[float] = None,
-        seed: Optional[np.uint64] = None,
         repetition_penalty: Optional[float] = None,
         max_time: Optional[float] = None,
         exponential_decay_length_penalty: Optional[
             Union[Tuple[int, float], ExponentialDecayLengthPenalty]
         ] = None,
         stop_sequences: Optional[List[str]] = None,
+        seed: Optional[np.uint64] = None,
     ) -> GeneratedTextResult:
+        f"""
+        Run the full text generation model.
+        Args:
+            {GENERATE_FUNCTION_ARGS}
+        Returns:
+            GeneratedTextResult
+                Generated text result produced by PEFT / Transformers.
         """
-            Run the full text generation model.
-            Args:
-                {}
-            Returns:
-                GeneratedTextResult
-                    Generated text result produced by PEFT / Transformers.
-        """.format(
-            GENERATE_FUNCTION_ARGS
-        )
 
         verbalized_text = render_verbalizer(self.verbalizer, {"input": text})
 
@@ -230,7 +228,7 @@ class PeftPromptTuning(ModuleBase):
         ] = None,
         stop_sequences: Optional[List[str]] = None,
     ) -> Iterable[GeneratedTextStreamResult]:
-        """Run the text generation model with output streaming
+        f"""Run the text generation model with output streaming
 
         NOTE: This implementation is marked as WIP since the API for
         HuggingFace streamer classes at time of implementation is still
@@ -238,13 +236,11 @@ class PeftPromptTuning(ModuleBase):
         Ref. https://huggingface.co/docs/transformers/v4.30.0/generation_strategies#streaming
 
         Args:
-            {}
+            {GENERATE_FUNCTION_ARGS}
 
         Returns:
             Iterable[GeneratedTextStreamResult]
-        """.format(
-            GENERATE_FUNCTION_ARGS
-        )
+        """
 
         # Apply the verbalizer to our text string
         verbalized_text = render_verbalizer(self.verbalizer, {"input": text})
@@ -1064,7 +1060,9 @@ class PeftPromptTuning(ModuleBase):
                         optimizer.zero_grad()
                         step_loss_log[step_count] = loss
                         step_count += 1
-                except torch.cuda.OutOfMemoryError:
+                except (
+                    torch.cuda.OutOfMemoryError  # pylint: disable=catching-non-exception
+                ):
                     error(
                         "<NLP07175292E>",
                         MemoryError("Not enough memory available for training!"),

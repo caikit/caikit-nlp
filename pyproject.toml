@@ -1,11 +1,11 @@
 [build-system]
-requires = ["flit_core >=3.2,<4"]
-build-backend = "flit_core.buildapi"
+requires = [
+    "setuptools>=60",
+    "setuptools-scm>=8.0"]
 
 [project]
 name = "caikit-nlp"
-# Not the actual current version: overwritten by CI
-version = "0.0.1"
+dynamic = ["version"]
 description = "Caikit NLP"
 license = {text = "Apache-2.0"}
 readme = "README.md"
@@ -14,7 +14,7 @@ classifiers=[
     "License :: OSI Approved :: Apache Software License"
 ]
 dependencies = [
-    "caikit[runtime-grpc,runtime-http]>=0.18.1,<0.21.0",
+    "caikit[runtime-grpc,runtime-http]>=0.22.0,<0.23.0",
     "caikit-tgis-backend>=0.1.17,<0.2.0",
     # TODO: loosen dependencies
     "accelerate>=0.22.0",
@@ -34,6 +34,14 @@ dependencies = [
     # pypi
     "peft@git+https://github.com/huggingface/peft.git#8c17d556a8fe9522e10d73d7bd3fad46a6ecae14"
 ]
+
+[tool.setuptools.packages.find]
+exclude = ["tests", "tests.*"]
+namespaces = false
+
+
+[tool.setuptools_scm]
+version_file = "caikit_nlp/_version.py"
 
 [project.urls]
 Source = "https://github.com/caikit/caikit-nlp"

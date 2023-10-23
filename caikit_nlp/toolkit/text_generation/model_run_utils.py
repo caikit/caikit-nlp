@@ -34,7 +34,7 @@ from caikit.interfaces.nlp.data_model import (
 import alog
 
 # Local
-from ...data_model import ExponentialDecayLengthPenalty
+from caikit_nlp.data_model import ExponentialDecayLengthPenalty
 
 log = alog.use_channel("RUN_UTILS")
 error = error_handler.get(log)
@@ -81,9 +81,6 @@ GENERATE_FUNCTION_ARGS = """
         The value used to modulate the next token probabilities.
         Only applicable when decoding_method is SAMPLING.
         Default: 1.0 - means disabled - equivalent to 1.0
-    seed: numpy.uint64
-        Random seed to control sampling. Only applicable when decoding_method
-        is SAMPLING. Default: None
     repetition_penalty: float
         The more a token is used within generation the more it is penalized
         to not be picked in successive generation passes.
@@ -100,6 +97,9 @@ GENERATE_FUNCTION_ARGS = """
         of exponential decay
     stop_sequences: List[str]
         List of strings to be used as stopping criteria
+    seed: numpy.uint64
+        Random seed to control sampling. Only applicable when decoding_method
+        is SAMPLING. Default: None
 """
 
 
@@ -111,6 +111,7 @@ class Streamer(TextStreamer):
 
 
 class SequenceStoppingCriteria(StoppingCriteria):
+    # pylint: disable-next=super-init-not-called # false positive: StoppingCriteria is an abc and has no __init__
     def __init__(self, target_sequence_ids):
         self.target_sequence_ids = target_sequence_ids
 
@@ -190,7 +191,7 @@ def generate_text_func(
     )
     inputs = {k: v.to(model.device) for k, v in tok_tensors.items()}
 
-    input_token_count = len(tok_tensors)
+    input_token_count = tok_tensors["input_ids"].size(1)
 
     gen_optional_params = __process_gen_args(
         tokenizer,
