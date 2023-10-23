@@ -108,7 +108,7 @@ def collect_trainer_arguments(
         "weight_decay": 0.01,
         "save_total_limit": 3,
         "gradient_accumulation_steps": accumulate_steps,
-        "gradient_checkpointing": True,
+        # "gradient_checkpointing": True,
         # huggingface configurations
         "push_to_hub": False,
         # dataset configurations
@@ -152,8 +152,8 @@ def preprocess_function(
     mapped_dataset = dataset.map(
         base_model.tokenize_function,
         fn_kwargs=fn_kwargs,
-        # Temporary hardwire until the below can be fixed.
-        batched = False,
+        # For now, we hardcode to False, since causal LM chunking is not exposed yet
+        batched=False,
         #batched=base_model.REQUIRES_TOKEN_UNWRAPPING,
         # Drop the input / output columns; we need to do this for dimensions to play
         # happily when operating on batched inputs for causal language modeling.
@@ -172,12 +172,16 @@ def launch_training(
     training_dataset,
     training_args,
     checkpoint_dir,
-    trainer=None,
+    caikit_resource=None,
     tokenizer=None,
 ) -> None:
     """Utility function to wrap trainer and execute training"""
-
-    if not trainer:
+    # If we have a caikit resource, grab the trainer through it
+    if caikit_resource is not None:
+        trainer = caikit_resource.get_trainer(
+            train_dataset=training_dataset, model=base_model, **training_args
+        )
+    else:
         # If trainer is not provided fetch it from base_model
         if hasattr(base_model, "get_trainer"):
             trainer = base_model.get_trainer(
