@@ -114,7 +114,7 @@ class HFAutoSeq2SeqLM(PretrainedModelBase):
         """
 
         # NOTE: predict_with_generate is incompatible with fsdp
-        training_args = Seq2SeqTrainingArguments(**kwargs) ### TODO: investigate hanging here!!
+        training_args = Seq2SeqTrainingArguments(**kwargs)
 
         # pylint: disable=duplicate-code
         # TODO: Fetch DataCollator either from property of this

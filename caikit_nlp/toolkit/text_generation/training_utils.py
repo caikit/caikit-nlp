@@ -132,7 +132,7 @@ def preprocess_function(
     shuffle: bool,
     use_iterable_dataset: bool,
     random_seed: int,
-    task_ids: Optional[List[int]] = None
+    task_ids: Optional[List[int]] = None,
 ):
     """Pre-process each example to get it prepared for training."""
     dataset_type = TransformersIterableDataset if use_iterable_dataset else Dataset
@@ -154,7 +154,7 @@ def preprocess_function(
         fn_kwargs=fn_kwargs,
         # For now, we hardcode to False, since causal LM chunking is not exposed yet
         batched=False,
-        #batched=base_model.REQUIRES_TOKEN_UNWRAPPING,
+        # batched=base_model.REQUIRES_TOKEN_UNWRAPPING,
         # Drop the input / output columns; we need to do this for dimensions to play
         # happily when operating on batched inputs for causal language modeling.
         remove_columns=["input", "output"],
@@ -190,11 +190,8 @@ def launch_training(
         else:
             error("<NLP26155082E>", "could not resolve trainer. Check base model type!")
 
-
     # Start training via Trainer.train function
     result = trainer.train()
-
-
 
     # Log the output of the training. This will include stats about training
     log.info("<NLP22028223I>", "Training completed. Summary: {}".format(result))
