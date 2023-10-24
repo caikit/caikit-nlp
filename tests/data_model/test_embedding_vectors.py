@@ -81,11 +81,6 @@ def test_vector1d_iterator_error():
         dm.Vector1D(data=[1.1, 2.2, 3.3])
 
 
-def test_vector1d_trick():
-    """FYI -- The param check currently allows for objects with values using this trick"""
-    dm.Vector1D(data=TRICK_SEQUENCE(values=[1.1, 2.2]))
-
-
 def _assert_array_check(new_array, data_values, float_type):
     for value in new_array.data.values:
         assert isinstance(value, float_type)

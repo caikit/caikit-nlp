@@ -78,13 +78,13 @@ class Vector1D(DataObjectBase):
         )
 
     @classmethod
-    def from_embeddings(cls, embeddings):
-        if embeddings.dtype == np.float32:
-            data = NpFloat32Sequence(embeddings)
-        elif embeddings.dtype == np.float64:
-            data = NpFloat64Sequence(embeddings)
+    def from_vector(cls, vector):
+        if vector.dtype == np.float32:
+            data = NpFloat32Sequence(vector)
+        elif vector.dtype == np.float64:
+            data = NpFloat64Sequence(vector)
         else:
-            data = PyFloatSequence(embeddings)
+            data = PyFloatSequence(vector)
         return cls(data=data)
 
     @classmethod
@@ -153,3 +153,11 @@ class Vector1D(DataObjectBase):
                 proto.data_pyfloatsequence.values.extend(values)
 
         return proto
+
+
+@dataobject(package="caikit_data_model.caikit_nlp")
+@dataclass
+class EmbeddingResult(DataObjectBase):
+    """Result from text embedding task"""
+
+    result: Vector1D

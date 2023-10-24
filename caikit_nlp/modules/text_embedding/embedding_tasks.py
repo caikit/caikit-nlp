@@ -18,12 +18,12 @@
 from caikit.core import TaskBase, task
 
 # Local
-from ...data_model import Vector1D
+from ...data_model import EmbeddingResult
 
 
 @task(
     required_parameters={"input": str},
-    output_type=Vector1D,
+    output_type=EmbeddingResult,
 )
-class EmbeddingRetrievalTask(TaskBase):
+class EmbeddingTask(TaskBase):
     pass

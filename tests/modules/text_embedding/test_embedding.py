@@ -1,4 +1,4 @@
-"""Tests for sequence classification module
+"""Tests for text embedding module
 """
 # Standard
 import os
@@ -10,8 +10,8 @@ import numpy as np
 import pytest
 
 # Local
-from caikit_nlp.data_model import Vector1D
-from caikit_nlp.modules.embedding_retrieval import EmbeddingModule
+from caikit_nlp.data_model import EmbeddingResult
+from caikit_nlp.modules.text_embedding import EmbeddingModule
 from tests.fixtures import SEQ_CLASS_MODEL
 
 ## Setup ########################################################################
@@ -25,21 +25,21 @@ INPUT = "The quick brown fox jumps over the lazy dog."
 ## Tests ########################################################################
 
 
-def _assert_is_expected_vector(vector):
-    assert isinstance(vector, Vector1D)
-    assert isinstance(vector.data.values[0], np.float32)
-    assert len(vector.data.values) == 32
+def _assert_is_expected_embedding_result(actual):
+    assert isinstance(actual, EmbeddingResult)
+    assert isinstance(actual.result.data.values[0], np.float32)
+    assert len(actual.result.data.values) == 32
     # Just testing a few values for readability
-    assert approx(vector.data.values[0]) == 0.3244932293891907
-    assert approx(vector.data.values[1]) == -0.4934631288051605
-    assert approx(vector.data.values[2]) == 0.5721234083175659
+    assert approx(actual.result.data.values[0]) == 0.3244932293891907
+    assert approx(actual.result.data.values[1]) == -0.4934631288051605
+    assert approx(actual.result.data.values[2]) == 0.5721234083175659
 
 
 def test_bootstrap_and_run():
     """Check if we can bootstrap and run embedding"""
     model = EmbeddingModule.bootstrap(SEQ_CLASS_MODEL)
-    vector = model.run(INPUT)
-    _assert_is_expected_vector(vector)
+    result = model.run(INPUT)
+    _assert_is_expected_embedding_result(result)
 
 
 def test_run_type_check():
@@ -58,8 +58,8 @@ def test_save_load_and_run_model():
         BOOTSTRAPPED_MODEL.save(model_path)
         new_model = EmbeddingModule.load(model_path)
 
-    vector = new_model.run(input=INPUT)
-    _assert_is_expected_vector(vector)
+    result = new_model.run(input=INPUT)
+    _assert_is_expected_embedding_result(result)
 
 
 @pytest.mark.parametrize(

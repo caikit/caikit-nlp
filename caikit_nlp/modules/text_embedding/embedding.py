@@ -24,10 +24,10 @@ from caikit.core.exceptions import error_handler
 import alog
 
 # Local
-from .embedding_retrieval_task import EmbeddingRetrievalTask
-from caikit_nlp.data_model.embedding_vectors import Vector1D
+from .embedding_tasks import EmbeddingTask
+from caikit_nlp.data_model.embedding_vectors import EmbeddingResult, Vector1D
 
-logger = alog.use_channel("<EMBD_BLK>")
+logger = alog.use_channel("TXT_EMB")
 error = error_handler.get(logger)
 
 
@@ -35,7 +35,7 @@ error = error_handler.get(logger)
     "EEB12558-B4FA-4F34-A9FD-3F5890E9CD3F",
     "EmbeddingModule",
     "0.0.1",
-    EmbeddingRetrievalTask,
+    EmbeddingTask,
 )
 class EmbeddingModule(ModuleBase):
 
@@ -78,17 +78,17 @@ class EmbeddingModule(ModuleBase):
 
     def run(
         self, input: str, **kwargs  # pylint: disable=redefined-builtin
-    ) -> Vector1D:
+    ) -> EmbeddingResult:
         """Run inference on model.
         Args:
             input: str
                 Input text to be processed
         Returns:
-            Vector1D: the output
+            EmbeddingResult: the result vector nicely wrapped up
         """
         error.type_check("<NLP27491611E>", str, input=input)
 
-        return Vector1D.from_embeddings(self.model.encode(input))
+        return EmbeddingResult(Vector1D.from_vector(self.model.encode(input)))
 
     @classmethod
     def bootstrap(cls, model_name_or_path: str) -> "EmbeddingModule":
@@ -134,10 +134,9 @@ class EmbeddingModule(ModuleBase):
             saver.update_config({self._ARTIFACTS_PATH_KEY: artifacts_path})
 
         # Save the model
-        artifacts_path = os.path.abspath(
-            os.path.join(model_config_path, artifacts_path)
+        self.model.save(
+            os.path.join(model_config_path, artifacts_path), create_model_card=True
         )
-        self.model.save(artifacts_path, create_model_card=True)
 
         # Save the config
         ModuleConfig(saver.config).save(model_config_path)

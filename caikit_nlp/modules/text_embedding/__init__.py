@@ -14,4 +14,4 @@
 
 # Local
 from .embedding import EmbeddingModule
-from .embedding_retrieval_task import EmbeddingRetrievalTask
+from .embedding_tasks import EmbeddingTask
