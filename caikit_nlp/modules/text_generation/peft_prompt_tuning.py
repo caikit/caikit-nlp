@@ -72,8 +72,8 @@ from ...toolkit.text_generation.training_utils import (
     launch_training,
     preprocess_function,
 )
-from ...toolkit.verbalizer_utils import render_verbalizer
 from ...toolkit.torch_run import get_torch_elastic_launch_config
+from ...toolkit.verbalizer_utils import render_verbalizer
 from .peft_config import TuningType, get_peft_config, resolve_base_model
 
 log = alog.use_channel("PEFT_PROMPT")
@@ -354,7 +354,6 @@ class PeftPromptTuning(ModuleBase):
 
         torch_dtype = get_torch_dtype(torch_dtype)
 
-
         # NOTE: We are not support "metrics" at the moment
 
         # Coerce the passed model into a resource; if we have one, this is a noop
@@ -464,8 +463,9 @@ class PeftPromptTuning(ModuleBase):
                     # this generic approach, since it allows us to handle variety
                     # of models and iterate on it, based on what we encounter.
                     "fsdp_transformer_layer_cls_to_wrap": base_model._model._no_split_modules,
-                    # We need to use the original parameters for peft because we have mixed values for
-                    # require_grads in our parametes, which otherwise breaks layer flattening in FSDP.
+                    # We need to use the original parameters for peft because we have mixed values
+                    # for require_grads in our parametes, which otherwise breaks layer flattening
+                    # in FSDP.
                     "use_orig_params": "true",
                 },
             }
@@ -489,7 +489,6 @@ class PeftPromptTuning(ModuleBase):
                 **processing_configuration,
             )
 
-
             if torch.cuda.is_available():
                 # NOTE: torch distributed can hang if run on CPUs,
                 # to avoid that, specially for unit tests, we are only
@@ -506,7 +505,7 @@ class PeftPromptTuning(ModuleBase):
                     training_dataset,
                     training_args,
                     checkpoint_dir,
-                    base_model
+                    base_model,
                 )
                 # NOTE: We are currently only storing the loss information from
                 # rank 0, i.e main process. training_loss_history is dictionary containing
