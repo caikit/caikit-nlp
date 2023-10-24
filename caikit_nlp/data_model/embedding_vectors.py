@@ -79,9 +79,12 @@ class Vector1D(DataObjectBase):
 
     @classmethod
     def from_vector(cls, vector):
-        if vector.dtype == np.float32:
+        dtype = getattr(vector, "dtype", False)
+        if dtype is None:
+            data = PyFloatSequence(vector)
+        elif dtype == np.float32:
             data = NpFloat32Sequence(vector)
-        elif vector.dtype == np.float64:
+        elif dtype == np.float64:
             data = NpFloat64Sequence(vector)
         else:
             data = PyFloatSequence(vector)

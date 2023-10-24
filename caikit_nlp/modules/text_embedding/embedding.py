@@ -103,7 +103,9 @@ class EmbeddingModule(ModuleBase):
         return cls.bootstrap(model_name_or_path=artifacts_path)
 
     @EmbeddingTask.taskmethod()
-    def run_embedding(self, text: str) -> EmbeddingResult:  # pylint: disable=redefined-builtin
+    def run_embedding(
+        self, text: str
+    ) -> EmbeddingResult:  # pylint: disable=redefined-builtin
         """Get embedding for a string.
         Args:
             text: str
@@ -133,8 +135,165 @@ class EmbeddingModule(ModuleBase):
             texts = [texts]
 
         embeddings = self.model.encode(texts)
-        results = [Vector1D.from_embeddings(e) for e in embeddings]
+        results = [Vector1D.from_vector(e) for e in embeddings]
         return ListOfVector1D(results=results)
+
+    @SentenceSimilarityTask.taskmethod()
+    def run_sentence_similarity(
+        self, source_sentence: str, sentences: List[str]
+    ) -> SentenceScores:  # pylint: disable=arguments-differ
+        """Run inference on model.
+        Args:
+            source_sentence: str
+            sentences: List[str]
+                Sentences to compare to source_sentence
+        Returns:
+            SentenceScores
+        """
+
+        source_embedding = self.model.encode(source_sentence)
+        embeddings = self.model.encode(sentences)
+
+        res = cos_sim(source_embedding, embeddings)
+        return SentenceScores(res.tolist()[0])
+
+    @SentenceSimilarityTasks.taskmethod()
+    def run_sentence_similarities(
+        self, source_sentences: List[str], sentences: List[str]
+    ) -> SentenceListScores:  # pylint: disable=arguments-differ
+        """Run inference on model.
+        Args:
+            source_sentences: List[str]
+            sentences: List[str]
+                Sentences to compare to source_sentences
+        Returns:
+            SentenceListScores Similarity scores for each source sentence in order.
+                each SentenceScores contains the source-sentence's score for each sentence in order.
+        """
+
+        source_embedding = self.model.encode(source_sentences)
+        embeddings = self.model.encode(sentences)
+
+        res = cos_sim(source_embedding, embeddings)
+        float_list_list = res.tolist()
+        return SentenceListScores(
+            results=[SentenceScores(fl) for fl in float_list_list]
+        )
+
+    @RerankTask.taskmethod()
+    def run_rerank_query(
+        self,
+        query: str,
+        documents: List[JsonDict],
+        top_n: Optional[int] = None,
+        return_documents: bool = True,
+        return_query: bool = True,
+        return_text: bool = True,
+    ) -> RerankQueryResult:
+        """Run inference on model.
+        Args:
+            query: str
+            documents:  List[JsonDict]
+            top_n:  Optional[int]
+        Returns:
+            RerankQueryResult
+        """
+
+        error.type_check(
+            "<NLP05323654E>",
+            str,
+            query=query,
+        )
+
+        results = self.run_rerank_queries(
+            queries=[query],
+            documents=documents,
+            top_n=top_n,
+            return_documents=return_documents,
+            return_queries=return_query,
+            return_text=return_text,
+        ).results
+
+        return (
+            results[0]
+            if len(results) > 0
+            else RerankQueryResult(scores=[], query=query if return_query else None)
+        )
+
+    @RerankTasks.taskmethod()
+    def run_rerank_queries(
+        self,
+        queries: List[str],
+        documents: List[JsonDict],
+        top_n: Optional[int] = None,
+        return_documents: bool = True,
+        return_queries: bool = True,
+        return_text: bool = True,
+    ) -> RerankPrediction:
+        """Run inference on model.
+        Args:
+            queries: List[str]
+            documents:  List[JsonDict]
+            top_n:  Optional[int]
+            return_documents:  bool
+            return_queries:  bool
+            return_text:  bool
+        Returns:
+            RerankPrediction
+        """
+
+        error.type_check(
+            "<NLP09038249E>",
+            list,
+            queries=queries,
+            documents=documents,
+        )
+
+        if len(queries) < 1 or len(documents) < 1:
+            return RerankPrediction([])
+
+        if top_n is None or top_n < 1:
+            top_n = len(documents)
+
+        # Using input document dicts so get "text" else "_text" else default to ""
+        def get_text(srd):
+            return srd.get("text") or srd.get("_text", "")
+
+        doc_texts = [get_text(srd) for srd in documents]
+
+        doc_embeddings = self.model.encode(doc_texts, convert_to_tensor=True)
+        doc_embeddings = doc_embeddings.to(self.model.device)
+        doc_embeddings = normalize_embeddings(doc_embeddings)
+
+        query_embeddings = self.model.encode(queries, convert_to_tensor=True)
+        query_embeddings = query_embeddings.to(self.model.device)
+        query_embeddings = normalize_embeddings(query_embeddings)
+
+        res = semantic_search(
+            query_embeddings, doc_embeddings, top_k=top_n, score_function=dot_score
+        )
+
+        # Fixup result dicts
+        for r in res:
+            for x in r:
+                # Renaming corpus_id to index
+                corpus_id = x.pop("corpus_id")
+                x["index"] = corpus_id
+                # Optionally adding the original document and/or just the text that was used
+                if return_documents:
+                    x["document"] = documents[corpus_id]
+                if return_text:
+                    x["text"] = get_text(documents[corpus_id])
+
+        def add_query(q):
+            return queries[q] if return_queries else None
+
+        results = [
+            RerankQueryResult(query=add_query(q), scores=[RerankScore(**x) for x in r])
+            for q, r in enumerate(res)
+        ]
+
+        return RerankPrediction(results=results)
 
     @classmethod
     def bootstrap(cls, model_name_or_path: str) -> "EmbeddingModule":

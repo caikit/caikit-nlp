@@ -19,8 +19,7 @@ from typing import List
 from caikit.core import TaskBase, task
 
 # Local
-from ...data_model import EmbeddingResult
-from ...data_model import ListOfVector1D
+from ...data_model import EmbeddingResult, ListOfVector1D
 
 
 @task(

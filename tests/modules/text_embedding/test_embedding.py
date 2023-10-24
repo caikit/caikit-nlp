@@ -16,6 +16,7 @@ from caikit.core import ModuleConfig
 # Local
 from caikit_nlp.data_model import (
     EmbeddingResult,
+    ListOfVector1D,
     RerankPrediction,
     RerankQueryResult,
     RerankScore,
@@ -71,21 +72,33 @@ SENTENCES = [d.get("text", d.get("_text")) for d in DOCS]
 ## Tests ########################################################################
 
 
+def _assert_is_expected_vector(vector):
+    assert isinstance(vector.data.values[0], np.float32)
+    assert len(vector.data.values) == 32
+    # Just testing a few values for readability
+    assert approx(vector.data.values[0]) == 0.3244932293891907
+    assert approx(vector.data.values[1]) == -0.4934631288051605
+    assert approx(vector.data.values[2]) == 0.5721234083175659
+
+
 def _assert_is_expected_embedding_result(actual):
     assert isinstance(actual, EmbeddingResult)
-    assert isinstance(actual.result.data.values[0], np.float32)
-    assert len(actual.result.data.values) == 32
-    # Just testing a few values for readability
-    assert approx(actual.result.data.values[0]) == 0.3244932293891907
-    assert approx(actual.result.data.values[1]) == -0.4934631288051605
-    assert approx(actual.result.data.values[2]) == 0.5721234083175659
+    vector = actual.result
+    _assert_is_expected_vector(vector)
 
 
-def test_bootstrap_and_run():
-    """Check if we can bootstrap and run embedding"""
-    model = EmbeddingModule.bootstrap(SEQ_CLASS_MODEL)
-    result = model.run(INPUT)
-    _assert_is_expected_embedding_result(result)
+def _assert_is_expected_embeddings_results(actual):
+    assert isinstance(actual, ListOfVector1D)
+    vectors = actual.results
+    _assert_is_expected_vector(vectors[0])
+
+
+def test_bootstrap():
+    assert isinstance(
+        EmbeddingModule.bootstrap(SEQ_CLASS_MODEL), EmbeddingModule
+    ), "bootstrap error"
+
+
 def _assert_types_found(types_found):
     assert type(types_found["str_test"]) == str, "passthru str value type check"
     assert type(types_found["int_test"]) == int, "passthru int value type check"
@@ -203,9 +216,9 @@ def test_run_embeddings_str_type():
 
 def test_run_embeddings():
     model = BOOTSTRAPPED_MODEL
-    res = model.run_embeddings(texts=[INPUT])
-    assert isinstance(res.results, list)
-    _assert_is_expected_embedding_result(res)
+    results = model.run_embeddings(texts=[INPUT])
+    assert isinstance(results.results, list)
+    _assert_is_expected_embeddings_results(results)
 
 
 @pytest.mark.parametrize(
