@@ -32,14 +32,19 @@ class RerankScore(DataObjectBase):
 
 @dataobject()
 class RerankQueryResult(DataObjectBase):
-    """Result for one query in a rerank task"""
+    """Result for one query in a rerank task.
+    This is a list of n ReRankScore where n is based on top_n documents and each score indicates
+    the relevance of that document for this query. Results are ordered most-relevant first.
+    """
 
     query: Optional[str]
     scores: List[RerankScore]
 
 
 @dataobject()
-class RerankPrediction(DataObjectBase):
-    """Result for a rerank task"""
+class RerankPredictions(DataObjectBase):
+    """Result for a rerank tasks (supporting multiple queries).
+    For multiple queries, each one has a RerankQueryResult (ranking the documents for that query).
+    """
 
     results: List[RerankQueryResult]

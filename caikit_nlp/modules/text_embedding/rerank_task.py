@@ -22,7 +22,7 @@ from caikit.core.toolkit.errors import error_handler
 import alog
 
 # Local
-from caikit_nlp.data_model.reranker import RerankPrediction, RerankQueryResult
+from caikit_nlp.data_model.reranker import RerankPredictions, RerankQueryResult
 
 logger = alog.use_channel("<SMPL_BLK>")
 error = error_handler.get(logger)
@@ -54,7 +54,7 @@ class RerankTask(TaskBase):
         "documents": List[JsonDict],
         "queries": List[str],
     },
-    output_type=RerankPrediction,
+    output_type=RerankPredictions,
 )
 class RerankTasks(TaskBase):
     """Returns an ordered list for each query ranking the most relevant documents for the query

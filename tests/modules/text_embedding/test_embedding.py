@@ -17,7 +17,7 @@ from caikit.core import ModuleConfig
 from caikit_nlp.data_model import (
     EmbeddingResult,
     ListOfVector1D,
-    RerankPrediction,
+    RerankPredictions,
     RerankQueryResult,
     RerankScore,
     Vector1D,
@@ -314,7 +314,7 @@ def test_run_rerank_queries_top_n(top_n, expected):
     res = BOOTSTRAPPED_MODEL.run_rerank_queries(
         queries=QUERIES, documents=DOCS, top_n=top_n
     )
-    assert isinstance(res, RerankPrediction)
+    assert isinstance(res, RerankPredictions)
     assert len(res.results) == len(QUERIES)
     for result in res.results:
         assert len(result.scores) == expected
@@ -334,7 +334,7 @@ def test_run_rerank_queries_no_queries_or_no_docs(queries, docs):
     res = BOOTSTRAPPED_MODEL.run_rerank_queries(
         queries=queries, documents=docs, top_n=9
     )
-    assert isinstance(res, RerankPrediction)
+    assert isinstance(res, RerankPredictions)
     assert len(res.results) == 0
 
 
@@ -343,7 +343,7 @@ def test_run_rerank_queries():
     rerank_result = BOOTSTRAPPED_MODEL.run_rerank_queries(
         queries=QUERIES, documents=DOCS, top_n=top_n
     )
-    assert isinstance(rerank_result, RerankPrediction)
+    assert isinstance(rerank_result, RerankPredictions)
 
     results = rerank_result.results
     assert isinstance(results, list)

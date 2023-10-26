@@ -38,7 +38,7 @@ from .sentence_similarity_task import SentenceSimilarityTask, SentenceSimilarity
 from caikit_nlp.data_model import (
     EmbeddingResult,
     ListOfVector1D,
-    RerankPrediction,
+    RerankPredictions,
     RerankQueryResult,
     RerankScore,
     SentenceListScores,
@@ -121,7 +121,7 @@ class EmbeddingModule(ModuleBase):
     def run_embeddings(
         self, texts: List[str]  # pylint: disable=redefined-builtin
     ) -> ListOfVector1D:
-        """Run inference on model.
+        """Get embedding vectors for texts.
         Args:
             texts: List[str]
                 List of input texts to be processed
@@ -142,7 +142,7 @@ class EmbeddingModule(ModuleBase):
     def run_sentence_similarity(
         self, source_sentence: str, sentences: List[str]
     ) -> SentenceScores:  # pylint: disable=arguments-differ
-        """Run inference on model.
+        """Get similarity scores for each of sentences compared to the source_sentence.
         Args:
             source_sentence: str
             sentences: List[str]
@@ -161,7 +161,7 @@ class EmbeddingModule(ModuleBase):
     def run_sentence_similarities(
         self, source_sentences: List[str], sentences: List[str]
     ) -> SentenceListScores:  # pylint: disable=arguments-differ
-        """Run inference on model.
+        """Run sentence-similarities on model.
         Args:
             source_sentences: List[str]
             sentences: List[str]
@@ -190,13 +190,33 @@ class EmbeddingModule(ModuleBase):
         return_query: bool = True,
         return_text: bool = True,
     ) -> RerankQueryResult:
-        """Run inference on model.
+        """Rerank the documents returning the most relevant top_n in order for this query.
         Args:
             query: str
+                Query is the source string to be compared to the text of the documents.
             documents:  List[JsonDict]
+                Each document is a dict. The text value is used for comparison to the query.
+                If there is no text key, then _text is used and finally default is "".
             top_n:  Optional[int]
+                Results for the top n most relevant documents will be returned.
+                If top_n is not provided or (not > 0), then all are returned.
+            return_documents:  bool
+                Default True
+                Setting to False will disable returning of the input document (index is returned).
+            return_query:  bool
+                Default True
+                Setting to False will disable returning of the query (results are in query order)
+            return_text:  bool
+                Default True
+                Setting to False will disable returning of document text string that was used.
         Returns:
             RerankQueryResult
+                Returns the (top_n) scores in relevance order (most relevant first).
+                The results always include a score and index which may be used to find the document
+                in the original documents list. Optionally, the results also contain the entire
+                document with its score (for use in chaining) and for convenience the query and
+                text used for comparison may be returned.
+
         """
 
         error.type_check(
@@ -229,17 +249,34 @@ class EmbeddingModule(ModuleBase):
         return_documents: bool = True,
         return_queries: bool = True,
         return_text: bool = True,
-    ) -> RerankPrediction:
-        """Run inference on model.
+    ) -> RerankPredictions:
+        """Rerank the documents returning the most relevant top_n in order for each of the queries.
         Args:
             queries: List[str]
+                Each of the queries will be compared to the text of each of the documents.
             documents:  List[JsonDict]
+                Each document is a dict. The text value is used for comparison to the query.
+                If there is no text key, then _text is used and finally default is "".
             top_n:  Optional[int]
+                Results for the top n most relevant documents will be returned.
+                If top_n is not provided or (not > 0), then all are returned.
             return_documents:  bool
+                Default True
+                Setting to False will disable returning of the input document (index is returned).
             return_queries:  bool
+                Default True
+                Setting to False will disable returning of the query (results are in query order)
             return_text:  bool
+                Default True
+                Setting to False will disable returning of document text string that was used.
         Returns:
-            RerankPrediction
+            RerankPredictions
+                For each query in queries (in the original order)...
+                Returns the (top_n) scores in relevance order (most relevant first).
+                The results always include a score and index which may be used to find the document
+                in the original documents list. Optionally, the results also contain the entire
+                document with its score (for use in chaining) and for convenience the query and
+                text used for comparison may be returned.
         """
 
         error.type_check(
@@ -250,7 +287,7 @@ class EmbeddingModule(ModuleBase):
         )
 
         if len(queries) < 1 or len(documents) < 1:
-            return RerankPrediction([])
+            return RerankPredictions([])
 
         if top_n is None or top_n < 1:
             top_n = len(documents)
@@ -293,7 +330,7 @@ class EmbeddingModule(ModuleBase):
             for q, r in enumerate(res)
         ]
 
-        return RerankPrediction(results=results)
+        return RerankPredictions(results=results)
 
     @classmethod
     def bootstrap(cls, model_name_or_path: str) -> "EmbeddingModule":

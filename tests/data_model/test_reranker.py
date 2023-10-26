@@ -103,7 +103,7 @@ input_sentence_similarities_scores = [
         (dm.RerankScore, input_score),
         (dm.RerankScore, input_random_score),
         (dm.RerankQueryResult, input_result_1),
-        (dm.RerankPrediction, {"results": input_results}),
+        (dm.RerankPredictions, {"results": input_results}),
         (dm.SentenceScores, input_sentence_similarity_scores_1),
         (dm.SentenceListScores, {"results": input_sentence_similarities_scores}),
     ],
