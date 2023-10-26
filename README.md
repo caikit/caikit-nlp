@@ -18,8 +18,57 @@ Capabilities provided by `caikit-nlp`:
 
 ### Getting Started
 
+#### Notebooks
+
 To help you quickly get started with using Caikit, we have prepared a [Jupyter notebook](examples/Caikit_Getting_Started.ipynb) that can be run in Google Colab. Caikit-nlp is a powerful library that leverages prompt tuning and fine-tuning to add NLP domain capabilities to caikit.
 
+
+#### Docker
+
+`caikit-nlp` can also be deployed as a docker container, exposing http and grpc endpoints. To build the docker image:
+
+```bash
+python -m build --wheel
+docker build -t caikit-nlp:latest .
+```
+
+Configuration can be provided via environment variables or by providing yaml configuration file. Here is a minimal configuration example:
+
+```yaml
+base_models_dir: "/caikit/models"
+runtime:
+  library: caikit_nlp
+
+log:
+    formatter: pretty # log formatter is set to json by default
+```
+
+A volume can be mounted at `/caikit` providing configuration and models:
+
+
+```bash
+mkdir -p caikit
+$EDITOR caikit/config.yml # edit as required, using the above example or the example in caikit_nlp/config/config.yml
+cp -r <path/to/models> ./caikit/models
+docker run -e CONFIG_FILES=/caikit/config.yml -v $PWD/caikit/:/caikit -p 8080:8080 -p 8085:8085 python -m caikit.runtime
+```
+
+Note that models need to be converted to a caikit-compatible format:
+
+```python
+import caikit_nlp
+
+model_path="path/to/huggingface/model"
+model = caikit_nlp.text_generation.TextGeneration.bootstrap(model_path)
+model.save("caikit/models/model_name-caikit")
+```
+
+The model can now be queried at `localhost:8080`:
+
+```bash
+curl --json '{"model_id": "<MODEL_NAME>", "inputs": "At what temperature does Nitrogen boil?"}' \
+    localhost:8080/api/v1/task/text-generation
+```
 
 ### Contributing
 
