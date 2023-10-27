@@ -238,6 +238,13 @@ def generate_text_func(
         generate_ids[0, -1] == tokenizer.eos_token_id
     ):
         finish_reason = "EOS_TOKEN"
+    elif ("stopping_criteria" in gen_optional_params) and (
+        gen_optional_params["stopping_criteria"](
+            generate_ids,
+            None,  # scores, unused by SequenceStoppingCriteria
+        )
+    ):
+        finish_reason = "STOP_SEQUENCE"
     elif generate_ids.size(1) - 1 == max_new_tokens:
         finish_reason = "MAX_TOKENS"
     else:
