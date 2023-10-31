@@ -254,6 +254,7 @@ def test_bad_tgis_connection():
                         }
                     },
                     "test_connections": True,
+                    "connect_timeout": 5,
                 },
             }
         ],
