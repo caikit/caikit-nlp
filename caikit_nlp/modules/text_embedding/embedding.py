@@ -230,11 +230,10 @@ class EmbeddingModule(ModuleBase):
             return_text=return_text,
         ).results
 
-        return (
-            results[0]
-            if len(results) > 0
-            else RerankQueryResult(scores=[], query=query if return_query else None)
-        )
+        if results:
+            return results[0]
+
+        RerankQueryResult(scores=[], query=query if return_query else None)
 
     @RerankTasks.taskmethod()
     def run_rerank_queries(
@@ -282,25 +281,28 @@ class EmbeddingModule(ModuleBase):
             documents=documents,
         )
 
-        if len(queries) < 1 or len(documents) < 1:
-            return RerankPredictions([])
+        error.value_check(
+            "<NLP24788937E>",
+            queries and documents,
+            "Cannot rerank without a query and at least one document",
+        )
 
         if top_n is None or top_n < 1:
             top_n = len(documents)
 
         # Using input document dicts so get "text" else "_text" else default to ""
-        def get_text(srd):
-            return srd.get("text") or srd.get("_text", "")
+        def get_text(doc):
+            return doc.get("text") or doc.get("_text", "")
 
-        doc_texts = [get_text(srd) for srd in documents]
+        doc_texts = [get_text(doc) for doc in documents]
 
-        doc_embeddings = self.model.encode(doc_texts, convert_to_tensor=True)
-        doc_embeddings = doc_embeddings.to(self.model.device)
-        doc_embeddings = normalize_embeddings(doc_embeddings)
+        doc_embeddings = normalize_embeddings(
+            self.model.encode(doc_texts, convert_to_tensor=True).to(self.model.device)
+        )
 
-        query_embeddings = self.model.encode(queries, convert_to_tensor=True)
-        query_embeddings = query_embeddings.to(self.model.device)
-        query_embeddings = normalize_embeddings(query_embeddings)
+        query_embeddings = normalize_embeddings(
+            self.model.encode(queries, convert_to_tensor=True).to(self.model.device)
+        )
 
         res = semantic_search(
             query_embeddings, doc_embeddings, top_k=top_n, score_function=dot_score
@@ -346,12 +348,11 @@ class EmbeddingModule(ModuleBase):
                 Path to model config
         """
 
-        model_config_path = model_path  # because the param name is misleading
-
-        error.type_check("<NLP82314992E>", str, model_path=model_config_path)
+        error.type_check("<NLP82314992E>", str, model_path=model_path)
+        model_config_path = model_path.strip()
         error.value_check(
             "<NLP40145207E>",
-            model_config_path is not None and model_config_path.strip(),
+            model_config_path,
             f"model_path '{model_config_path}' is invalid",
         )
 

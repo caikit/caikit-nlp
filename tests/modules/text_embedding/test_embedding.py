@@ -267,8 +267,8 @@ def test_run_rerank_query_no_query():
 
 def test_run_rerank_query_zero_docs():
     """No empty doc list therefore result is zero result scores"""
-    result = BOOTSTRAPPED_MODEL.run_rerank_query(query=QUERY, documents=[], top_n=99)
-    assert len(result.scores) == 0
+    with pytest.raises(ValueError):
+        BOOTSTRAPPED_MODEL.run_rerank_query(query=QUERY, documents=[], top_n=99)
 
 
 def test_run_rerank_query():
@@ -331,11 +331,9 @@ def test_run_rerank_queries_top_n(top_n, expected):
 )
 def test_run_rerank_queries_no_queries_or_no_docs(queries, docs):
     """No queries and/or no docs therefore result is zero results"""
-    res = BOOTSTRAPPED_MODEL.run_rerank_queries(
-        queries=queries, documents=docs, top_n=9
-    )
-    assert isinstance(res, RerankPredictions)
-    assert len(res.results) == 0
+
+    with pytest.raises(ValueError):
+        BOOTSTRAPPED_MODEL.run_rerank_queries(queries=queries, documents=docs, top_n=9)
 
 
 def test_run_rerank_queries():
