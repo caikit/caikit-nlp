@@ -425,9 +425,8 @@ def test_train_with_data_validation_raises(causal_lm_train_kwargs, set_cpu_devic
     module = caikit_nlp.modules.text_generation.PeftPromptTuning
     with temp_config(training_data_limit={module.MODULE_ID: {model_name: 1}}):
         with pytest.raises(ValueError):
-            module.train(
-                **causal_lm_train_kwargs
-            )
+            module.train(**causal_lm_train_kwargs)
+
 
 def test_train_with_data_validation_success(causal_lm_train_kwargs, set_cpu_device):
     """Check if we are able to train successfully if training data is within limits"""
@@ -453,10 +452,9 @@ def test_train_with_data_validation_success(causal_lm_train_kwargs, set_cpu_devi
     module = caikit_nlp.modules.text_generation.PeftPromptTuning
     with temp_config(training_data_limit={module.MODULE_ID: {model_name: 2}}):
 
-        model = module.train(
-            **causal_lm_train_kwargs
-        )
+        model = module.train(**causal_lm_train_kwargs)
         assert model
+
 
 def test_train_with_non_existent_limit_success(causal_lm_train_kwargs, set_cpu_device):
     """Check if we are able to train successfully if training data limit doesn't exist for particular model"""
@@ -479,9 +477,7 @@ def test_train_with_non_existent_limit_success(causal_lm_train_kwargs, set_cpu_d
     module = caikit_nlp.modules.text_generation.PeftPromptTuning
     with temp_config(training_data_limit={module.MODULE_ID: {"foo": 2}}):
 
-        model = module.train(
-            **causal_lm_train_kwargs
-        )
+        model = module.train(**causal_lm_train_kwargs)
         assert model
 
 
@@ -506,7 +502,5 @@ def test_train_with_no_limit_for_module(causal_lm_train_kwargs, set_cpu_device):
     module = caikit_nlp.modules.text_generation.PeftPromptTuning
     with temp_config(training_data_limit={}):
 
-        model = module.train(
-            **causal_lm_train_kwargs
-        )
+        model = module.train(**causal_lm_train_kwargs)
         assert model
