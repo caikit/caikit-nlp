@@ -41,6 +41,7 @@ import torch
 import transformers
 
 # First Party
+from caikit import get_config
 from caikit.core.data_model import DataStream
 from caikit.core.exceptions import error_handler
 from caikit.core.modules import ModuleBase, ModuleConfig, ModuleSaver, module
@@ -353,7 +354,6 @@ class PeftPromptTuning(ModuleBase):
 
         # HACK - These things can't be passed through the train API currently
 
-        breakpoint()
         metric = kwargs.get("metric")
 
         base_model = resolve_base_model(base_model, cls, torch_dtype)
@@ -366,6 +366,16 @@ class PeftPromptTuning(ModuleBase):
             torch_dtype,
             verbalizer,
         )
+
+        # Check if data is within limit allowed for this module and model
+        max_num_examples = get_config().training_data_limit.get(cls.MODULE_ID, {}).get(base_model_name, -1)
+
+        if max_num_examples > 0:
+            error.value_check(
+                "<NLP77627434E>",
+                len(train_stream) <= max_num_examples,
+                "Number of examples larger than maximum number of examples allowed for this model"
+            )
 
         # Coerce the passed model into a resource; if we have one, this is a noop
         # TODO: When splitting up this mono-module, use the configured resource
