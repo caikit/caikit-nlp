@@ -368,13 +368,17 @@ class PeftPromptTuning(ModuleBase):
         )
 
         # Check if data is within limit allowed for this module and model
-        max_num_examples = get_config().training_data_limit.get(cls.MODULE_ID, {}).get(base_model_name, -1)
+        max_num_examples = (
+            get_config()
+            .training_data_limit.get(cls.MODULE_ID, {})
+            .get(base_model_name, -1)
+        )
 
         if max_num_examples > 0:
             error.value_check(
                 "<NLP77627434E>",
                 len(train_stream) <= max_num_examples,
-                "Number of examples larger than maximum number of examples allowed for this model"
+                "Number of examples larger than maximum number of examples allowed for this model",
             )
 
         # Coerce the passed model into a resource; if we have one, this is a noop
