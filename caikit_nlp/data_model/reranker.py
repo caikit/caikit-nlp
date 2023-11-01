@@ -20,7 +20,7 @@ from caikit.core import DataObjectBase, dataobject
 from caikit.core.data_model.json_dict import JsonDict
 
 
-@dataobject()
+@dataobject(package="caikit_data_model.caikit_nlp")
 class RerankScore(DataObjectBase):
     """The score for one document (one query)"""
 
@@ -30,7 +30,7 @@ class RerankScore(DataObjectBase):
     text: Optional[str]
 
 
-@dataobject()
+@dataobject(package="caikit_data_model.caikit_nlp")
 class RerankQueryResult(DataObjectBase):
     """Result for one query in a rerank task.
     This is a list of n ReRankScore where n is based on top_n documents and each score indicates
@@ -41,7 +41,7 @@ class RerankQueryResult(DataObjectBase):
     scores: List[RerankScore]
 
 
-@dataobject()
+@dataobject(package="caikit_data_model.caikit_nlp")
 class RerankPredictions(DataObjectBase):
     """Result for a rerank tasks (supporting multiple queries).
     For multiple queries, each one has a RerankQueryResult (ranking the documents for that query).

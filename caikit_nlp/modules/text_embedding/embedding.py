@@ -103,9 +103,7 @@ class EmbeddingModule(ModuleBase):
         return cls.bootstrap(model_name_or_path=artifacts_path)
 
     @EmbeddingTask.taskmethod()
-    def run_embedding(
-        self, text: str
-    ) -> EmbeddingResult:  # pylint: disable=redefined-builtin
+    def run_embedding(self, text: str) -> EmbeddingResult:
         """Get embedding for a string.
         Args:
             text: str
@@ -118,9 +116,7 @@ class EmbeddingModule(ModuleBase):
         return EmbeddingResult(Vector1D.from_vector(self.model.encode(text)))
 
     @EmbeddingTasks.taskmethod()
-    def run_embeddings(
-        self, texts: List[str]  # pylint: disable=redefined-builtin
-    ) -> ListOfVector1D:
+    def run_embeddings(self, texts: List[str]) -> ListOfVector1D:
         """Get embedding vectors for texts.
         Args:
             texts: List[str]
@@ -141,7 +137,7 @@ class EmbeddingModule(ModuleBase):
     @SentenceSimilarityTask.taskmethod()
     def run_sentence_similarity(
         self, source_sentence: str, sentences: List[str]
-    ) -> SentenceScores:  # pylint: disable=arguments-differ
+    ) -> SentenceScores:
         """Get similarity scores for each of sentences compared to the source_sentence.
         Args:
             source_sentence: str
@@ -160,7 +156,7 @@ class EmbeddingModule(ModuleBase):
     @SentenceSimilarityTasks.taskmethod()
     def run_sentence_similarities(
         self, source_sentences: List[str], sentences: List[str]
-    ) -> SentenceListScores:  # pylint: disable=arguments-differ
+    ) -> SentenceListScores:
         """Run sentence-similarities on model.
         Args:
             source_sentences: List[str]

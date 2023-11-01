@@ -18,14 +18,9 @@ from typing import List
 # First Party
 from caikit.core import TaskBase, task
 from caikit.core.data_model.json_dict import JsonDict
-from caikit.core.toolkit.errors import error_handler
-import alog
 
 # Local
 from caikit_nlp.data_model.reranker import RerankPredictions, RerankQueryResult
-
-logger = alog.use_channel("<SMPL_BLK>")
-error = error_handler.get(logger)
 
 
 @task(
