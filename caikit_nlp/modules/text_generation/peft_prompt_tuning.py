@@ -353,6 +353,7 @@ class PeftPromptTuning(ModuleBase):
 
         # HACK - These things can't be passed through the train API currently
 
+        breakpoint()
         metric = kwargs.get("metric")
 
         base_model = resolve_base_model(base_model, cls, torch_dtype)
