@@ -1029,7 +1029,7 @@ class PeftPromptTuning(ModuleBase):
 
         # Below would send all the data and model to
         # configured device and convert them to required dtypes
-        model, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
+        model, optimizer, new_train_dataloader, lr_scheduler = accelerator.prepare(
             model,
             optimizer,
             train_dataloader,
@@ -1044,7 +1044,7 @@ class PeftPromptTuning(ModuleBase):
             step_loss_log = {}
             model.train()
             total_loss = 0
-            tqdm_loader = tqdm(train_dataloader, disable=silence_progress_bars)
+            tqdm_loader = tqdm(new_train_dataloader, disable=silence_progress_bars)
             for batch in tqdm_loader:
 
                 tqdm_loader.set_description("Epoch: {}".format(epoch))
@@ -1081,7 +1081,7 @@ class PeftPromptTuning(ModuleBase):
                     {
                         "epoch": epoch,
                         "step": step,
-                        "value": loss_float,
+                        "value": loss_val,
                         "timestamp": datetime.isoformat(datetime.now()),
                     }
                 )
