@@ -1017,7 +1017,6 @@ class PeftPromptTuning(ModuleBase):
         else:
             mixed_precision = "no"
 
-
         accelerator = Accelerator(
             gradient_accumulation_steps=accumulate_steps,
             device_placement=True,
