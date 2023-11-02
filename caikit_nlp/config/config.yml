@@ -33,7 +33,7 @@ master_port: 29550
 training_data_limit:
   # Configuration for PeftPromptTuning module
   6655831b-960a-4dc5-8df4-867026e2cd41:
-    google/flan-t5-xl: 10000
+    add_model_name_here: 10000
 
 runtime:
   library: caikit_nlp
