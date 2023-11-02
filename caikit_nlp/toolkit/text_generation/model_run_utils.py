@@ -27,6 +27,7 @@ import torch
 from caikit.core.data_model.producer import ProducerId
 from caikit.core.exceptions import error_handler
 from caikit.interfaces.nlp.data_model import (
+    FinishReason,
     GeneratedTextResult,
     GeneratedTextStreamResult,
     TokenStreamDetails,
@@ -131,8 +132,8 @@ class SequenceStoppingCriteria(StoppingCriteria):
 
 
 def generate_text_func(
-    model: "Union[PeftModel, AutoModel]",
-    tokenizer: "AutoTokenizer",
+    model: Union[PeftModel, AutoModel],
+    tokenizer: AutoTokenizer,
     producer_id: ProducerId,
     eos_token: Optional[str],
     text: str,
@@ -237,16 +238,16 @@ def generate_text_func(
     if (eos_token and tokenizer.decode(generate_ids[0, -1].item()) == eos_token) or (
         generate_ids[0, -1] == tokenizer.eos_token_id
     ):
-        finish_reason = "EOS_TOKEN"
+        finish_reason = FinishReason.EOS_TOKEN
     elif ("stopping_criteria" in gen_optional_params) and (
         gen_optional_params["stopping_criteria"](
             generate_ids,
             None,  # scores, unused by SequenceStoppingCriteria
         )
     ):
-        finish_reason = "STOP_SEQUENCE"
+        finish_reason = FinishReason.STOP_SEQUENCE
     else:
-        finish_reason = "MAX_TOKENS"
+        finish_reason = FinishReason.MAX_TOKENS
 
     return GeneratedTextResult(
         generated_tokens=token_count,
