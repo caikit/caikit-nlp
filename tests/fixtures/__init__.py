@@ -108,7 +108,7 @@ def models_cache_dir(request):
 
 ### Fixtures for grabbing a randomly initialized model to test interfaces against
 ## Causal LM
-@pytest.fixture
+@pytest.fixture(scope="session")
 def causal_lm_train_kwargs():
     """Get the kwargs for a valid train call to a Causal LM."""
     model_kwargs = {
@@ -124,7 +124,7 @@ def causal_lm_train_kwargs():
     return model_kwargs
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def causal_lm_dummy_model(causal_lm_train_kwargs):
     """Train a Causal LM dummy model."""
     return caikit_nlp.modules.text_generation.PeftPromptTuning.train(
@@ -132,7 +132,7 @@ def causal_lm_dummy_model(causal_lm_train_kwargs):
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def saved_causal_lm_dummy_model(causal_lm_dummy_model):
     """Give a path to a saved dummy model that can be loaded"""
     with tempfile.TemporaryDirectory() as workdir:
@@ -142,7 +142,7 @@ def saved_causal_lm_dummy_model(causal_lm_dummy_model):
 
 
 ## Seq2seq
-@pytest.fixture
+@pytest.fixture(scope="session")
 def seq2seq_lm_train_kwargs():
     """Get the kwargs for a valid train call to a Causal LM."""
     model_kwargs = {
@@ -158,7 +158,7 @@ def seq2seq_lm_train_kwargs():
     return model_kwargs
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def seq2seq_lm_dummy_model(seq2seq_lm_train_kwargs):
     """Train a Seq2Seq LM dummy model."""
     return caikit_nlp.modules.text_generation.PeftPromptTuning.train(
