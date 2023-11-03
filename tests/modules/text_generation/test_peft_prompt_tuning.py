@@ -93,13 +93,17 @@ def test_run_stream_out_model(causal_lm_dummy_model):
         assert isinstance(pred, GeneratedTextStreamResult)
 
 
-def test_verbalizer_rendering(causal_lm_dummy_model):
+def test_verbalizer_rendering(causal_lm_dummy_model, monkeypatch):
     """Ensure that our model renders its verbalizer text correctly before calling tokenizer."""
     # Mock the tokenizer; we want to make sure its inputs are rendered properly
-    causal_lm_dummy_model.tokenizer = mock.Mock(
-        side_effect=RuntimeError("Tokenizer is a mock!"),
-        # Set eos token property to be attribute of tokenizer
-        eos_token="</s>",
+    monkeypatch.setattr(
+        causal_lm_dummy_model,
+        "tokenizer",
+        mock.Mock(
+            side_effect=RuntimeError("Tokenizer is a mock!"),
+            # Set eos token property to be attribute of tokenizer
+            eos_token="</s>",
+        ),
     )
     input_text = "This text doesn't matter"
     causal_lm_dummy_model.verbalizer = " | {{input}} |"
