@@ -34,7 +34,7 @@ def validate_training_data(train_stream: DataStream, model_name: str, module_id:
     module_default = (
         get_config()
         .training_data_limit.get(module_id, {})
-        .get(module_id, global_default)
+        .get("__default__", global_default)
     )
 
     max_num_examples = (
