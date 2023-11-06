@@ -73,6 +73,7 @@ from ...toolkit.text_generation.training_utils import (
     preprocess_function,
 )
 from ...toolkit.torch_run import get_torch_elastic_launch_config
+from ...toolkit.trainer_utils import validate_training_data
 from ...toolkit.verbalizer_utils import render_verbalizer
 from .peft_config import TuningType, get_peft_config, resolve_base_model
 
@@ -384,6 +385,18 @@ class PeftPromptTuning(ModuleBase):
             torch_dtype,
             verbalizer,
         )
+
+        # Check if data is within limit allowed for this module and model
+        validate_training_data(
+            train_stream,
+            base_model_name,
+            cls.MODULE_ID,
+        )
+
+        # Coerce the passed model into a resource; if we have one, this is a noop
+        # TODO: When splitting up this mono-module, use the configured resource
+        #   type of the concrete class to bootstrap
+        torch_dtype = get_torch_dtype(torch_dtype)
 
         train_stream = train_stream.map(convert_to_generation_record)
         if val_stream:
