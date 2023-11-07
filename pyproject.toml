@@ -28,11 +28,7 @@ dependencies = [
     "torch>=2.0.1",
     "tqdm>=4.65.0",
     "transformers>=4.32.0",
-    # GK-AUG-25-2023 NOTE: mpt branch on Mayank's fork was merged to peft main on Aug 24 and it got deleted
-    # which broke caikit-nlp build. peft hasn't released newer version yet, so to get
-    # the build fix, we pulling peft from main branch commit. In future, we will pull PEFT from
-    # pypi
-    "peft@git+https://github.com/huggingface/peft.git@8c17d556a8fe9522e10d73d7bd3fad46a6ecae14"
+    "peft>=0.6.0",
 ]
 
 [tool.setuptools.packages.find]
