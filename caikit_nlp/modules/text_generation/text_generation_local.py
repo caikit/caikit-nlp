@@ -531,13 +531,17 @@ class TextGeneration(ModuleBase):
         temperature: Optional[float] = None,
         repetition_penalty: Optional[float] = None,
         max_time: Optional[float] = None,
+        preserve_input_text: bool = True,
         **kwargs,
     ) -> GeneratedTextResult:
 
         f"""
         Run the full text generation model.
         Args:
-            {GENERATE_FUNCTION_ARGS}
+            {GENERATE_FUNCTION_ARGS},
+            preserve_input_text: bool
+                Whether or not the source string should be contained in the generated output,
+                e.g., as a prefix. Default True. (Source string will apprear as prefix)
         Returns:
             GeneratedTextResult
                 Generated text result produced by the model.
@@ -562,6 +566,7 @@ class TextGeneration(ModuleBase):
             temperature=temperature,
             repetition_penalty=repetition_penalty,
             max_time=max_time,
+            preserve_input_text=preserve_input_text,
             **kwargs,
         )
 
