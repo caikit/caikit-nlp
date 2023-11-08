@@ -23,6 +23,8 @@ RUN microdnf update -y && \
     microdnf clean all
 
 COPY --from=builder /opt/caikit /opt/caikit
+COPY LICENSE /opt/caikit/
+COPY README.md /opt/caikit/
 
 RUN groupadd --system caikit --gid 1001 && \
     adduser --system --uid 1001 --gid 0 --groups caikit \
