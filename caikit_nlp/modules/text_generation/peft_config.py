@@ -18,7 +18,7 @@ import os
 import re
 
 # Third Party
-from peft import MultitaskPromptTuningInit
+from peft import LoraConfig, MultitaskPromptTuningInit
 from transformers import AutoConfig
 
 # First Party
@@ -54,7 +54,7 @@ class TuningType(str, Enum):
     # MULTITASK_PREFIX_TUNING = "MULTITASK_PREFIX_TUNING"
     # P_TUNING = "P_TUNING"
     # PREFIX_TUNING = "PREFIX_TUNING"
-    # LORA = "LORA"
+    LORA = "LORA"
 
 
 def resolve_base_model(base_model, cls, torch_dtype):
@@ -96,7 +96,19 @@ def resolve_base_model(base_model, cls, torch_dtype):
 
 
 def get_peft_config(
-    tuning_type, tuning_config, base_model, cls, torch_dtype, verbalizer
+    tuning_type,
+    tuning_config,
+    base_model,
+    cls,
+    torch_dtype,
+    verbalizer,
+    lora_r=8,
+    lora_target_modules=None,
+    lora_alpha=8,
+    lora_dropout=0.0,
+    lora_fan_in_fan_out=False,
+    lora_bias="none",
+    lora_modules_to_save=None,
 ):
 
     if tuning_type not in TuningType._member_names_:
@@ -203,18 +215,29 @@ def get_peft_config(
     # Take tokenizer name/path from the model
     tokenizer_name_or_path = base_model.model.config._name_or_path
 
-    # Build the peft config; this is how we determine that we want a sequence classifier.
-    # If we want more types, we will likely need to map this to data model outputs etc.
+    if tuning_type == TuningType.LORA:
+        peft_config = LoraConfig(
+            r=lora_r,
+            target_modules=lora_target_modules,
+            lora_alpha=lora_alpha,
+            lora_dropout=lora_dropout,
+            fan_in_fan_out=lora_fan_in_fan_out,
+            bias=lora_bias,
+            modules_to_save=lora_modules_to_save,
+        )
+    else:
+        # Build the peft config; this is how we determine that we want a sequence classifier.
+        # If we want more types, we will likely need to map this to data model outputs etc.
 
-    # NOTE: We currently only support TEXT as init type, this is to later only easily
-    # switch to MPT
-    peft_config = cls.create_hf_tuning_config(
-        base_model=base_model,
-        tuning_type=tuning_type,
-        task_type=task_type,
-        tokenizer_name_or_path=tokenizer_name_or_path,
-        tuning_config=tuning_config,
-        output_model_types=output_model_types,
-    )
+        # NOTE: We currently only support TEXT as init type, this is to later only easily
+        # switch to MPT
+        peft_config = cls.create_hf_tuning_config(
+            base_model=base_model,
+            tuning_type=tuning_type,
+            task_type=task_type,
+            tokenizer_name_or_path=tokenizer_name_or_path,
+            tuning_config=tuning_config,
+            output_model_types=output_model_types,
+        )
 
     return task_type, output_model_types, peft_config, tuning_type

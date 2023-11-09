@@ -6,6 +6,7 @@ import platform
 import tempfile
 
 # Third Party
+from peft import LoraConfig
 import pytest
 import torch
 
@@ -149,6 +150,58 @@ def test_train_model_causallm(disable_wip, set_cpu_device):
     }
     model = TextGeneration.train(**train_kwargs)
     assert isinstance(model.model, HFAutoCausalLM)
+
+    # Ensure that we can get something out of it
+    pred = model.run("@bar what a cute cat!")
+    assert isinstance(pred, GeneratedTextResult)
+
+
+@pytest.mark.skipif(platform.processor() == "arm", reason="ARM training not supported")
+def test_train_lora_model_causallm(disable_wip, set_cpu_device):
+    """Ensure that we can finetune a causal-lm model on some toy data for 1+
+    steps & run inference."""
+    train_kwargs = {
+        "base_model": HFAutoCausalLM.bootstrap(
+            model_name=CAUSAL_LM_MODEL, tokenizer_name=CAUSAL_LM_MODEL
+        ),
+        "num_epochs": 1,
+        "train_stream": caikit.core.data_model.DataStream.from_iterable(
+            [
+                GenerationTrainRecord(
+                    input="@foo what a cute dog!", output="no complaint"
+                ),
+            ]
+        ),
+        "torch_dtype": torch.float32,
+        "lora_config": LoraConfig(target_modules=["query_key_value"]),
+    }
+    model = TextGeneration.train(**train_kwargs)
+
+    # Ensure that we can get something out of it
+    pred = model.run("@bar what a cute cat!")
+    assert isinstance(pred, GeneratedTextResult)
+
+
+@pytest.mark.skipif(platform.processor() == "arm", reason="ARM training not supported")
+def test_train_lora_model_seq2seq(disable_wip, set_cpu_device):
+    """Ensure that we can finetune a seq2seq-lm model on some toy data for 1+
+    steps & run inference."""
+    train_kwargs = {
+        "base_model": HFAutoSeq2SeqLM.bootstrap(
+            model_name=SEQ2SEQ_LM_MODEL, tokenizer_name=SEQ2SEQ_LM_MODEL
+        ),
+        "num_epochs": 1,
+        "train_stream": caikit.core.data_model.DataStream.from_iterable(
+            [
+                GenerationTrainRecord(
+                    input="@foo what a cute dog!", output="no complaint"
+                ),
+            ]
+        ),
+        "torch_dtype": torch.float32,
+        "lora_config": LoraConfig(target_modules=["q"]),
+    }
+    model = TextGeneration.train(**train_kwargs)
 
     # Ensure that we can get something out of it
     pred = model.run("@bar what a cute cat!")
