@@ -46,7 +46,7 @@ def test_generate_text_func_serialization_json(
 
 
 @pytest.mark.parametrize("causal_model_fixture", ["causal_lm_dummy_model"])
-def test_generate_text_func_preserve_input(request, causal_model_fixture):
+def test_generate_text_func_preserve_input_causal_lm(request, causal_model_fixture):
     """For Causal LM task types, setting preserve_inout_text to True
     will result in input text in model prediction. Setting to False will
     strip the input text from model prediction.

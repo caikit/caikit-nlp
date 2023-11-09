@@ -366,14 +366,11 @@ def test_run_truncate_tokens_0(causal_lm_dummy_model):
 def test_run_with_preserve_input_text(causal_lm_dummy_model):
     """Ensure preserve input text removes input
     from generated output when set to False"""
-    pred = causal_lm_dummy_model.run(
-        "This text doesn't matter", preserve_input_text=True
-    )
-    assert "This text doesn't matter" in pred.generated_text
-    pred = causal_lm_dummy_model.run(
-        "This text doesn't matter", preserve_input_text=False
-    )
-    assert "This text doesn't matter" not in pred.generated_text
+    input_text = "This text doesn't matter"
+    pred = causal_lm_dummy_model.run(input_text, preserve_input_text=True)
+    assert input_text in pred.generated_text
+    pred = causal_lm_dummy_model.run(input_text, preserve_input_text=False)
+    assert input_text not in pred.generated_text
 
 
 def test_run_sampling_param_ignored_greedy_decoding(causal_lm_dummy_model):
