@@ -155,6 +155,39 @@ def test_train_model_causallm(disable_wip, set_cpu_device):
     assert isinstance(pred, GeneratedTextResult)
 
 
+############################## Inferencing flags ################################
+
+
+@pytest.mark.skipif(platform.processor() == "arm", reason="ARM training not supported")
+def test_train_model_causallm(disable_wip, set_cpu_device):
+    """Ensure that we can finetune a causal-lm model on some toy data for 1+
+    steps & run inference."""
+    train_kwargs = {
+        "base_model": HFAutoCausalLM.bootstrap(
+            model_name=CAUSAL_LM_MODEL, tokenizer_name=CAUSAL_LM_MODEL
+        ),
+        "num_epochs": 1,
+        "train_stream": caikit.core.data_model.DataStream.from_iterable(
+            [
+                GenerationTrainRecord(
+                    input="@foo what a cute dog!", output="no complaint"
+                ),
+            ]
+        ),
+        "torch_dtype": torch.float32,
+    }
+    model = TextGeneration.train(**train_kwargs)
+    assert isinstance(model.model, HFAutoCausalLM)
+
+    # Ensure that preserve_input_text returns input in output
+    pred = model.run("@bar what a cute cat!", preserve_input_text=True)
+    assert "@bar what a cute cat!" in pred.generated_text
+
+    # Ensure that preserve_input_text set to False, removes input from output
+    pred = model.run("@bar what a cute cat!", preserve_input_text=False)
+    assert "@bar what a cute cat!" not in pred.generated_text
+
+
 ############################## Error Cases ################################
 
 

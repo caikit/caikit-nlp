@@ -540,8 +540,9 @@ class TextGeneration(ModuleBase):
         Args:
             {GENERATE_FUNCTION_ARGS},
             preserve_input_text: bool
+                Applicable only to Causal LLMs.
                 Whether or not the source string should be contained in the generated output,
-                e.g., as a prefix. Default True. (Source string will apprear as prefix)
+                e.g., as a prefix. Default True. (Source string will appear as prefix)
         Returns:
             GeneratedTextResult
                 Generated text result produced by the model.
@@ -567,6 +568,7 @@ class TextGeneration(ModuleBase):
             repetition_penalty=repetition_penalty,
             max_time=max_time,
             preserve_input_text=preserve_input_text,
+            task_type=self.model.TASK_TYPE,
             **kwargs,
         )
 
