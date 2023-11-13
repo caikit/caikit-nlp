@@ -290,7 +290,7 @@ class PeftPromptTuning(ModuleBase):
         batch_size: Optional[int] = 8,
         max_source_length: Optional[int] = 256,
         max_target_length: Optional[int] = 128,
-        accumulate_steps: Optional[int] = 32,
+        accumulate_steps: Optional[int] = None,
         torch_dtype: Optional[str] = None,  # TODO: Optional[Union[torch.dtype, str]]
         silence_progress_bars: Optional[bool] = True,
         seed: int = RANDOM_SEED,
@@ -329,8 +329,8 @@ class PeftPromptTuning(ModuleBase):
                 Max length of input sequences being considered. Default: 256.
             max_target_length: int
                 Max length of target sequences being predicted. Default: 128.
-            accumulate_steps: int
-                Number of steps to use for gradient accumulation. Default: 1.
+            accumulate_steps: int (DEPRECATED)
+                Optional, number of steps to use for gradient accumulation. Default: None.
             torch_dtype: str
                 TODO: Optional[Union[torch.dtype, str]]
                 Data type to use for training/inference of the underlying text generation model.
@@ -345,6 +345,11 @@ class PeftPromptTuning(ModuleBase):
             PeftPromptTuning
                 Instance of this class with tuned prompt vectors.
         """
+
+        if accumulate_steps:
+            log.warning(
+                "<NLP36083095W>",
+                "accumulate_steps parameter is DEPRECATED and will be removed in future. This parameter is also not getting used internally anymore")
 
         # Configure random seed
         transformers.set_seed(seed)
@@ -477,7 +482,6 @@ class PeftPromptTuning(ModuleBase):
                 num_epochs,
                 cls.RANDOM_SEED,
                 learning_rate,
-                accumulate_steps,
                 max_steps=infer_max_steps(num_epochs, batch_size, training_dataset),
                 silence_progress_bars=silence_progress_bars,
                 # NOTE: following can override above arguments in order
