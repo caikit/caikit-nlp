@@ -38,6 +38,7 @@ import torch
 import transformers
 
 # First Party
+from caikit import get_config
 from caikit.core.data_model import DataStream
 from caikit.core.exceptions import error_handler
 from caikit.core.modules import ModuleBase, ModuleConfig, ModuleSaver, module
@@ -69,7 +70,7 @@ from ...toolkit.text_generation.training_utils import (
     collect_trainer_arguments,
     infer_max_steps,
     launch_training,
-    preprocess_function,
+    preprocess_function
 )
 from ...toolkit.torch_run import get_torch_elastic_launch_config
 from ...toolkit.trainer_utils import validate_training_data
@@ -394,11 +395,6 @@ class PeftPromptTuning(ModuleBase):
             base_model_name,
             cls.MODULE_ID,
         )
-
-        # Coerce the passed model into a resource; if we have one, this is a noop
-        # TODO: When splitting up this mono-module, use the configured resource
-        #   type of the concrete class to bootstrap
-        torch_dtype = get_torch_dtype(torch_dtype)
 
         train_stream = train_stream.map(convert_to_generation_record)
         if val_stream:
