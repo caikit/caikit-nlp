@@ -23,7 +23,7 @@ import tempfile
 # Third Party
 from datasets import Dataset
 from datasets import IterableDataset as TransformersIterableDataset
-from transformers import AutoConfig, AutoTokenizer
+from transformers import AutoConfig
 import torch
 
 # First Party
@@ -47,6 +47,13 @@ from ...toolkit.text_generation.model_run_utils import (
     GENERATE_FUNCTION_ARGS,
     generate_text_func,
 )
+from ...toolkit.text_generation.training_utils import (
+    ALLOWED_TRAINING_ARGS,
+    collect_trainer_arguments,
+    infer_max_steps,
+    launch_training,
+    preprocess_function,
+)
 from ...toolkit.torch_run import get_torch_elastic_launch_config
 
 log = alog.use_channel("TXT_GEN")
@@ -67,28 +74,6 @@ class TextGeneration(ModuleBase):
 
     RANDOM_SEED = 73
     supported_resources = [HFAutoCausalLM, HFAutoSeq2SeqLM]
-
-    # Below list is taken from
-    # https://huggingface.co/docs/transformers/main/en/main_classes/trainer#transformers.TrainingArguments
-    allowed_training_args = {
-        "weight_decay",
-        "adam_beta1",
-        "adam_beta2",
-        "adam_epsilon",
-        "max_grad_norm",
-        "lr_scheduler_type",
-        "warmup_ratio",
-        "warmup_steps",
-        "use_ipex",
-        "disable_tqdm",
-        "label_names",
-        "optim",
-        "optim_args",
-        "group_by_length",
-        "dataloader_pin_memory",
-        "gradient_checkpointing",
-        "full_determinism",
-    }
 
     def __init__(
         self,
@@ -180,7 +165,7 @@ class TextGeneration(ModuleBase):
         num_epochs: int = 5,
         accumulate_steps: int = 32,
         random_seed: int = RANDOM_SEED,
-        lr: float = 2e-5,
+        learning_rate: float = 2e-5,
         use_iterable_dataset: bool = True,
         **kwargs,
     ) -> "TextGeneration":
@@ -208,7 +193,7 @@ class TextGeneration(ModuleBase):
                 Number of epochs to tune the model. Default: 20.
             accumulate_steps: int
                 Number of steps to use for gradient accumulation. Default: 1.
-            lr: float
+            learning_rate: float
                 Learning rate to be used while tuning model. Default: 2e-5.
             use_iterable_dataset: bool
                 Indicates whether or not we should load the full dataset into memory
@@ -265,6 +250,18 @@ class TextGeneration(ModuleBase):
 
         error.type_check("<NLP03221895E>", PretrainedModelBase, base_model=base_model)
 
+        if num_epochs < 1:
+            log.warning(
+                "<NLP64076114W>",
+                f"Number of epochs configured is {num_epochs} which is less than minimum 1. \
+                    No training will be performed",
+            )
+
+            return TextGeneration(
+                model_name=base_model._model_name,
+                model=base_model,
+            )
+
         # TODO; For now, we don't support iterable datasets for causal LM, the reason
         # being that the dynamically padded collator breaks with FSDP/torch run when
         # multiple devices are used. This appears to be because each process fetches
@@ -287,7 +284,7 @@ class TextGeneration(ModuleBase):
         ## Generate data loader from stream
         training_dataset: Union[
             Dataset, TransformersIterableDataset
-        ] = cls._preprocess_function(
+        ] = preprocess_function(
             base_model=base_model,
             train_stream=train_stream,
             tokenizer=base_model.tokenizer,
@@ -295,22 +292,8 @@ class TextGeneration(ModuleBase):
             max_target_length=max_target_length,
             shuffle=True,
             use_iterable_dataset=use_iterable_dataset,
+            random_seed=cls.RANDOM_SEED,
         )
-
-        ### Dtype based processing
-        # NOTE: Following is not exhaustive list of all parameters
-        # for all dtypes
-        if torch_dtype == torch.float16:
-            dtype_based_params = {
-                "fp16": True,
-            }
-        elif torch_dtype == torch.bfloat16:
-            dtype_based_params = {
-                "bf16": True,
-            }
-        else:
-            # default to float32
-            dtype_based_params = {}
 
         ## TODO: Add automatic sharding selection based on number of parameters
         # in base model
@@ -318,7 +301,7 @@ class TextGeneration(ModuleBase):
 
         # Filter **training_arguments to only process allowed ones
         filtered_training_arguments = {
-            k: v for k, v in kwargs.items() if k in cls.allowed_training_args
+            k: v for k, v in kwargs.items() if k in ALLOWED_TRAINING_ARGS
         }
 
         extra_training_args = set(kwargs.keys()).difference(
@@ -351,52 +334,19 @@ class TextGeneration(ModuleBase):
         # Open an intermediate checkpoint directory until we've bootstrapped
         # our model or we've early exited (if epochs < 1)
         with tempfile.TemporaryDirectory() as checkpoint_dir:
-            training_args = {
-                "output_dir": checkpoint_dir,
-                "per_device_train_batch_size": batch_size,
-                "per_device_eval_batch_size": batch_size,
-                "num_train_epochs": num_epochs,
-                "seed": random_seed,
-                # NOTE: We have disabled evaluation for now
-                "do_eval": False,
-                "do_train": True,
-                "learning_rate": lr,
-                "weight_decay": 0.01,
-                "save_total_limit": 3,
-                "push_to_hub": False,
-                "use_cpu": not torch.cuda.is_available(),  # Default
-                "remove_unused_columns": True,
-                "dataloader_pin_memory": False,
-                "gradient_accumulation_steps": accumulate_steps,
-                "gradient_checkpointing": True,
-                "logging_strategy": "steps",
-                "logging_steps": 1,  # logging at every step
-                # NOTE: This is explicitly set to false since it will
-                # negatively impact the performance
-                "full_determinism": False,
-                # Required for iterable dataset
-                "max_steps": cls.infer_max_steps(
-                    num_epochs, batch_size, training_dataset
-                ),
-                # Some interesting parameters:
-                "auto_find_batch_size": True,
+            training_args = collect_trainer_arguments(
+                torch_dtype,
+                checkpoint_dir,
+                batch_size,
+                num_epochs,
+                random_seed,
+                learning_rate,
+                accumulate_steps,
+                max_steps=infer_max_steps(num_epochs, batch_size, training_dataset),
                 # NOTE: following can override above arguments in order
                 **filtered_training_arguments,
                 **processing_configuration,
-                **dtype_based_params,
-            }
-
-            if num_epochs < 1:
-                log.warning(
-                    "<NLP64076114W>",
-                    f"Number of epochs configured is {num_epochs} which is less than minimum 1. \
-                        No training will be performed",
-                )
-
-                return TextGeneration(
-                    model_name=base_model._model_name,
-                    model=base_model,
-                )
+            )
 
             launch_config = get_torch_elastic_launch_config(
                 get_config().master_addr,
@@ -408,7 +358,7 @@ class TextGeneration(ModuleBase):
                 # to avoid that, specially for unit tests, we are only
                 # running below when GPUs are available
                 training_loss_history = torch.distributed.launcher.api.elastic_launch(
-                    launch_config, cls._launch_training
+                    launch_config, launch_training
                 )(base_model, training_dataset, training_args, checkpoint_dir)
 
                 # NOTE: We are currently only storing the loss information from
@@ -416,7 +366,7 @@ class TextGeneration(ModuleBase):
                 # rank of the process as key
                 training_loss_history = training_loss_history[0]
             else:
-                training_loss_history = cls._launch_training(
+                training_loss_history = launch_training(
                     base_model, training_dataset, training_args, checkpoint_dir
                 )
 
@@ -567,98 +517,3 @@ class TextGeneration(ModuleBase):
             max_time=max_time,
             **kwargs,
         )
-
-    ################################## Private Functions ######################################
-
-    @staticmethod
-    def _preprocess_function(
-        base_model: PretrainedModelBase,
-        train_stream: DataStream[GenerationTrainRecord],
-        tokenizer: AutoTokenizer,
-        max_source_length: int,
-        max_target_length: int,
-        shuffle: bool,
-        use_iterable_dataset: bool,
-    ):
-        """Pre-process each example to get it prepared for training."""
-        dataset_type = TransformersIterableDataset if use_iterable_dataset else Dataset
-        log.debug("Loading dataset class: [%s]", dataset_type.__name__)
-        fn_kwargs = {
-            "tokenizer": tokenizer,
-            "max_source_length": max_source_length,
-            "max_target_length": max_target_length,
-        }
-        dataset = dataset_type.from_generator(
-            get, gen_kwargs={"train_stream": train_stream}
-        )
-        mapped_dataset = dataset.map(
-            base_model.tokenize_function,
-            fn_kwargs=fn_kwargs,
-            batched=False,
-            # Drop the input / output columns; we need to do this for dimensions to play
-            # happily when operating on batched inputs for causal language modeling.
-            remove_columns=["input", "output"],
-        )
-
-        if shuffle:
-            log.debug("Shuffling the dataset")
-            return mapped_dataset.shuffle(seed=TextGeneration.RANDOM_SEED)
-
-        return mapped_dataset
-
-    @staticmethod
-    def _launch_training(
-        base_model, training_dataset, training_args, checkpoint_dir
-    ) -> None:
-        """Utility function to wrap trainer and execute training"""
-
-        trainer = base_model.get_trainer(
-            train_dataset=training_dataset, **training_args
-        )
-
-        # Start training via Trainer.train function
-        trainer.train()
-
-        # save the model temporarily and reload it
-        # this is done, since otherwise the model might be distributed in different
-        # devices, in which case its better to use trainer's `prediction_step`
-        # functions, but then, they don't always give API similar to `generate`
-        # and thus cause incompatibilities in `run` function
-        trainer.save_state()
-        trainer.save_model(checkpoint_dir)
-
-        # save tokenizer explicitly
-        base_model.tokenizer.save_pretrained(checkpoint_dir)
-
-        # Below will return log history but launch will automatically attach rank to it.
-        # if started in distributed fashion
-        return trainer.state.log_history
-
-    @staticmethod
-    def infer_max_steps(
-        num_epochs: int,
-        batch_size: int,
-        training_dataset: Union[Dataset, TransformersIterableDataset],
-    ):
-        # Calculate the number of samples that we have
-        if isinstance(training_dataset, Dataset):
-            data_len = len(training_dataset)
-        else:
-            data_len = 0
-            for _ in training_dataset:
-                data_len += 1
-        # Figure out how many batches we'll have per epoch
-        num_batches = data_len // batch_size
-        # Assume drop_last=False; in general, this doesn't really matter.
-        # We mostly do this to avoid strange behavior when the dataset
-        # size is smaller than the batch size.
-        if num_batches != (data_len * batch_size):
-            num_batches += 1
-        num_steps = num_batches * num_epochs
-        log.debug("Number of inferred steps: [%s]", num_steps)
-        return num_steps
-
-
-def get(train_stream):
-    for data in train_stream:
-        yield {"input": data.input, "output": data.output}
