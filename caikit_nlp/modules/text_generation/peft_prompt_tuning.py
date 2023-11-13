@@ -70,10 +70,10 @@ from ...toolkit.text_generation.training_utils import (
     collect_trainer_arguments,
     infer_max_steps,
     launch_training,
-    preprocess_function,
-    validate_training_data
+    preprocess_function
 )
 from ...toolkit.torch_run import get_torch_elastic_launch_config
+from ...toolkit.trainer_utils import validate_training_data
 from ...toolkit.verbalizer_utils import render_verbalizer
 from .peft_config import TuningType, get_peft_config, resolve_base_model
 
