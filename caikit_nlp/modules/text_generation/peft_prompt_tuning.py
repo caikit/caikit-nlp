@@ -71,6 +71,7 @@ from ...toolkit.text_generation.training_utils import (
     infer_max_steps,
     launch_training,
     preprocess_function,
+    validate_training_data
 )
 from ...toolkit.torch_run import get_torch_elastic_launch_config
 from ...toolkit.verbalizer_utils import render_verbalizer
@@ -345,6 +346,9 @@ class PeftPromptTuning(ModuleBase):
             PeftPromptTuning
                 Instance of this class with tuned prompt vectors.
         """
+        error.value_check(
+            "<NLP46653367E>", len(train_stream) > 0, "train_stream cannot be empty"
+        )
 
         if accumulate_steps:
             log.warning(
@@ -385,6 +389,13 @@ class PeftPromptTuning(ModuleBase):
             verbalizer,
         )
 
+        # Check if data is within limit allowed for this module and model
+        validate_training_data(
+            train_stream,
+            base_model_name,
+            cls.MODULE_ID,
+        )
+
         train_stream = train_stream.map(convert_to_generation_record)
         if val_stream:
             error.value_check(
@@ -403,7 +414,7 @@ class PeftPromptTuning(ModuleBase):
         # Convert our Peft model (not just the underlying
         # transformers model) to the right underlying type.
         device = cls._get_device(device)
-        # cls.convert_peft_model_to_type(device, peft_model, torch_dtype)
+        cls.convert_peft_model_to_type(device, peft_model, torch_dtype)
 
         ## Generate data loader from stream
         training_dataset: Union[

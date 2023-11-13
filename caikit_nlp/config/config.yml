@@ -30,5 +30,11 @@ unload_tgis_prompt_artifacts: false
 master_addr: localhost
 master_port: 29550
 
+training_data_limit:
+  __default__: -1
+  # Configuration for PeftPromptTuning module
+  6655831b-960a-4dc5-8df4-867026e2cd41:
+    add_model_name_here: 10000
+
 runtime:
   library: caikit_nlp

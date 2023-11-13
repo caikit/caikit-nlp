@@ -19,7 +19,7 @@ from typing import List, Optional, Tuple, Union
 
 # Third Party
 from peft.peft_model import PeftModel
-from transformers import StoppingCriteria, TextStreamer
+from transformers import AutoModel, AutoTokenizer, StoppingCriteria, TextStreamer
 import numpy as np
 import torch
 
@@ -27,6 +27,7 @@ import torch
 from caikit.core.data_model.producer import ProducerId
 from caikit.core.exceptions import error_handler
 from caikit.interfaces.nlp.data_model import (
+    FinishReason,
     GeneratedTextResult,
     GeneratedTextStreamResult,
     TokenStreamDetails,
@@ -131,10 +132,10 @@ class SequenceStoppingCriteria(StoppingCriteria):
 
 
 def generate_text_func(
-    model,
-    tokenizer,
+    model: "Union[PeftModel, AutoModel]",
+    tokenizer: "AutoTokenizer",
     producer_id: ProducerId,
-    eos_token: str,
+    eos_token: Optional[str],
     text: str,
     max_new_tokens: Optional[int] = 20,
     min_new_tokens: Optional[int] = 0,
@@ -234,12 +235,20 @@ def generate_text_func(
         for g in generate_ids
     ]
 
-    if generate_ids[0][-1].item() == eos_token:
-        finish_reason = "EOS_TOKEN"
-    elif generate_ids.size(1) - 1 == max_new_tokens:
-        finish_reason = "MAX_TOKENS"
+    if (eos_token and tokenizer.decode(generate_ids[0, -1].item()) == eos_token) or (
+        generate_ids[0, -1] == tokenizer.eos_token_id
+    ):
+        finish_reason = FinishReason.EOS_TOKEN
+    elif ("stopping_criteria" in gen_optional_params) and (
+        gen_optional_params["stopping_criteria"](
+            generate_ids,
+            None,  # scores, unused by SequenceStoppingCriteria
+        )
+    ):
+        finish_reason = FinishReason.STOP_SEQUENCE
     else:
-        finish_reason = "OTHER"
+        finish_reason = FinishReason.MAX_TOKENS
+
     return GeneratedTextResult(
         generated_tokens=token_count,
         generated_text=preds[0],
