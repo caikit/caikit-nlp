@@ -64,7 +64,6 @@ def collect_trainer_arguments(
     num_epochs,
     random_seed,
     learning_rate,
-    accumulate_steps,
     max_steps,
     silence_progress_bars=True,
     **kwargs
@@ -107,8 +106,7 @@ def collect_trainer_arguments(
         "learning_rate": learning_rate,
         "weight_decay": 0.01,
         "save_total_limit": 3,
-        "gradient_accumulation_steps": accumulate_steps,
-        # "gradient_checkpointing": True,
+        "gradient_checkpointing": True,
         # huggingface configurations
         "push_to_hub": False,
         # dataset configurations
@@ -210,7 +208,7 @@ def launch_training(
     elif tokenizer:
         tokenizer.save_pretrained(checkpoint_dir)
     else:
-        log.warning("<NLP47068212W>", "tokenizer not available to train function.")
+        log.warning("<NLP47068212W>", "Cannot save tokenizer as not available to train function.")
 
     # Below will return log history but launch will automatically attach rank to it.
     # if started in distributed fashion
