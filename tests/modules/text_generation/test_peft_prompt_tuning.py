@@ -262,6 +262,19 @@ def test_prompt_output_types(causal_lm_train_kwargs):
     assert model
 
 
+def test_error_empty_stream(causal_lm_train_kwargs):
+    patch_kwargs = {
+        "num_epochs": 1,
+        "verbalizer": "Tweet text : {{input}} Label : ",
+        "train_stream": caikit.core.data_model.DataStream.from_iterable([]),
+    }
+    causal_lm_train_kwargs.update(patch_kwargs)
+    with pytest.raises(ValueError):
+        caikit_nlp.modules.text_generation.PeftPromptTuning.train(
+            **causal_lm_train_kwargs
+        )
+
+
 ### Implementation details
 # These tests can probably be removed and tested directly through .save() once
 # full seq2seq support is completed and verified.

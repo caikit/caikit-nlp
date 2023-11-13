@@ -345,6 +345,9 @@ class PeftPromptTuning(ModuleBase):
             PeftPromptTuning
                 Instance of this class with tuned prompt vectors.
         """
+        error.value_check(
+            "<NLP46653367E>", len(train_stream) > 0, "train_stream cannot be empty"
+        )
 
         # Configure random seed
         transformers.set_seed(seed)
@@ -381,6 +384,10 @@ class PeftPromptTuning(ModuleBase):
 
         train_stream = train_stream.map(convert_to_generation_record)
         if val_stream:
+            error.value_check(
+                "<NLP63201425E>", len(val_stream) > 0, "val_stream cannot be empty"
+            )
+
             val_stream = val_stream.map(convert_to_generation_record)
 
         # Convert our datastreams -> data loaders by disguising them as PyTorch iterable datasets
