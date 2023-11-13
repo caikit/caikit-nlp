@@ -414,7 +414,6 @@ class PeftPromptTuning(ModuleBase):
         # Convert our Peft model (not just the underlying
         # transformers model) to the right underlying type.
         device = cls._get_device(device)
-        cls.convert_peft_model_to_type(device, peft_model, torch_dtype)
 
         ## Generate data loader from stream
         training_dataset: Union[
