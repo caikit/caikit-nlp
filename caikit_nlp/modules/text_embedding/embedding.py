@@ -32,7 +32,7 @@ error = error_handler.get(logger)
 
 
 @module(
-    "EEB12558-B4FA-4F34-A9FD-3F5890E9CD3F",
+    "eeb12558-b4fa-4f34-a9fd-3f5890e9cd3f",
     "EmbeddingModule",
     "0.0.1",
     EmbeddingTask,
@@ -121,22 +121,18 @@ class EmbeddingModule(ModuleBase):
             model_config_path.strip()
         )  # No leading/trailing spaces sneaky weirdness
 
+        # Only allow new dirs because there are not enough controls to safely update in-place
         os.makedirs(model_config_path, exist_ok=False)
+
         saver = ModuleSaver(
             module=self,
             model_path=model_config_path,
         )
-
-        # Get and update config (artifacts_path)
-        artifacts_path = saver.config.get(self._ARTIFACTS_PATH_KEY)
-        if not artifacts_path:
-            artifacts_path = self._ARTIFACTS_PATH_DEFAULT
-            saver.update_config({self._ARTIFACTS_PATH_KEY: artifacts_path})
+        artifacts_path = self._ARTIFACTS_PATH_DEFAULT
+        saver.update_config({self._ARTIFACTS_PATH_KEY: artifacts_path})
 
         # Save the model
-        self.model.save(
-            os.path.join(model_config_path, artifacts_path), create_model_card=True
-        )
+        self.model.save(os.path.join(model_config_path, artifacts_path))
 
         # Save the config
         ModuleConfig(saver.config).save(model_config_path)
