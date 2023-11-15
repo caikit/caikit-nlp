@@ -14,16 +14,8 @@
 
 # Standard
 from typing import List, Optional
+import importlib
 import os
-
-# Third Party
-from sentence_transformers import SentenceTransformer
-from sentence_transformers.util import (
-    cos_sim,
-    dot_score,
-    normalize_embeddings,
-    semantic_search,
-)
 
 # First Party
 from caikit.core import ModuleBase, ModuleConfig, ModuleSaver, module
@@ -48,6 +40,27 @@ from caikit_nlp.data_model import (
 
 logger = alog.use_channel("TXT_EMB")
 error = error_handler.get(logger)
+
+# To avoid dependency problems, make sentence-transformers an optional import and
+# defer any ModuleNotFoundError until someone actually tries to init a model with this module.
+try:
+    sentence_transformers = importlib.import_module("sentence_transformers")
+    # Third Party
+    from sentence_transformers import SentenceTransformer
+    from sentence_transformers.util import (
+        cos_sim,
+        dot_score,
+        normalize_embeddings,
+        semantic_search,
+    )
+except ModuleNotFoundError:
+    # When it is not available, create a dummy that raises an error on attempted init()
+    class SentenceTransformerNotAvailable:
+        def __init__(self, *args, **kwargs):  # pylint: disable=unused-argument
+            # Will reproduce the ModuleNotFoundError if/when anyone actually tries this module/model
+            importlib.import_module("sentence_transformers")
+
+    SentenceTransformer = SentenceTransformerNotAvailable
 
 
 @module(
