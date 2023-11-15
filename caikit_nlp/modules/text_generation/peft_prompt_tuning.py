@@ -170,11 +170,16 @@ class PeftPromptTuning(ModuleBase):
         ] = None,
         stop_sequences: Optional[List[str]] = None,
         seed: Optional[np.uint64] = None,
+        preserve_input_text: bool = True,
     ) -> GeneratedTextResult:
         f"""
         Run the full text generation model.
         Args:
             {GENERATE_FUNCTION_ARGS}
+            preserve_input_text: bool
+                Applicable only to Causal LLMs.
+                Whether or not the source string should be contained in the generated output,
+                e.g., as a prefix. Default True. (Source string will appear as prefix)
         Returns:
             GeneratedTextResult
                 Generated text result produced by PEFT / Transformers.
@@ -201,6 +206,8 @@ class PeftPromptTuning(ModuleBase):
             max_time=max_time,
             exponential_decay_length_penalty=exponential_decay_length_penalty,
             stop_sequences=stop_sequences,
+            preserve_input_text=preserve_input_text,
+            task_type=self.task_type,
         )
 
     # NOTE: We need to disable wip decorator here otherwise we get issues in

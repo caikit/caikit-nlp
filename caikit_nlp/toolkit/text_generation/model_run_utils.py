@@ -152,6 +152,8 @@ def generate_text_func(
         Union[Tuple[int, float], ExponentialDecayLengthPenalty]
     ] = None,
     stop_sequences: Optional[List[str]] = None,
+    preserve_input_text: Optional[bool] = True,
+    task_type: Optional[str] = None,
     **kwargs,
 ):
     """
@@ -164,6 +166,12 @@ def generate_text_func(
                 Caikit producer id associated with the module
             eos_token: str
                 End of sequence token to be used with generation
+            preserve_input_text: bool
+                Applicable only for CAUSAL_LM task type.
+                Whether or not the source string should be contained in the generated output,
+                e.g., as a prefix. Default True. (Source string will appear as prefix)
+            task_type: str or None
+                Task type such as CAUSAL_LM, SEQ_2_SEQ_LM, SEQ_CLS or None
             {}
         Returns:
             GeneratedTextResult
@@ -235,6 +243,13 @@ def generate_text_func(
         for g in generate_ids
     ]
 
+    if preserve_input_text is not True:
+        generated_text = __postprocess_remove_input_text(
+            tokenizer, preds, inputs, task_type
+        )
+    else:
+        generated_text = preds[0]
+
     if (eos_token and tokenizer.decode(generate_ids[0, -1].item()) == eos_token) or (
         generate_ids[0, -1] == tokenizer.eos_token_id
     ):
@@ -251,12 +266,35 @@ def generate_text_func(
 
     return GeneratedTextResult(
         generated_tokens=token_count,
-        generated_text=preds[0],
+        generated_text=generated_text,
         finish_reason=finish_reason,
         producer_id=producer_id,
         input_token_count=input_token_count,
         seed=seed,
     )
+
+
+def __postprocess_remove_input_text(tokenizer, preds, inputs, task_type):
+    """For Causal LM task types, preserve_input_text set to False will
+    remove the input text from generated output.
+    """
+    if task_type == "CAUSAL_LM":
+        prompt_length = len(
+            tokenizer.decode(
+                inputs["input_ids"][0],
+                skip_special_tokens=True,
+                clean_up_tokenization_spaces=True,
+            )
+        )
+        generated_text = preds[0][prompt_length:]
+    else:
+        log.warning(
+            "<NLP16125792W>",
+            f"preserve_input_text flag is not applicable for task type {task_type}. \
+              Returning model generated prediction",
+        )
+        generated_text = preds[0]
+    return generated_text
 
 
 def generate_text_func_stream(
