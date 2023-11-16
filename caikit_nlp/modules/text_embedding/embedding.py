@@ -21,22 +21,27 @@ import os
 from caikit.core import ModuleBase, ModuleConfig, ModuleSaver, module
 from caikit.core.data_model.json_dict import JsonDict
 from caikit.core.exceptions import error_handler
-import alog
-
-# Local
-from .embedding_tasks import EmbeddingTask, EmbeddingTasks
-from .rerank_task import RerankTask, RerankTasks
-from .sentence_similarity_task import SentenceSimilarityTask, SentenceSimilarityTasks
-from caikit_nlp.data_model import (
+from caikit.interfaces.common.data_model.vectors import ListOfVector1D, Vector1D
+from caikit.interfaces.nlp.data_model import (
     EmbeddingResult,
-    ListOfVector1D,
-    RerankPredictions,
-    RerankQueryResult,
+    EmbeddingResults,
+    RerankResult,
+    RerankResults,
     RerankScore,
-    SentenceListScores,
-    SentenceScores,
-    Vector1D,
+    RerankScores,
+    SentenceSimilarityResult,
+    SentenceSimilarityResults,
+    SentenceSimilarityScores,
 )
+from caikit.interfaces.nlp.tasks import (
+    EmbeddingTask,
+    EmbeddingTasks,
+    RerankTask,
+    RerankTasks,
+    SentenceSimilarityTask,
+    SentenceSimilarityTasks,
+)
+import alog
 
 logger = alog.use_channel("TXT_EMB")
 error = error_handler.get(logger)
@@ -126,16 +131,19 @@ class EmbeddingModule(ModuleBase):
         """
         error.type_check("<NLP27491611E>", str, text=text)
 
-        return EmbeddingResult(Vector1D.from_vector(self.model.encode(text)))
+        return EmbeddingResult(
+            result=Vector1D.from_vector(self.model.encode(text)),
+            producer_id=self.PRODUCER_ID,
+        )
 
     @EmbeddingTasks.taskmethod()
-    def run_embeddings(self, texts: List[str]) -> ListOfVector1D:
+    def run_embeddings(self, texts: List[str]) -> EmbeddingResults:
         """Get embedding vectors for texts.
         Args:
             texts: List[str]
                 List of input texts to be processed
         Returns:
-            List[Vector1D]: List vectors. One for each input text (in order).
+            EmbeddingResults: List of vectors. One for each input text (in order).
              Each vector is a list of floats (supports various float types).
         """
         if isinstance(
@@ -144,40 +152,45 @@ class EmbeddingModule(ModuleBase):
             texts = [texts]
 
         embeddings = self.model.encode(texts)
-        results = [Vector1D.from_vector(e) for e in embeddings]
-        return ListOfVector1D(results=results)
+        vectors = [Vector1D.from_vector(e) for e in embeddings]
+        return EmbeddingResults(
+            results=ListOfVector1D(vectors=vectors), producer_id=self.PRODUCER_ID
+        )
 
     @SentenceSimilarityTask.taskmethod()
     def run_sentence_similarity(
         self, source_sentence: str, sentences: List[str]
-    ) -> SentenceScores:
+    ) -> SentenceSimilarityResult:
         """Get similarity scores for each of sentences compared to the source_sentence.
         Args:
             source_sentence: str
             sentences: List[str]
                 Sentences to compare to source_sentence
         Returns:
-            SentenceScores
+            SentenceSimilarityResult: Similarity scores for each sentence.
         """
 
         source_embedding = self.model.encode(source_sentence)
         embeddings = self.model.encode(sentences)
 
         res = cos_sim(source_embedding, embeddings)
-        return SentenceScores(res.tolist()[0])
+        return SentenceSimilarityResult(
+            result=SentenceSimilarityScores(scores=res.tolist()[0]),
+            producer_id=self.PRODUCER_ID,
+        )
 
     @SentenceSimilarityTasks.taskmethod()
     def run_sentence_similarities(
         self, source_sentences: List[str], sentences: List[str]
-    ) -> SentenceListScores:
+    ) -> SentenceSimilarityResults:
         """Run sentence-similarities on model.
         Args:
             source_sentences: List[str]
             sentences: List[str]
                 Sentences to compare to source_sentences
         Returns:
-            SentenceListScores Similarity scores for each source sentence in order.
-                each SentenceScores contains the source-sentence's score for each sentence in order.
+            SentenceSimilarityResults: Similarity scores for each source sentence in order.
+                Each one contains the source-sentence's score for each sentence in order.
         """
 
         source_embedding = self.model.encode(source_sentences)
@@ -185,8 +198,9 @@ class EmbeddingModule(ModuleBase):
 
         res = cos_sim(source_embedding, embeddings)
         float_list_list = res.tolist()
-        return SentenceListScores(
-            results=[SentenceScores(fl) for fl in float_list_list]
+        return SentenceSimilarityResults(
+            results=[SentenceSimilarityScores(fl) for fl in float_list_list],
+            producer_id=self.PRODUCER_ID,
         )
 
     @RerankTask.taskmethod()
@@ -198,7 +212,7 @@ class EmbeddingModule(ModuleBase):
         return_documents: bool = True,
         return_query: bool = True,
         return_text: bool = True,
-    ) -> RerankQueryResult:
+    ) -> RerankResult:
         """Rerank the documents returning the most relevant top_n in order for this query.
         Args:
             query: str
@@ -219,7 +233,7 @@ class EmbeddingModule(ModuleBase):
                 Default True
                 Setting to False will disable returning of document text string that was used.
         Returns:
-            RerankQueryResult
+            RerankResult
                 Returns the (top_n) scores in relevance order (most relevant first).
                 The results always include a score and index which may be used to find the document
                 in the original documents list. Optionally, the results also contain the entire
@@ -244,9 +258,15 @@ class EmbeddingModule(ModuleBase):
         ).results
 
         if results:
-            return results[0]
+            return RerankResult(result=results[0], producer_id=self.PRODUCER_ID)
 
-        RerankQueryResult(scores=[], query=query if return_query else None)
+        RerankResult(
+            producer_id=self.PRODUCER_ID,
+            result=RerankScore(
+                scores=[],
+                query=query if return_query else None,
+            ),
+        )
 
     @RerankTasks.taskmethod()
     def run_rerank_queries(
@@ -257,7 +277,7 @@ class EmbeddingModule(ModuleBase):
         return_documents: bool = True,
         return_queries: bool = True,
         return_text: bool = True,
-    ) -> RerankPredictions:
+    ) -> RerankResults:
         """Rerank the documents returning the most relevant top_n in order for each of the queries.
         Args:
             queries: List[str]
@@ -278,7 +298,7 @@ class EmbeddingModule(ModuleBase):
                 Default True
                 Setting to False will disable returning of document text string that was used.
         Returns:
-            RerankPredictions
+            RerankResults
                 For each query in queries (in the original order)...
                 Returns the (top_n) scores in relevance order (most relevant first).
                 The results always include a score and index which may be used to find the document
@@ -337,11 +357,14 @@ class EmbeddingModule(ModuleBase):
             return queries[q] if return_queries else None
 
         results = [
-            RerankQueryResult(query=add_query(q), scores=[RerankScore(**x) for x in r])
+            RerankScores(
+                query=add_query(q),
+                scores=[RerankScore(**x) for x in r],
+            )
             for q, r in enumerate(res)
         ]
 
-        return RerankPredictions(results=results)
+        return RerankResults(results=results, producer_id=self.PRODUCER_ID)
 
     @classmethod
     def bootstrap(cls, model_name_or_path: str) -> "EmbeddingModule":

@@ -30,6 +30,3 @@ Implements the following tasks:
 
 # Local
 from .embedding import EmbeddingModule
-from .embedding_tasks import EmbeddingTask, EmbeddingTasks
-from .rerank_task import RerankTask, RerankTasks
-from .sentence_similarity_task import SentenceSimilarityTask, SentenceSimilarityTasks

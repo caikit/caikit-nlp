@@ -20,8 +20,15 @@ from collections import namedtuple
 import numpy as np
 import pytest
 
-# Local
-from caikit_nlp import data_model as dm
+# First Party
+from caikit.interfaces.common.data_model.vectors import (
+    ListOfVector1D,
+    NpFloat32Sequence,
+    NpFloat64Sequence,
+    PyFloatSequence,
+    Vector1D,
+)
+from caikit.interfaces.nlp import data_model as dm
 
 ## Setup #########################################################################
 
@@ -60,36 +67,36 @@ def random_python_vector1d_float(random_numpy_vector1d_float32):
 @pytest.mark.parametrize(
     "sequence",
     [
-        dm.PyFloatSequence(),
-        dm.NpFloat32Sequence(),
-        dm.NpFloat64Sequence(),
+        PyFloatSequence(),
+        NpFloat32Sequence(),
+        NpFloat64Sequence(),
         TRICK_SEQUENCE(values=None),
     ],
     ids=type,
 )
 def test_empty_sequences(sequence):
     """No type check error with empty sequences"""
-    new_dm_from_init = dm.Vector1D(sequence)
+    new_dm_from_init = Vector1D(sequence)
     assert isinstance(new_dm_from_init.data, type(sequence))
     assert new_dm_from_init.data.values is None
 
     # Test proto
     proto_from_dm = new_dm_from_init.to_proto()
-    new_dm_from_proto = dm.Vector1D.from_proto(proto_from_dm)
-    assert isinstance(new_dm_from_proto, dm.Vector1D)
+    new_dm_from_proto = Vector1D.from_proto(proto_from_dm)
+    assert isinstance(new_dm_from_proto, Vector1D)
     assert new_dm_from_proto.data.values is None
 
     # Test json
     json_from_dm = new_dm_from_init.to_json()
-    new_dm_from_json = dm.Vector1D.from_json(json_from_dm)
-    assert isinstance(new_dm_from_json, dm.Vector1D)
+    new_dm_from_json = Vector1D.from_json(json_from_dm)
+    assert isinstance(new_dm_from_json, Vector1D)
     assert new_dm_from_json.data.values == []
 
 
 def test_vector1d_iterator_error():
     """Cannot just shove in an iterator and expect it to work"""
     with pytest.raises(ValueError):
-        dm.Vector1D(data=[1.1, 2.2, 3.3])
+        Vector1D(data=[1.1, 2.2, 3.3])
 
 
 def _assert_array_check(new_array, data_values, float_type):
@@ -101,9 +108,9 @@ def _assert_array_check(new_array, data_values, float_type):
 @pytest.mark.parametrize(
     "float_seq_class, random_values, float_type",
     [
-        (dm.PyFloatSequence, "random_python_vector1d_float", float),
-        (dm.NpFloat32Sequence, "random_numpy_vector1d_float32", np.float32),
-        (dm.NpFloat64Sequence, "random_numpy_vector1d_float64", np.float64),
+        (PyFloatSequence, "random_python_vector1d_float", float),
+        (NpFloat32Sequence, "random_numpy_vector1d_float32", np.float32),
+        (NpFloat64Sequence, "random_numpy_vector1d_float64", np.float64),
         (
             TRICK_SEQUENCE,
             "simple_array_of_floats",
@@ -115,17 +122,17 @@ def test_vector1d_dm(float_seq_class, random_values, float_type, request):
 
     # Test init
     fixture_values = request.getfixturevalue(random_values)
-    dm_init = dm.Vector1D(data=float_seq_class(fixture_values))
+    dm_init = Vector1D(data=float_seq_class(fixture_values))
     _assert_array_check(dm_init, fixture_values, float_type)
 
     # Test proto
     dm_to_proto = dm_init.to_proto()
-    dm_from_proto = dm.Vector1D.from_proto(dm_to_proto)
+    dm_from_proto = Vector1D.from_proto(dm_to_proto)
     _assert_array_check(dm_from_proto, fixture_values, float_type)
 
     # Test json
     dm_to_json = dm_init.to_json()
-    dm_from_json = dm.Vector1D.from_json(dm_to_json)
+    dm_from_json = Vector1D.from_json(dm_to_json)
     _assert_array_check(
         dm_from_json, fixture_values, float
     )  # NOTE: always float after json
@@ -134,14 +141,14 @@ def test_vector1d_dm(float_seq_class, random_values, float_type, request):
 @pytest.mark.parametrize(
     "float_seq_class, random_values, float_type",
     [
-        (dm.PyFloatSequence, "random_python_vector1d_float", float),
-        (dm.NpFloat32Sequence, "random_numpy_vector1d_float32", np.float32),
-        (dm.NpFloat64Sequence, "random_numpy_vector1d_float64", np.float64),
+        (PyFloatSequence, "random_python_vector1d_float", float),
+        (NpFloat32Sequence, "random_numpy_vector1d_float32", np.float32),
+        (NpFloat64Sequence, "random_numpy_vector1d_float64", np.float64),
     ],
 )
 def test_vector1d_dm_from_vector(float_seq_class, random_values, float_type, request):
     fixture_values = request.getfixturevalue(random_values)
-    v = dm.Vector1D.from_vector(fixture_values)
+    v = Vector1D.from_vector(fixture_values)
     assert isinstance(v.data, float_seq_class)
     assert isinstance(v.data.values[0], float_type)
     _assert_array_check(v, fixture_values, float_type)

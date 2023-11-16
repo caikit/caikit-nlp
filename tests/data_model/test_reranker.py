@@ -21,8 +21,16 @@ import string
 # Third Party
 import pytest
 
-# Local
-from caikit_nlp import data_model as dm
+# First Party
+from caikit.interfaces.nlp.data_model import (
+    RerankResult,
+    RerankResults,
+    RerankScore,
+    RerankScores,
+    SentenceSimilarityResult,
+    SentenceSimilarityResults,
+    SentenceSimilarityScores,
+)
 
 ## Setup #########################################################################
 
@@ -87,33 +95,25 @@ def input_random_score_3():
 
 @pytest.fixture
 def input_scores(input_score, input_random_score):
-    return [dm.RerankScore(**input_score), dm.RerankScore(**input_random_score)]
+    return [RerankScore(**input_score), RerankScore(**input_random_score)]
 
 
 @pytest.fixture
 def input_scores2(input_random_score, input_random_score_3):
     return [
-        dm.RerankScore(**input_random_score),
-        dm.RerankScore(**input_random_score_3),
+        RerankScore(**input_random_score),
+        RerankScore(**input_random_score_3),
     ]
 
 
 @pytest.fixture
-def input_result_1(input_scores):
-    return {"query": "foo", "scores": input_scores}
+def rerank_result_1(input_scores):
+    return {"result": RerankScores(query="foo", scores=input_scores)}
 
 
 @pytest.fixture
-def input_result_2(input_scores2):
-    return {"query": "bar", "scores": input_scores2}
-
-
-@pytest.fixture
-def input_results(input_result_1, input_result_2):
-    return [
-        dm.RerankQueryResult(**input_result_1),
-        dm.RerankQueryResult(**input_result_2),
-    ]
+def rerank_result_2(input_scores2):
+    return {"result": RerankScores(query="bar", scores=input_scores2)}
 
 
 @pytest.fixture
@@ -122,8 +122,30 @@ def input_sentence_similarity_scores_1():
 
 
 @pytest.fixture
-def input_rerank_predictions(input_results):
-    return {"results": input_results}
+def input_sentence_similarity_scores_2():
+    return {"scores": [random.uniform(-99999, 99999) for _ in range(10)]}
+
+
+@pytest.fixture
+def sentence_similarity_result(input_sentence_similarity_scores_1):
+    return {"result": SentenceSimilarityScores(**input_sentence_similarity_scores_1)}
+
+
+@pytest.fixture
+def sentence_similarity_results(
+    input_sentence_similarity_scores_1, input_sentence_similarity_scores_2
+):
+    return {
+        "results": [
+            SentenceSimilarityScores(**input_sentence_similarity_scores_1),
+            SentenceSimilarityScores(**input_sentence_similarity_scores_2),
+        ]
+    }
+
+
+@pytest.fixture
+def rerank_results(rerank_result_1, rerank_result_2):
+    return {"results": [rerank_result_1["result"], rerank_result_2["result"]]}
 
 
 @pytest.fixture
@@ -141,8 +163,8 @@ def input_sentence_similarities_scores(
     input_sentence_similarity_scores_1, input_sentence_similarity_scores_2
 ):
     return [
-        dm.SentenceScores(**input_sentence_similarity_scores_1),
-        dm.SentenceScores(**input_sentence_similarity_scores_2),
+        SentenceSimilarityResult(**input_sentence_similarity_scores_1),
+        SentenceSimilarityResult(**input_sentence_similarity_scores_2),
     ]
 
 
@@ -152,12 +174,12 @@ def input_sentence_similarities_scores(
 @pytest.mark.parametrize(
     "data_object, inputs",
     [
-        (dm.RerankScore, "input_score"),
-        (dm.RerankScore, "input_random_score"),
-        (dm.RerankQueryResult, "input_result_1"),
-        (dm.RerankPredictions, "input_rerank_predictions"),
-        (dm.SentenceScores, "input_sentence_similarity_scores_1"),
-        (dm.SentenceListScores, "input_sentence_list_scores"),
+        (RerankScore, "input_score"),
+        (RerankScore, "input_random_score"),
+        (RerankResult, "rerank_result_1"),
+        (RerankResults, "rerank_results"),
+        (SentenceSimilarityResult, "sentence_similarity_result"),
+        (SentenceSimilarityResults, "sentence_similarity_results"),
     ],
 )
 def test_data_object(data_object, inputs, request):

@@ -12,16 +12,16 @@ import pytest
 
 # First Party
 from caikit.core import ModuleConfig
+from caikit.interfaces.common.data_model.vectors import ListOfVector1D
+from caikit.interfaces.nlp.data_model import (
+    EmbeddingResult,
+    RerankResult,
+    RerankResults,
+    RerankScore,
+    RerankScores,
+)
 
 # Local
-from caikit_nlp.data_model import (
-    EmbeddingResult,
-    ListOfVector1D,
-    RerankPredictions,
-    RerankQueryResult,
-    RerankScore,
-    Vector1D,
-)
 from caikit_nlp.modules.text_embedding import EmbeddingModule
 from tests.fixtures import SEQ_CLASS_MODEL
 
@@ -89,8 +89,7 @@ def _assert_is_expected_embedding_result(actual):
 
 def _assert_is_expected_embeddings_results(actual):
     assert isinstance(actual, ListOfVector1D)
-    vectors = actual.results
-    _assert_is_expected_vector(vectors[0])
+    _assert_is_expected_vector(actual.vectors[0])
 
 
 def test_bootstrap():
@@ -210,15 +209,15 @@ def test_run_embeddings_str_type():
     """Supposed to be a list, gets fixed automatically."""
     model = BOOTSTRAPPED_MODEL
     res = model.run_embeddings(texts=INPUT)
-    assert isinstance(res.results, list)
-    assert len(res.results) == 1
+    assert isinstance(res.results.vectors, list)
+    assert len(res.results.vectors) == 1
 
 
 def test_run_embeddings():
     model = BOOTSTRAPPED_MODEL
-    results = model.run_embeddings(texts=[INPUT])
-    assert isinstance(results.results, list)
-    _assert_is_expected_embeddings_results(results)
+    res = model.run_embeddings(texts=[INPUT])
+    assert isinstance(res.results.vectors, list)
+    _assert_is_expected_embeddings_results(res.results)
 
 
 @pytest.mark.parametrize(
@@ -256,8 +255,8 @@ def test_run_rerank_query_no_type_error():
 )
 def test_run_rerank_query_top_n(top_n, expected):
     res = BOOTSTRAPPED_MODEL.run_rerank_query(query=QUERY, documents=DOCS, top_n=top_n)
-    assert isinstance(res, RerankQueryResult)
-    assert len(res.scores) == expected
+    assert isinstance(res, RerankResult)
+    assert len(res.result.scores) == expected
 
 
 def test_run_rerank_query_no_query():
@@ -272,10 +271,10 @@ def test_run_rerank_query_zero_docs():
 
 
 def test_run_rerank_query():
-    result = BOOTSTRAPPED_MODEL.run_rerank_query(query=QUERY, documents=DOCS)
-    assert isinstance(result, RerankQueryResult)
+    res = BOOTSTRAPPED_MODEL.run_rerank_query(query=QUERY, documents=DOCS)
+    assert isinstance(res, RerankResult)
 
-    scores = result.scores
+    scores = res.result.scores
     assert isinstance(scores, list)
     assert len(scores) == len(DOCS)
 
@@ -314,7 +313,7 @@ def test_run_rerank_queries_top_n(top_n, expected):
     res = BOOTSTRAPPED_MODEL.run_rerank_queries(
         queries=QUERIES, documents=DOCS, top_n=top_n
     )
-    assert isinstance(res, RerankPredictions)
+    assert isinstance(res, RerankResults)
     assert len(res.results) == len(QUERIES)
     for result in res.results:
         assert len(result.scores) == expected
@@ -341,7 +340,7 @@ def test_run_rerank_queries():
     rerank_result = BOOTSTRAPPED_MODEL.run_rerank_queries(
         queries=QUERIES, documents=DOCS, top_n=top_n
     )
-    assert isinstance(rerank_result, RerankPredictions)
+    assert isinstance(rerank_result, RerankResults)
 
     results = rerank_result.results
     assert isinstance(results, list)
@@ -350,7 +349,7 @@ def test_run_rerank_queries():
     types_found = {}  # Gather the type tests from any of the results
 
     for result in results:
-        assert isinstance(result, RerankQueryResult)
+        assert isinstance(result, RerankScores)
         scores = result.scores
         assert isinstance(scores, list)
         assert len(scores) == top_n
@@ -362,8 +361,8 @@ def test_run_rerank_queries():
 
 def test_run_sentence_similarity():
     model = BOOTSTRAPPED_MODEL
-    result = model.run_sentence_similarity(source_sentence=QUERY, sentences=SENTENCES)
-    scores = result.scores
+    res = model.run_sentence_similarity(source_sentence=QUERY, sentences=SENTENCES)
+    scores = res.result.scores
     assert len(scores) == len(SENTENCES)
     for score in scores:
         assert isinstance(score, float)
