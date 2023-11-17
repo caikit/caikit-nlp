@@ -268,5 +268,6 @@ def get_lora_config(tuning_type, tuning_config, base_model) -> LoraConfig:
     log.info("<NLP61012781I>", f"Parameters used: {config_kwargs}")
     config_params = _filter_params_for_prompt_config(tuning_config, config_kwargs)
     output_model_types = _get_output_types(tuning_config, base_model)
+    del config_params["output_model_types"]
     lora_config = LoraConfig(task_type=task_type, **config_params)
     return task_type, output_model_types, lora_config, tuning_type
