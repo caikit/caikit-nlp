@@ -18,7 +18,7 @@ import os
 import re
 
 # Third Party
-from peft import MultitaskPromptTuningInit
+from peft import LoraConfig, MultitaskPromptTuningInit
 from transformers import AutoConfig
 
 # First Party
@@ -51,10 +51,10 @@ SOURCE_DIR_VALIDATION_REGEX = re.compile(r"^[-a-zA-Z_0-9\/]+")
 class TuningType(str, Enum):
     PROMPT_TUNING = "PROMPT_TUNING"
     MULTITASK_PROMPT_TUNING = "MULTITASK_PROMPT_TUNING"
+    LORA = "LORA"
     # MULTITASK_PREFIX_TUNING = "MULTITASK_PREFIX_TUNING"
     # P_TUNING = "P_TUNING"
     # PREFIX_TUNING = "PREFIX_TUNING"
-    # LORA = "LORA"
 
 
 def resolve_base_model(base_model, cls, torch_dtype):
@@ -99,7 +99,15 @@ def get_peft_config(
     tuning_type, tuning_config, base_model, cls, torch_dtype, verbalizer
 ):
 
-    if tuning_type not in TuningType._member_names_:
+    if isinstance(tuning_type, str):
+        tuning_type = TuningType(tuning_type)
+
+    error.type_check("<NLP65714993E>", TuningType, tuning_type=tuning_type)
+
+    if tuning_type not in [
+        TuningType.PROMPT_TUNING,
+        TuningType.MULTITASK_PROMPT_TUNING,
+    ]:
         raise NotImplementedError("{} tuning type not supported!".format(tuning_type))
 
     if tuning_config.prompt_tuning_init_method:
@@ -147,27 +155,7 @@ def get_peft_config(
     error.type_check("<NLP65714919E>", PretrainedModelBase, base_model=base_model)
 
     # Validate if tuned output model type is compatible with base model or not
-    if not tuning_config.output_model_types:
-        output_model_types = base_model.PROMPT_OUTPUT_TYPES
-    else:
-        # If the first element is not PromptOutputModelType, assume the entire list
-        # isn't and convert
-        if not isinstance(tuning_config.output_model_types[0], PromptOutputModelType):
-            output_model_types = []
-            for output_type in tuning_config.output_model_types:
-                output_model_types.append(PromptOutputModelType(output_type))
-        else:
-            output_model_types = tuning_config.output_model_types
-        error.value_check(
-            "<NLP36947542E>",
-            all(
-                output_type in base_model.PROMPT_OUTPUT_TYPES
-                for output_type in output_model_types
-            ),
-            "{} not supported for base model type {}".format(
-                output_model_types, base_model.MODEL_TYPE
-            ),
-        )
+    output_model_types = _get_output_types(tuning_config, base_model)
 
     error.value_check(
         "<NLP30542004E>",
@@ -184,16 +172,6 @@ def get_peft_config(
 
     # NOTE: Base model is a resource at this point
     task_type = base_model.TASK_TYPE
-
-    if isinstance(tuning_type, str):
-        error.value_check(
-            "<NLP65714994E>",
-            tuning_type in TuningType._member_names_,
-            f"Invalid tuning type [{tuning_type}]. Allowed types: "
-            f"[{TuningType._member_names_}]",
-        )
-        tuning_type = TuningType(tuning_type)
-    error.type_check("<NLP65714993E>", TuningType, tuning_type=tuning_type)
 
     # Coerce the passed model into a resource; if we have one, this is a noop
     # TODO: When splitting up this mono-module, use the configured resource
@@ -218,3 +196,77 @@ def get_peft_config(
     )
 
     return task_type, output_model_types, peft_config, tuning_type
+
+
+def _get_output_types(tuning_config, base_model):
+    "Validate and return output_model_types"
+    # Validate if tuned output model type is compatible with base model or not
+    if not tuning_config.output_model_types:
+        output_model_types = base_model.PROMPT_OUTPUT_TYPES
+    else:
+        # If the first element is not PromptOutputModelType, assume the entire list
+        # isn't and convert
+        if not isinstance(tuning_config.output_model_types[0], PromptOutputModelType):
+            output_model_types = []
+            for output_type in tuning_config.output_model_types:
+                output_model_types.append(PromptOutputModelType(output_type))
+        else:
+            output_model_types = tuning_config.output_model_types
+        error.value_check(
+            "<NLP36947542E>",
+            all(
+                output_type in base_model.PROMPT_OUTPUT_TYPES
+                for output_type in output_model_types
+            ),
+            "{} not supported for base model type {}".format(
+                output_model_types, base_model.MODEL_TYPE
+            ),
+        )
+    return output_model_types
+
+
+def _filter_params_for_prompt_config(prompt_config, params):
+    """Utility function to filter out required parameters for prompt_config
+    from `params`
+
+    Args:
+        prompt_config: PromptTuningConfig
+            Tuning config type, eg:, PromptTuningConfig
+        params: dict
+            Dictionary containing all the input training params
+
+    Returns:
+        dict:
+            Dictionary containing required params for prompt_config
+    """
+    # Inspect the underlying dataclass fileds; we do this because the common super class
+    # used for multi/vanilla prompt/prefix tuning is a DataClass; we can't use __dict__
+    # because the dataclass fields are omitted.
+    allowed_keys = list(prompt_config.__dataclass_fields__.keys())
+    allowed_params = dict(filter(lambda x: x[0] in allowed_keys, params.items()))
+    log.info(
+        "<NLP18184771I>",
+        "[{}] config params not supported by provided tuning type!".format(
+            params.keys() - allowed_params.keys()
+        ),
+    )
+    return allowed_params
+
+
+def get_lora_config(tuning_type, tuning_config, base_model) -> LoraConfig:
+    """Creates Huggingface LoraConfig from Caikit tuning configuration."""
+    if isinstance(tuning_type, str):
+        tuning_type = TuningType(tuning_type)
+
+    if tuning_type != TuningType.LORA:
+        raise NotImplementedError("{} tuning type not supported!".format(tuning_type))
+
+    error.type_check("<NLP65714919E>", PretrainedModelBase, base_model=base_model)
+    # NOTE: Base model is a resource at this point
+    task_type = base_model.TASK_TYPE
+    config_kwargs = tuning_config.to_dict()
+    log.info("<NLP61012781I>", f"Parameters used: {config_kwargs}")
+    config_params = _filter_params_for_prompt_config(tuning_config, config_kwargs)
+    output_model_types = _get_output_types(tuning_config, base_model)
+    lora_config = LoraConfig(task_type=task_type, **config_params)
+    return task_type, output_model_types, lora_config, tuning_type
