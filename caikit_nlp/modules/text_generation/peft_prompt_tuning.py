@@ -228,13 +228,13 @@ class PeftPromptTuning(ModuleBase):
         top_p: Optional[float] = None,
         typical_p: Optional[float] = None,
         temperature: Optional[float] = None,
-        seed: Optional[np.uint64] = None,
         repetition_penalty: Optional[float] = None,
         max_time: Optional[float] = None,
         exponential_decay_length_penalty: Optional[
             Union[Tuple[int, float], ExponentialDecayLengthPenalty]
         ] = None,
         stop_sequences: Optional[List[str]] = None,
+        seed: Optional[np.uint64] = None,
     ) -> Iterable[GeneratedTextStreamResult]:
         f"""Run the text generation model with output streaming
 
