@@ -442,3 +442,38 @@ def test__optimize(monkeypatch):
     fake = "fake model"  # Will be returned as-is
     monkeypatch.setenv("PT2_COMPILE", "False")
     assert fake == EmbeddingModule._optimize(fake, False, "bogus")
+
+
+def test_no_truncation():
+    """These endpoints raise an error if truncation would happen."""
+
+    too_long = "hello " * 1000
+    ok = "hi "
+
+    model = BOOTSTRAPPED_MODEL
+
+    # embedding(s)
+    with pytest.raises(ValueError):
+        model.run_embedding(text=too_long)
+    with pytest.raises(ValueError):
+        model.run_embeddings(texts=[too_long])
+
+    # sentence similarity(ies) test both source_sentence and sentences
+    with pytest.raises(ValueError):
+        model.run_sentence_similarity(source_sentence=too_long, sentences=[ok])
+    with pytest.raises(ValueError):
+        model.run_sentence_similarity(source_sentence=ok, sentences=[too_long])
+    with pytest.raises(ValueError):
+        model.run_sentence_similarities(source_sentences=[too_long], sentences=[ok])
+    with pytest.raises(ValueError):
+        model.run_sentence_similarities(source_sentences=[ok], sentences=[too_long])
+
+    # reranker(s) test both source_sentence and sentences
+    with pytest.raises(ValueError):
+        model.run_rerank_query(query=too_long, documents=[{"text": ok}])
+    with pytest.raises(ValueError):
+        model.run_rerank_query(query=ok, documents=[{"text": too_long}])
+    with pytest.raises(ValueError):
+        model.run_rerank_queries(queries=[too_long], documents=[{"text": ok}])
+    with pytest.raises(ValueError):
+        model.run_rerank_queries(queries=[ok], documents=[{"text": too_long}])
