@@ -13,7 +13,7 @@
 # limitations under the License.
 
 # Standard
-from typing import List, Optional
+from typing import List, Optional, Union
 import importlib
 import os
 
@@ -49,6 +49,11 @@ import alog
 
 logger = alog.use_channel("TXT_EMB")
 error = error_handler.get(logger)
+
+# Avoid a warning by explicitly setting TOKENIZERS_PARALLELISM if not already set.
+tokenizers_parallelism = "TOKENIZERS_PARALLELISM"
+if os.environ.get(tokenizers_parallelism) is None:
+    os.environ[tokenizers_parallelism] = "true"
 
 # To avoid dependency problems, make sentence-transformers an optional import and
 # defer any ModuleNotFoundError until someone actually tries to init a model with this module.
@@ -214,6 +219,25 @@ class EmbeddingModule(ModuleBase):
                 logger.warning(warn_msg, exc_info=True)
         return model
 
+    def _assert_no_truncation(self, texts: Union[str, List[str]]):
+        """Raise an error if any of the texts would be truncated during encode"""
+
+        if isinstance(texts, str):
+            texts = [texts]
+
+        for text in texts:
+            tokenized = self.model.tokenizer(
+                text, return_attention_mask=False, return_token_type_ids=False
+            )
+            tokens = len(tokenized.input_ids)
+            max_tokens = self.model.max_seq_length
+            error.value_check(
+                "<NLP08391926E>",
+                tokens <= max_tokens,
+                f"Token sequence length is longer than the specified maximum sequence length"
+                f" for this model ({tokens} > {max_tokens}).",
+            )
+
     @EmbeddingTask.taskmethod()
     def run_embedding(self, text: str) -> EmbeddingResult:
         """Get embedding for a string.
@@ -225,6 +249,7 @@ class EmbeddingModule(ModuleBase):
         """
         error.type_check("<NLP27491611E>", str, text=text)
 
+        self._assert_no_truncation(text)
         return EmbeddingResult(
             result=Vector1D.from_vector(self.model.encode(text)),
             producer_id=self.PRODUCER_ID,
@@ -245,6 +270,8 @@ class EmbeddingModule(ModuleBase):
         ):  # encode allows str, but the result would lack a dimension
             texts = [texts]
 
+        self._assert_no_truncation(texts)
+
         embeddings = self.model.encode(texts)
         vectors = [Vector1D.from_vector(e) for e in embeddings]
         return EmbeddingResults(
@@ -263,6 +290,9 @@ class EmbeddingModule(ModuleBase):
         Returns:
             SentenceSimilarityResult: Similarity scores for each sentence.
         """
+
+        self._assert_no_truncation(source_sentence)
+        self._assert_no_truncation(sentences)
 
         source_embedding = self.model.encode(source_sentence)
         embeddings = self.model.encode(sentences)
@@ -286,6 +316,9 @@ class EmbeddingModule(ModuleBase):
             SentenceSimilarityResults: Similarity scores for each source sentence in order.
                 Each one contains the source-sentence's score for each sentence in order.
         """
+
+        self._assert_no_truncation(source_sentences)
+        self._assert_no_truncation(sentences)
 
         source_embedding = self.model.encode(source_sentences)
         embeddings = self.model.encode(sentences)
@@ -422,6 +455,9 @@ class EmbeddingModule(ModuleBase):
             return doc.get("text") or doc.get("_text", "")
 
         doc_texts = [get_text(doc) for doc in documents]
+
+        self._assert_no_truncation(doc_texts)
+        self._assert_no_truncation(queries)
 
         doc_embeddings = normalize_embeddings(
             self.model.encode(doc_texts, convert_to_tensor=True).to(self.model.device)
