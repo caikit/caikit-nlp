@@ -11,5 +11,19 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+# Standard
+
+# First Party
+from caikit.core import TaskBase, task
+
 # Local
-from . import text_classification, text_embedding, text_generation, token_classification
+from ...data_model import EmbeddingResult
+
+
+@task(
+    required_parameters={"input": str},
+    output_type=EmbeddingResult,
+)
+class EmbeddingTask(TaskBase):
+    pass

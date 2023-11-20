@@ -24,6 +24,7 @@ dependencies = [
     "pandas>=1.5.0",
     "scikit-learn>=1.1",
     "scipy>=1.8.1",
+    "sentence-transformers~=2.2.2",
     "tokenizers>=0.13.3",
     "torch>=2.0.1",
     "tqdm>=4.65.0",
