@@ -15,6 +15,5 @@
 """
 
 # Local
-from . import embedding_vectors, generation
-from .embedding_vectors import *
+from . import generation
 from .generation import *

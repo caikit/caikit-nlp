@@ -14,8 +14,8 @@ classifiers=[
     "License :: OSI Approved :: Apache Software License"
 ]
 dependencies = [
-    "caikit[runtime-grpc,runtime-http]>=0.24.0,<0.25.0",
-    "caikit-tgis-backend>=0.1.17,<0.2.0",
+    "caikit[runtime-grpc,runtime-http]>=0.25.0,<0.26.0",
+    "caikit-tgis-backend>=0.1.25,<0.2.0",
     # TODO: loosen dependencies
     "accelerate>=0.22.0",
     "datasets>=2.4.0",
@@ -24,7 +24,6 @@ dependencies = [
     "pandas>=1.5.0",
     "scikit-learn>=1.1",
     "scipy>=1.8.1",
-    "sentence-transformers~=2.2.2",
     "tokenizers>=0.13.3",
     "torch>=2.0.1",
     "tqdm>=4.65.0",

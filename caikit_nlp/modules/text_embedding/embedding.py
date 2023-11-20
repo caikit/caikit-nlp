@@ -13,29 +13,73 @@
 # limitations under the License.
 
 # Standard
+from typing import List, Optional
+import importlib
 import os
-
-# Third Party
-from sentence_transformers import SentenceTransformer
 
 # First Party
 from caikit.core import ModuleBase, ModuleConfig, ModuleSaver, module
+from caikit.core.data_model.json_dict import JsonDict
 from caikit.core.exceptions import error_handler
+from caikit.interfaces.common.data_model.vectors import ListOfVector1D, Vector1D
+from caikit.interfaces.nlp.data_model import (
+    EmbeddingResult,
+    EmbeddingResults,
+    RerankResult,
+    RerankResults,
+    RerankScore,
+    RerankScores,
+    SentenceSimilarityResult,
+    SentenceSimilarityResults,
+    SentenceSimilarityScores,
+)
+from caikit.interfaces.nlp.tasks import (
+    EmbeddingTask,
+    EmbeddingTasks,
+    RerankTask,
+    RerankTasks,
+    SentenceSimilarityTask,
+    SentenceSimilarityTasks,
+)
 import alog
-
-# Local
-from .embedding_tasks import EmbeddingTask
-from caikit_nlp.data_model.embedding_vectors import EmbeddingResult, Vector1D
 
 logger = alog.use_channel("TXT_EMB")
 error = error_handler.get(logger)
+
+# To avoid dependency problems, make sentence-transformers an optional import and
+# defer any ModuleNotFoundError until someone actually tries to init a model with this module.
+try:
+    sentence_transformers = importlib.import_module("sentence_transformers")
+    # Third Party
+    from sentence_transformers import SentenceTransformer
+    from sentence_transformers.util import (
+        cos_sim,
+        dot_score,
+        normalize_embeddings,
+        semantic_search,
+    )
+except ModuleNotFoundError:
+    # When it is not available, create a dummy that raises an error on attempted init()
+    class SentenceTransformerNotAvailable:
+        def __init__(self, *args, **kwargs):  # pylint: disable=unused-argument
+            # Will reproduce the ModuleNotFoundError if/when anyone actually tries this module/model
+            importlib.import_module("sentence_transformers")
+
+    SentenceTransformer = SentenceTransformerNotAvailable
 
 
 @module(
     "eeb12558-b4fa-4f34-a9fd-3f5890e9cd3f",
     "EmbeddingModule",
     "0.0.1",
-    EmbeddingTask,
+    tasks=[
+        EmbeddingTask,
+        EmbeddingTasks,
+        SentenceSimilarityTask,
+        SentenceSimilarityTasks,
+        RerankTask,
+        RerankTasks,
+    ],
 )
 class EmbeddingModule(ModuleBase):
 
@@ -76,19 +120,251 @@ class EmbeddingModule(ModuleBase):
 
         return cls.bootstrap(model_name_or_path=artifacts_path)
 
-    def run(
-        self, input: str, **kwargs  # pylint: disable=redefined-builtin
-    ) -> EmbeddingResult:
-        """Run inference on model.
+    @EmbeddingTask.taskmethod()
+    def run_embedding(self, text: str) -> EmbeddingResult:
+        """Get embedding for a string.
         Args:
-            input: str
+            text: str
                 Input text to be processed
         Returns:
             EmbeddingResult: the result vector nicely wrapped up
         """
-        error.type_check("<NLP27491611E>", str, input=input)
+        error.type_check("<NLP27491611E>", str, text=text)
 
-        return EmbeddingResult(Vector1D.from_vector(self.model.encode(input)))
+        return EmbeddingResult(
+            result=Vector1D.from_vector(self.model.encode(text)),
+            producer_id=self.PRODUCER_ID,
+        )
+
+    @EmbeddingTasks.taskmethod()
+    def run_embeddings(self, texts: List[str]) -> EmbeddingResults:
+        """Get embedding vectors for texts.
+        Args:
+            texts: List[str]
+                List of input texts to be processed
+        Returns:
+            EmbeddingResults: List of vectors. One for each input text (in order).
+             Each vector is a list of floats (supports various float types).
+        """
+        if isinstance(
+            texts, str
+        ):  # encode allows str, but the result would lack a dimension
+            texts = [texts]
+
+        embeddings = self.model.encode(texts)
+        vectors = [Vector1D.from_vector(e) for e in embeddings]
+        return EmbeddingResults(
+            results=ListOfVector1D(vectors=vectors), producer_id=self.PRODUCER_ID
+        )
+
+    @SentenceSimilarityTask.taskmethod()
+    def run_sentence_similarity(
+        self, source_sentence: str, sentences: List[str]
+    ) -> SentenceSimilarityResult:
+        """Get similarity scores for each of sentences compared to the source_sentence.
+        Args:
+            source_sentence: str
+            sentences: List[str]
+                Sentences to compare to source_sentence
+        Returns:
+            SentenceSimilarityResult: Similarity scores for each sentence.
+        """
+
+        source_embedding = self.model.encode(source_sentence)
+        embeddings = self.model.encode(sentences)
+
+        res = cos_sim(source_embedding, embeddings)
+        return SentenceSimilarityResult(
+            result=SentenceSimilarityScores(scores=res.tolist()[0]),
+            producer_id=self.PRODUCER_ID,
+        )
+
+    @SentenceSimilarityTasks.taskmethod()
+    def run_sentence_similarities(
+        self, source_sentences: List[str], sentences: List[str]
+    ) -> SentenceSimilarityResults:
+        """Run sentence-similarities on model.
+        Args:
+            source_sentences: List[str]
+            sentences: List[str]
+                Sentences to compare to source_sentences
+        Returns:
+            SentenceSimilarityResults: Similarity scores for each source sentence in order.
+                Each one contains the source-sentence's score for each sentence in order.
+        """
+
+        source_embedding = self.model.encode(source_sentences)
+        embeddings = self.model.encode(sentences)
+
+        res = cos_sim(source_embedding, embeddings)
+        float_list_list = res.tolist()
+        return SentenceSimilarityResults(
+            results=[SentenceSimilarityScores(fl) for fl in float_list_list],
+            producer_id=self.PRODUCER_ID,
+        )
+
+    @RerankTask.taskmethod()
+    def run_rerank_query(
+        self,
+        query: str,
+        documents: List[JsonDict],
+        top_n: Optional[int] = None,
+        return_documents: bool = True,
+        return_query: bool = True,
+        return_text: bool = True,
+    ) -> RerankResult:
+        """Rerank the documents returning the most relevant top_n in order for this query.
+        Args:
+            query: str
+                Query is the source string to be compared to the text of the documents.
+            documents:  List[JsonDict]
+                Each document is a dict. The text value is used for comparison to the query.
+                If there is no text key, then _text is used and finally default is "".
+            top_n:  Optional[int]
+                Results for the top n most relevant documents will be returned.
+                If top_n is not provided or (not > 0), then all are returned.
+            return_documents:  bool
+                Default True
+                Setting to False will disable returning of the input document (index is returned).
+            return_query:  bool
+                Default True
+                Setting to False will disable returning of the query (results are in query order)
+            return_text:  bool
+                Default True
+                Setting to False will disable returning of document text string that was used.
+        Returns:
+            RerankResult
+                Returns the (top_n) scores in relevance order (most relevant first).
+                The results always include a score and index which may be used to find the document
+                in the original documents list. Optionally, the results also contain the entire
+                document with its score (for use in chaining) and for convenience the query and
+                text used for comparison may be returned.
+
+        """
+
+        error.type_check(
+            "<NLP05323654E>",
+            str,
+            query=query,
+        )
+
+        results = self.run_rerank_queries(
+            queries=[query],
+            documents=documents,
+            top_n=top_n,
+            return_documents=return_documents,
+            return_queries=return_query,
+            return_text=return_text,
+        ).results
+
+        if results:
+            return RerankResult(result=results[0], producer_id=self.PRODUCER_ID)
+
+        RerankResult(
+            producer_id=self.PRODUCER_ID,
+            result=RerankScore(
+                scores=[],
+                query=query if return_query else None,
+            ),
+        )
+
+    @RerankTasks.taskmethod()
+    def run_rerank_queries(
+        self,
+        queries: List[str],
+        documents: List[JsonDict],
+        top_n: Optional[int] = None,
+        return_documents: bool = True,
+        return_queries: bool = True,
+        return_text: bool = True,
+    ) -> RerankResults:
+        """Rerank the documents returning the most relevant top_n in order for each of the queries.
+        Args:
+            queries: List[str]
+                Each of the queries will be compared to the text of each of the documents.
+            documents:  List[JsonDict]
+                Each document is a dict. The text value is used for comparison to the query.
+                If there is no text key, then _text is used and finally default is "".
+            top_n:  Optional[int]
+                Results for the top n most relevant documents will be returned.
+                If top_n is not provided or (not > 0), then all are returned.
+            return_documents:  bool
+                Default True
+                Setting to False will disable returning of the input document (index is returned).
+            return_queries:  bool
+                Default True
+                Setting to False will disable returning of the query (results are in query order)
+            return_text:  bool
+                Default True
+                Setting to False will disable returning of document text string that was used.
+        Returns:
+            RerankResults
+                For each query in queries (in the original order)...
+                Returns the (top_n) scores in relevance order (most relevant first).
+                The results always include a score and index which may be used to find the document
+                in the original documents list. Optionally, the results also contain the entire
+                document with its score (for use in chaining) and for convenience the query and
+                text used for comparison may be returned.
+        """
+
+        error.type_check(
+            "<NLP09038249E>",
+            list,
+            queries=queries,
+            documents=documents,
+        )
+
+        error.value_check(
+            "<NLP24788937E>",
+            queries and documents,
+            "Cannot rerank without a query and at least one document",
+        )
+
+        if top_n is None or top_n < 1:
+            top_n = len(documents)
+
+        # Using input document dicts so get "text" else "_text" else default to ""
+        def get_text(doc):
+            return doc.get("text") or doc.get("_text", "")
+
+        doc_texts = [get_text(doc) for doc in documents]
+
+        doc_embeddings = normalize_embeddings(
+            self.model.encode(doc_texts, convert_to_tensor=True).to(self.model.device)
+        )
+
+        query_embeddings = normalize_embeddings(
+            self.model.encode(queries, convert_to_tensor=True).to(self.model.device)
+        )
+
+        res = semantic_search(
+            query_embeddings, doc_embeddings, top_k=top_n, score_function=dot_score
+        )
+
+        # Fixup result dicts
+        for r in res:
+            for x in r:
+                # Renaming corpus_id to index
+                corpus_id = x.pop("corpus_id")
+                x["index"] = corpus_id
+                # Optionally adding the original document and/or just the text that was used
+                if return_documents:
+                    x["document"] = documents[corpus_id]
+                if return_text:
+                    x["text"] = get_text(documents[corpus_id])
+
+        def add_query(q):
+            return queries[q] if return_queries else None
+
+        results = [
+            RerankScores(
+                query=add_query(q),
+                scores=[RerankScore(**x) for x in r],
+            )
+            for q, r in enumerate(res)
+        ]
+
+        return RerankResults(results=results, producer_id=self.PRODUCER_ID)
 
     @classmethod
     def bootstrap(cls, model_name_or_path: str) -> "EmbeddingModule":
@@ -108,12 +384,11 @@ class EmbeddingModule(ModuleBase):
                 Path to model config
         """
 
-        model_config_path = model_path  # because the param name is misleading
-
-        error.type_check("<NLP82314992E>", str, model_path=model_config_path)
+        error.type_check("<NLP82314992E>", str, model_path=model_path)
+        model_config_path = model_path.strip()
         error.value_check(
             "<NLP40145207E>",
-            model_config_path is not None and model_config_path.strip(),
+            model_config_path,
             f"model_path '{model_config_path}' is invalid",
         )
 
