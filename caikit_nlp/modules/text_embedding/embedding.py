@@ -43,6 +43,10 @@ from caikit.interfaces.nlp.tasks import (
 )
 import alog
 
+# Third Party
+from torch import compile, cuda, device
+from torch.backends import mps
+
 logger = alog.use_channel("TXT_EMB")
 error = error_handler.get(logger)
 
@@ -50,7 +54,6 @@ error = error_handler.get(logger)
 # defer any ModuleNotFoundError until someone actually tries to init a model with this module.
 try:
     sentence_transformers = importlib.import_module("sentence_transformers")
-    # Third Party
     from sentence_transformers import SentenceTransformer
     from sentence_transformers.util import (
         cos_sim,
@@ -66,6 +69,34 @@ except ModuleNotFoundError:
             importlib.import_module("sentence_transformers")
 
     SentenceTransformer = SentenceTransformerNotAvailable
+
+
+# For testing env vars for values that mean false
+FALSY = ("no", "n", "false", "0", "f", "off")
+
+# When IPEX_OPTIMIZE is not false, attempt to import the library and use it.
+IPEX_OPTIMIZE = os.getenv("IPEX_OPTIMIZE", "false").lower() not in FALSY
+if IPEX_OPTIMIZE:
+    try:
+        ipex = importlib.import_module("intel_extension_for_pytorch")
+    except Exception as ie:
+        # We don't require the module so catch, disable, log, proceed.
+        IPEX_OPTIMIZE = False
+        logger.warn("IPEX_OPTIMIZE enabled in env, but skipping ipex.optimize() because "
+                    f"import intel_extension_for_pytorch failed with exception: {ie}",
+                    exc_info=1)
+if IPEX_OPTIMIZE:
+    # Optionally use "xpu" (IPEX on GPU instead of IPEX on CPU)
+    USE_XPU = os.getenv("USE_XPU", "false").lower() not in FALSY
+    USE_MPS = False  # Don't use "mps" with IPEX.
+else:
+    USE_XPU = False  # We don't USE_XPU when we don't IPEX_OPTIMIZE
+    # Otherwise when USE_MPS is not false, use device "mps" if it is available
+    USE_MPS = os.getenv(
+        "USE_MPS", "false").lower() not in FALSY and mps.is_built() and mps.is_available()
+
+# torch.compile won't work everywhere, but when set we'll try it
+PT2_COMPILE = os.getenv("PT2_COMPILE", "false").lower() not in FALSY
 
 
 @module(
@@ -118,7 +149,32 @@ class EmbeddingModule(ModuleBase):
         artifacts_path = os.path.abspath(os.path.join(model_path, artifacts_path))
         error.dir_check("<NLP34197772E>", artifacts_path)
 
-        return cls.bootstrap(model_name_or_path=artifacts_path)
+        gpu = "xpu" if USE_XPU else "mps" if USE_MPS else "cuda" if cuda.is_available() else None
+        model = SentenceTransformer(model_name_or_path=artifacts_path, device=gpu)
+
+        if gpu is not None:
+            model.to(device(gpu))
+        model = cls._optimize(model)
+        return cls(model)
+
+    @staticmethod
+    def _optimize(model):
+        if IPEX_OPTIMIZE:
+            model = ipex.optimize(model)
+            backend = "ipex"
+        elif USE_MPS:
+            backend = mps
+        else:
+            backend = "inductor"  # default backend
+        if PT2_COMPILE:
+            try:
+                model = compile(model, backend=backend, mode="max-autotune")
+            except Exception as e:
+                # Not always supported (e.g. in a python version) so catch, log, proceed.
+                logger.warn(
+                    "PT2_COMPILE enabled in env, but continuing without torch.compile() "
+                    f"because it failed with exception: {e}", exc_info=True)
+        return model
 
     @EmbeddingTask.taskmethod()
     def run_embedding(self, text: str) -> EmbeddingResult:
