@@ -17,6 +17,10 @@ from typing import List, Optional
 import importlib
 import os
 
+# Third Party
+from torch.backends import mps
+import torch
+
 # First Party
 from caikit.core import ModuleBase, ModuleConfig, ModuleSaver, module
 from caikit.core.data_model.json_dict import JsonDict
@@ -43,10 +47,6 @@ from caikit.interfaces.nlp.tasks import (
 )
 import alog
 
-# Third Party
-from torch import compile, cuda, device
-from torch.backends import mps
-
 logger = alog.use_channel("TXT_EMB")
 error = error_handler.get(logger)
 
@@ -54,6 +54,7 @@ error = error_handler.get(logger)
 # defer any ModuleNotFoundError until someone actually tries to init a model with this module.
 try:
     sentence_transformers = importlib.import_module("sentence_transformers")
+    # Third Party
     from sentence_transformers import SentenceTransformer
     from sentence_transformers.util import (
         cos_sim,
@@ -79,12 +80,14 @@ IPEX_OPTIMIZE = os.getenv("IPEX_OPTIMIZE", "false").lower() not in FALSY
 if IPEX_OPTIMIZE:
     try:
         ipex = importlib.import_module("intel_extension_for_pytorch")
-    except Exception as ie:
+    except Exception as ie:  # pylint: disable=broad-exception-caught
         # We don't require the module so catch, disable, log, proceed.
         IPEX_OPTIMIZE = False
-        logger.warn("IPEX_OPTIMIZE enabled in env, but skipping ipex.optimize() because "
-                    f"import intel_extension_for_pytorch failed with exception: {ie}",
-                    exc_info=1)
+        msg = (
+            f"IPEX_OPTIMIZE enabled in env, but skipping ipex.optimize() because "
+            f"import intel_extension_for_pytorch failed with exception: {ie}"
+        )
+        logger.warning(msg, exc_info=1)
 if IPEX_OPTIMIZE:
     # Optionally use "xpu" (IPEX on GPU instead of IPEX on CPU)
     USE_XPU = os.getenv("USE_XPU", "false").lower() not in FALSY
@@ -92,8 +95,11 @@ if IPEX_OPTIMIZE:
 else:
     USE_XPU = False  # We don't USE_XPU when we don't IPEX_OPTIMIZE
     # Otherwise when USE_MPS is not false, use device "mps" if it is available
-    USE_MPS = os.getenv(
-        "USE_MPS", "false").lower() not in FALSY and mps.is_built() and mps.is_available()
+    USE_MPS = (
+        os.getenv("USE_MPS", "false").lower() not in FALSY
+        and mps.is_built()
+        and mps.is_available()
+    )
 
 # torch.compile won't work everywhere, but when set we'll try it
 PT2_COMPILE = os.getenv("PT2_COMPILE", "false").lower() not in FALSY
@@ -149,11 +155,19 @@ class EmbeddingModule(ModuleBase):
         artifacts_path = os.path.abspath(os.path.join(model_path, artifacts_path))
         error.dir_check("<NLP34197772E>", artifacts_path)
 
-        gpu = "xpu" if USE_XPU else "mps" if USE_MPS else "cuda" if cuda.is_available() else None
+        gpu = (
+            "xpu"
+            if USE_XPU
+            else "mps"
+            if USE_MPS
+            else "cuda"
+            if torch.cuda.is_available()
+            else None
+        )
         model = SentenceTransformer(model_name_or_path=artifacts_path, device=gpu)
 
         if gpu is not None:
-            model.to(device(gpu))
+            model.to(torch.device(gpu))
         model = cls._optimize(model)
         return cls(model)
 
@@ -168,12 +182,14 @@ class EmbeddingModule(ModuleBase):
             backend = "inductor"  # default backend
         if PT2_COMPILE:
             try:
-                model = compile(model, backend=backend, mode="max-autotune")
-            except Exception as e:
+                model = torch.compile(model, backend=backend, mode="max-autotune")
+            except Exception as e:  # pylint: disable=broad-exception-caught
                 # Not always supported (e.g. in a python version) so catch, log, proceed.
-                logger.warn(
-                    "PT2_COMPILE enabled in env, but continuing without torch.compile() "
-                    f"because it failed with exception: {e}", exc_info=True)
+                warn_msg = (
+                    f"PT2_COMPILE enabled in env, but continuing without torch.compile() "
+                    f"because it failed with exception: {e}"
+                )
+                logger.warning(warn_msg, exc_info=True)
         return model
 
     @EmbeddingTask.taskmethod()
