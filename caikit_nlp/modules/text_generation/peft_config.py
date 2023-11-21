@@ -18,7 +18,7 @@ import os
 import re
 
 # Third Party
-from peft import LoraConfig, MultitaskPromptTuningInit
+from peft import LoraConfig, MultitaskPromptTuningInit, PromptTuningConfig
 from transformers import AutoConfig
 
 # First Party
@@ -96,66 +96,35 @@ def resolve_base_model(base_model, cls, torch_dtype):
 
 
 def get_peft_config(
-    tuning_type, tuning_config, base_model, cls, torch_dtype, verbalizer
+    tuning_type,
+    tuning_config,
+    base_model,
+    cls=None,
+    torch_dtype=None,
+    verbalizer="{{input}}",
 ):
 
     if isinstance(tuning_type, str):
+        error.value_check(
+            "<NLP65714994E>",
+            tuning_type in TuningType._member_names_,
+            f"Invalid tuning type [{tuning_type}]. Allowed types: "
+            f"[{TuningType._member_names_}]",
+        )
         tuning_type = TuningType(tuning_type)
 
     error.type_check("<NLP65714993E>", TuningType, tuning_type=tuning_type)
 
-    if tuning_type not in [
-        TuningType.PROMPT_TUNING,
-        TuningType.MULTITASK_PROMPT_TUNING,
-    ]:
+    if tuning_type not in TuningType._member_names_:
         raise NotImplementedError("{} tuning type not supported!".format(tuning_type))
-
-    if tuning_config.prompt_tuning_init_method:
-        # NOTE: GK-APR-5-2023
-        # MultitaskPromptTuningInit and MultitaskPrefixTuningInit are same at the
-        # time of writing, which is a superset of PromptTuningInit
-        init_method = tuning_config.prompt_tuning_init_method
-
-        error.value_check(
-            "<NLP11848053E>",
-            init_method in allowed_tuning_init_methods,
-            f"Init method [{init_method}] not in allowed init methods: "
-            f"[{allowed_tuning_init_methods}]",
-        )
-
-        init_method = MultitaskPromptTuningInit(init_method)
-        log.info("Using initialization method [%s]", init_method)
-
-        # If init method provided relates to one that requires source model,
-        # make sure the source prompt model is provided.
-        if init_method in [
-            MultitaskPromptTuningInit.AVERAGE_SOURCE_TASKS,
-            MultitaskPromptTuningInit.ONLY_SOURCE_SHARED,
-        ]:
-            # NOTE: prompt_tuning_init_source_model is currently a path. In future
-            # we will replace this with caikit.resources to properly cataloging these
-            error.type_check(
-                "<NLP89108490E>",
-                str,
-                prompt_tuning_init_source_model=tuning_config.prompt_tuning_init_source_model,
-            )
-            tuning_config.prompt_tuning_init_source_model = os.path.join(
-                get_config().source_prompt_base,
-                tuning_config.prompt_tuning_init_source_model,
-            )
-
-            error.file_check(
-                "<NLP96030210E>", tuning_config.prompt_tuning_init_source_model
-            )
-            log.debug(
-                "Validated tuning source prompt [%s]",
-                tuning_config.prompt_tuning_init_source_model,
-            )
 
     error.type_check("<NLP65714919E>", PretrainedModelBase, base_model=base_model)
 
     # Validate if tuned output model type is compatible with base model or not
     output_model_types = _get_output_types(tuning_config, base_model)
+
+    # NOTE: Base model is a resource at this point
+    task_type = base_model.TASK_TYPE
 
     error.value_check(
         "<NLP30542004E>",
@@ -170,30 +139,21 @@ def get_peft_config(
         "Provided verbalizer is an invalid type or has no renderable placeholders",
     )
 
-    # NOTE: Base model is a resource at this point
-    task_type = base_model.TASK_TYPE
-
     # Coerce the passed model into a resource; if we have one, this is a noop
     # TODO: When splitting up this mono-module, use the configured resource
     #   type of the concrete class to bootstrap
     torch_dtype = get_torch_dtype(torch_dtype)
 
-    # Take tokenizer name/path from the model
-    tokenizer_name_or_path = base_model.model.config._name_or_path
-
-    # Build the peft config; this is how we determine that we want a sequence classifier.
-    # If we want more types, we will likely need to map this to data model outputs etc.
-
-    # NOTE: We currently only support TEXT as init type, this is to later only easily
-    # switch to MPT
-    peft_config = cls.create_hf_tuning_config(
-        base_model=base_model,
-        tuning_type=tuning_type,
-        task_type=task_type,
-        tokenizer_name_or_path=tokenizer_name_or_path,
-        tuning_config=tuning_config,
-        output_model_types=output_model_types,
-    )
+    if tuning_type in [
+        TuningType.PROMPT_TUNING,
+        TuningType.MULTITASK_PROMPT_TUNING,
+    ]:
+        peft_config = _create_peft_config(
+            tuning_type, tuning_config, cls, base_model, task_type, output_model_types
+        )
+    else:
+        # we only have Lora besides other two for now
+        peft_config = _create_lora_config(tuning_config, task_type)
 
     return task_type, output_model_types, peft_config, tuning_type
 
@@ -253,21 +213,78 @@ def _filter_params_for_prompt_config(prompt_config, params):
     return allowed_params
 
 
-def get_lora_config(tuning_type, tuning_config, base_model) -> LoraConfig:
+def _create_peft_config(
+    tuning_type, tuning_config, cls, base_model, task_type, output_model_types
+) -> PromptTuningConfig:
+    """Creates Huggingface PromptTuningConfig from Caikit tuning configuration."""
+
+    if tuning_config.prompt_tuning_init_method:
+        # NOTE: GK-APR-5-2023
+        # MultitaskPromptTuningInit and MultitaskPrefixTuningInit are same at the
+        # time of writing, which is a superset of PromptTuningInit
+        init_method = tuning_config.prompt_tuning_init_method
+
+        error.value_check(
+            "<NLP11848053E>",
+            init_method in allowed_tuning_init_methods,
+            f"Init method [{init_method}] not in allowed init methods: "
+            f"[{allowed_tuning_init_methods}]",
+        )
+
+        init_method = MultitaskPromptTuningInit(init_method)
+        log.info("Using initialization method [%s]", init_method)
+
+        # If init method provided relates to one that requires source model,
+        # make sure the source prompt model is provided.
+        if init_method in [
+            MultitaskPromptTuningInit.AVERAGE_SOURCE_TASKS,
+            MultitaskPromptTuningInit.ONLY_SOURCE_SHARED,
+        ]:
+            # NOTE: prompt_tuning_init_source_model is currently a path. In future
+            # we will replace this with caikit.resources to properly cataloging these
+            error.type_check(
+                "<NLP89108490E>",
+                str,
+                prompt_tuning_init_source_model=tuning_config.prompt_tuning_init_source_model,
+            )
+            tuning_config.prompt_tuning_init_source_model = os.path.join(
+                get_config().source_prompt_base,
+                tuning_config.prompt_tuning_init_source_model,
+            )
+
+            error.file_check(
+                "<NLP96030210E>", tuning_config.prompt_tuning_init_source_model
+            )
+            log.debug(
+                "Validated tuning source prompt [%s]",
+                tuning_config.prompt_tuning_init_source_model,
+            )
+
+    # Take tokenizer name/path from the model
+    tokenizer_name_or_path = base_model.model.config._name_or_path
+
+    # Build the peft config; this is how we determine that we want a sequence classifier.
+    # If we want more types, we will likely need to map this to data model outputs etc.
+
+    # NOTE: We currently only support TEXT as init type, this is to later only easily
+    # switch to MPT
+    peft_config = cls.create_hf_tuning_config(
+        base_model=base_model,
+        tuning_type=tuning_type,
+        task_type=task_type,
+        tokenizer_name_or_path=tokenizer_name_or_path,
+        tuning_config=tuning_config,
+        output_model_types=output_model_types,
+    )
+    return peft_config
+
+
+def _create_lora_config(tuning_config, task_type) -> LoraConfig:
     """Creates Huggingface LoraConfig from Caikit tuning configuration."""
-    if isinstance(tuning_type, str):
-        tuning_type = TuningType(tuning_type)
 
-    if tuning_type != TuningType.LORA:
-        raise NotImplementedError("{} tuning type not supported!".format(tuning_type))
-
-    error.type_check("<NLP65714919E>", PretrainedModelBase, base_model=base_model)
-    # NOTE: Base model is a resource at this point
-    task_type = base_model.TASK_TYPE
     config_kwargs = tuning_config.to_dict()
     log.info("<NLP61012781I>", f"Parameters used: {config_kwargs}")
     config_params = _filter_params_for_prompt_config(tuning_config, config_kwargs)
-    output_model_types = _get_output_types(tuning_config, base_model)
     del config_params["output_model_types"]
     lora_config = LoraConfig(task_type=task_type, **config_params)
-    return task_type, output_model_types, lora_config, tuning_type
+    return lora_config

@@ -10,7 +10,6 @@ from caikit_nlp.data_model import LoraTuningConfig, TuningConfig
 from caikit_nlp.modules.text_generation import TextGeneration
 from caikit_nlp.modules.text_generation.peft_config import (
     TuningType,
-    get_lora_config,
     get_peft_config,
     resolve_base_model,
 )
@@ -85,7 +84,7 @@ def test_get_peft_config(train_kwargs, dummy_model, request):
         ("causal_lm_train_kwargs", "causal_lm_dummy_model"),
     ],
 )
-def test_get_lora_config(train_kwargs, dummy_model, request):
+def test_get_peft_config_with_lora(train_kwargs, dummy_model, request):
     # Fixtures can't be called directly or passed to mark parametrize;
     # Currently, passing the fixture by name and retrieving it through
     # the request is the 'right' way to do this.
@@ -98,7 +97,7 @@ def test_get_lora_config(train_kwargs, dummy_model, request):
     dummy_resource = train_kwargs["base_model"]
 
     # Call the function being tested
-    task_type, output_model_types, lora_config, tuning_type = get_lora_config(
+    task_type, output_model_types, peft_config, tuning_type = get_peft_config(
         tuning_type, tuning_config, dummy_resource
     )
 
@@ -108,11 +107,11 @@ def test_get_lora_config(train_kwargs, dummy_model, request):
     assert tuning_type == TuningType.LORA
 
     # Validation for type & important fields in the peft config
-    assert isinstance(lora_config, LoraConfig)
-    assert lora_config.task_type == dummy_resource.TASK_TYPE
-    assert lora_config.r == tuning_config.r
-    assert lora_config.lora_alpha == tuning_config.lora_alpha
-    assert lora_config.lora_dropout == tuning_config.lora_dropout
+    assert isinstance(peft_config, LoraConfig)
+    assert peft_config.task_type == dummy_resource.TASK_TYPE
+    assert peft_config.r == tuning_config.r
+    assert peft_config.lora_alpha == tuning_config.lora_alpha
+    assert peft_config.lora_dropout == tuning_config.lora_dropout
 
 
 def test_resolve_model_with_invalid_path_raises():
