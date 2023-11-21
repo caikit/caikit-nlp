@@ -51,6 +51,7 @@ SOURCE_DIR_VALIDATION_REGEX = re.compile(r"^[-a-zA-Z_0-9\/\.]+")
 # and we need to figure out better solution or better regex
 TWO_DOTS_REGEX = re.compile(r"(\.\.)+")
 
+
 class TuningType(str, Enum):
     PROMPT_TUNING = "PROMPT_TUNING"
     MULTITASK_PROMPT_TUNING = "MULTITASK_PROMPT_TUNING"
@@ -65,8 +66,8 @@ def resolve_base_model(base_model, cls, torch_dtype):
 
         error.value_check(
             "<NLP66932773E>",
-            re.fullmatch(SOURCE_DIR_VALIDATION_REGEX, base_model) and
-            not re.search(TWO_DOTS_REGEX, base_model),
+            re.fullmatch(SOURCE_DIR_VALIDATION_REGEX, base_model)
+            and not re.search(TWO_DOTS_REGEX, base_model),
             "invalid characters in base_model name",
         )
         if get_config().base_models_dir:
