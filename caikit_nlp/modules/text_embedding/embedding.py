@@ -13,7 +13,7 @@
 # limitations under the License.
 
 # Standard
-from typing import List, Optional, Union
+from typing import List, Optional
 import importlib
 import os
 
@@ -219,48 +219,121 @@ class EmbeddingModule(ModuleBase):
                 logger.warning(warn_msg, exc_info=True)
         return model
 
-    def _assert_no_truncation(self, texts: Union[str, List[str]]):
-        """Raise an error if any of the texts would be truncated during encode"""
+    def _truncate_input_tokens(
+        self, truncate_input_tokens, texts: List[str]
+    ) -> List[str]:
+        """Truncate input tokens
+        Args:
+            truncate_input_tokens: int
+                Truncation length for input tokens.
+                If less than zero, this is disabled (returns texts without processing).
+                If zero or greater than the model's maximum, then this is a test
+                to see if truncation is needed. If needed, an exception is thrown.
+                Otherwise, we take this usable truncation limit to truncate the tokens and then
+                decode them to return truncated strings that can be used with this model.
+            texts: List[str]
+                Input texts to be checked and optionally truncated.
+        Returns:
+            List[str]: the texts after checking and/or truncating
+        """
 
-        if isinstance(texts, str):
-            texts = [texts]
+        if truncate_input_tokens < 0:
+            return texts
+
+        max_tokens = self.model.max_seq_length
+
+        # Do truncation if given a usable truncation value, else test for need to truncation
+        if 0 < truncate_input_tokens <= max_tokens:
+            okay_to_truncate = True
+            max_length = truncate_input_tokens
+            ret = []  # will return truncated texts
+        else:
+            okay_to_truncate = False
+            max_length = max_tokens
+            ret = texts  # will not alter texts when truncation is not allowed
 
         for text in texts:
             tokenized = self.model.tokenizer(
-                text, return_attention_mask=False, return_token_type_ids=False
-            )
-            tokens = len(tokenized.input_ids)
-            max_tokens = self.model.max_seq_length
-            error.value_check(
-                "<NLP08391926E>",
-                tokens <= max_tokens,
-                f"Token sequence length is longer than the specified maximum sequence length"
-                f" for this model ({tokens} > {max_tokens}).",
+                text,
+                return_attention_mask=False,
+                return_token_type_ids=False,
+                return_overflowing_tokens=True,
+                return_length=True,
+                truncation=True,
+                max_length=max_length,
             )
 
+            lengths = tokenized["length"]
+            was_truncated = len(lengths) > 1  # multiple lengths when truncated
+
+            if okay_to_truncate and was_truncated:
+                # decode the truncated input tokens back to text to be returned
+                ret.append(
+                    self.model.tokenizer.decode(
+                        tokenized.input_ids[0], skip_special_tokens=True
+                    )
+                )
+
+            elif okay_to_truncate and not was_truncated:
+                ret.append(text)  # return original text
+
+            elif was_truncated:
+                tokens = sum(lengths)  # add up total tokens for error message
+                error.log_raise(
+                    "<NLP08391926E>",
+                    ValueError(
+                        f"Token sequence length is longer than the specified "
+                        f"maximum sequence length for this model ({tokens} > {max_tokens})."
+                    ),
+                )
+
+        return ret
+
     @EmbeddingTask.taskmethod()
-    def run_embedding(self, text: str) -> EmbeddingResult:
+    def run_embedding(
+        self,
+        text: str,
+        truncate_input_tokens: Optional[int] = 0,
+    ) -> EmbeddingResult:
         """Get embedding for a string.
         Args:
             text: str
                 Input text to be processed
+            truncate_input_tokens: int
+                Truncation length for input tokens.
+                If less than zero, this is disabled (returns texts without processing).
+                If zero or greater than the model's maximum, then this is a test
+                to see if truncation is needed. If needed, an exception is thrown.
+                Otherwise, we take this usable truncation limit to truncate the tokens and
+                decode them to return truncated strings that can be used with this model.
         Returns:
             EmbeddingResult: the result vector nicely wrapped up
         """
         error.type_check("<NLP27491611E>", str, text=text)
 
-        self._assert_no_truncation(text)
+        text = self._truncate_input_tokens(truncate_input_tokens, [text])[0]
         return EmbeddingResult(
             result=Vector1D.from_vector(self.model.encode(text)),
             producer_id=self.PRODUCER_ID,
         )
 
     @EmbeddingTasks.taskmethod()
-    def run_embeddings(self, texts: List[str]) -> EmbeddingResults:
+    def run_embeddings(
+        self,
+        texts: List[str],
+        truncate_input_tokens: Optional[int] = 0,
+    ) -> EmbeddingResults:
         """Get embedding vectors for texts.
         Args:
             texts: List[str]
                 List of input texts to be processed
+            truncate_input_tokens: int
+                Truncation length for input tokens.
+                If less than zero, this is disabled (returns texts without processing).
+                If zero or greater than the model's maximum, then this is a test
+                to see if truncation is needed. If needed, an exception is thrown.
+                Otherwise, we take this usable truncation limit to truncate the tokens and then
+                decode them to return truncated strings that can be used with this model.
         Returns:
             EmbeddingResults: List of vectors. One for each input text (in order).
              Each vector is a list of floats (supports various float types).
@@ -270,7 +343,7 @@ class EmbeddingModule(ModuleBase):
         ):  # encode allows str, but the result would lack a dimension
             texts = [texts]
 
-        self._assert_no_truncation(texts)
+        texts = self._truncate_input_tokens(truncate_input_tokens, texts)
 
         embeddings = self.model.encode(texts)
         vectors = [Vector1D.from_vector(e) for e in embeddings]
@@ -280,19 +353,31 @@ class EmbeddingModule(ModuleBase):
 
     @SentenceSimilarityTask.taskmethod()
     def run_sentence_similarity(
-        self, source_sentence: str, sentences: List[str]
+        self,
+        source_sentence: str,
+        sentences: List[str],
+        truncate_input_tokens: Optional[int] = 0,
     ) -> SentenceSimilarityResult:
         """Get similarity scores for each of sentences compared to the source_sentence.
         Args:
             source_sentence: str
             sentences: List[str]
                 Sentences to compare to source_sentence
+            truncate_input_tokens: int
+                Truncation length for input tokens.
+                If less than zero, this is disabled (returns texts without processing).
+                If zero or greater than the model's maximum, then this is a test
+                to see if truncation is needed. If needed, an exception is thrown.
+                Otherwise, we take this usable truncation limit to truncate the tokens and then
+                decode them to return truncated strings that can be used with this model.
         Returns:
             SentenceSimilarityResult: Similarity scores for each sentence.
         """
 
-        self._assert_no_truncation(source_sentence)
-        self._assert_no_truncation(sentences)
+        source_sentence = self._truncate_input_tokens(
+            truncate_input_tokens, [source_sentence]
+        )[0]
+        sentences = self._truncate_input_tokens(truncate_input_tokens, sentences)
 
         source_embedding = self.model.encode(source_sentence)
         embeddings = self.model.encode(sentences)
@@ -305,20 +390,32 @@ class EmbeddingModule(ModuleBase):
 
     @SentenceSimilarityTasks.taskmethod()
     def run_sentence_similarities(
-        self, source_sentences: List[str], sentences: List[str]
+        self,
+        source_sentences: List[str],
+        sentences: List[str],
+        truncate_input_tokens: Optional[int] = 0,
     ) -> SentenceSimilarityResults:
         """Run sentence-similarities on model.
         Args:
             source_sentences: List[str]
             sentences: List[str]
                 Sentences to compare to source_sentences
+            truncate_input_tokens: int
+                Truncation length for input tokens.
+                If less than zero, this is disabled (returns texts without processing).
+                If zero or greater than the model's maximum, then this is a test
+                to see if truncation is needed. If needed, an exception is thrown.
+                Otherwise, we take this usable truncation limit to truncate the tokens and then
+                decode them to return truncated strings that can be used with this model.
         Returns:
             SentenceSimilarityResults: Similarity scores for each source sentence in order.
                 Each one contains the source-sentence's score for each sentence in order.
         """
 
-        self._assert_no_truncation(source_sentences)
-        self._assert_no_truncation(sentences)
+        source_sentences = self._truncate_input_tokens(
+            truncate_input_tokens, source_sentences
+        )
+        sentences = self._truncate_input_tokens(truncate_input_tokens, sentences)
 
         source_embedding = self.model.encode(source_sentences)
         embeddings = self.model.encode(sentences)
@@ -336,6 +433,7 @@ class EmbeddingModule(ModuleBase):
         query: str,
         documents: List[JsonDict],
         top_n: Optional[int] = None,
+        truncate_input_tokens: Optional[int] = 0,
         return_documents: bool = True,
         return_query: bool = True,
         return_text: bool = True,
@@ -350,6 +448,13 @@ class EmbeddingModule(ModuleBase):
             top_n:  Optional[int]
                 Results for the top n most relevant documents will be returned.
                 If top_n is not provided or (not > 0), then all are returned.
+            truncate_input_tokens: int
+                Truncation length for input tokens.
+                If less than zero, this is disabled (returns texts without processing).
+                If zero or greater than the model's maximum, then this is a test
+                to see if truncation is needed. If needed, an exception is thrown.
+                Otherwise, we take this usable truncation limit to truncate the tokens and then
+                decode them to return truncated strings that can be used with this model.
             return_documents:  bool
                 Default True
                 Setting to False will disable returning of the input document (index is returned).
@@ -379,6 +484,7 @@ class EmbeddingModule(ModuleBase):
             queries=[query],
             documents=documents,
             top_n=top_n,
+            truncate_input_tokens=truncate_input_tokens,
             return_documents=return_documents,
             return_queries=return_query,
             return_text=return_text,
@@ -401,6 +507,7 @@ class EmbeddingModule(ModuleBase):
         queries: List[str],
         documents: List[JsonDict],
         top_n: Optional[int] = None,
+        truncate_input_tokens: Optional[int] = 0,
         return_documents: bool = True,
         return_queries: bool = True,
         return_text: bool = True,
@@ -415,6 +522,13 @@ class EmbeddingModule(ModuleBase):
             top_n:  Optional[int]
                 Results for the top n most relevant documents will be returned.
                 If top_n is not provided or (not > 0), then all are returned.
+            truncate_input_tokens: int
+                Truncation length for input tokens.
+                If less than zero, this is disabled (returns texts without processing).
+                If zero or greater than the model's maximum, then this is a test
+                to see if truncation is needed. If needed, an exception is thrown.
+                Otherwise, we take this usable truncation limit to truncate the tokens and then
+                decode them to return truncated strings that can be used with this model.
             return_documents:  bool
                 Default True
                 Setting to False will disable returning of the input document (index is returned).
@@ -456,8 +570,8 @@ class EmbeddingModule(ModuleBase):
 
         doc_texts = [get_text(doc) for doc in documents]
 
-        self._assert_no_truncation(doc_texts)
-        self._assert_no_truncation(queries)
+        doc_texts = self._truncate_input_tokens(truncate_input_tokens, doc_texts)
+        queries = self._truncate_input_tokens(truncate_input_tokens, queries)
 
         doc_embeddings = normalize_embeddings(
             self.model.encode(doc_texts, convert_to_tensor=True).to(self.model.device)

@@ -447,32 +447,41 @@ def test__optimize(monkeypatch):
 def test_no_truncation():
     """These endpoints raise an error if truncation would happen."""
 
-    too_long = "hello " * 1000
-    ok = "hi "
-
     model = BOOTSTRAPPED_MODEL
+    model_max = model.model.max_seq_length
+
+    ok = "x " * (model_max - 2)  # Subtract 2 for begin/end tokens
+    too_long = "x " * (model_max - 1)  # This will go over
 
     # embedding(s)
+    model.run_embedding(text=ok)
     with pytest.raises(ValueError):
         model.run_embedding(text=too_long)
+    model.run_embeddings(texts=[ok])
     with pytest.raises(ValueError):
         model.run_embeddings(texts=[too_long])
 
     # sentence similarity(ies) test both source_sentence and sentences
+    model.run_sentence_similarity(source_sentence=ok, sentences=[ok])
     with pytest.raises(ValueError):
         model.run_sentence_similarity(source_sentence=too_long, sentences=[ok])
     with pytest.raises(ValueError):
         model.run_sentence_similarity(source_sentence=ok, sentences=[too_long])
+
+    model.run_sentence_similarities(source_sentences=[ok], sentences=[ok])
     with pytest.raises(ValueError):
         model.run_sentence_similarities(source_sentences=[too_long], sentences=[ok])
     with pytest.raises(ValueError):
         model.run_sentence_similarities(source_sentences=[ok], sentences=[too_long])
 
-    # reranker(s) test both source_sentence and sentences
+    # reranker test both query and document text
+    model.run_rerank_query(query=ok, documents=[{"text": ok}])
     with pytest.raises(ValueError):
         model.run_rerank_query(query=too_long, documents=[{"text": ok}])
     with pytest.raises(ValueError):
         model.run_rerank_query(query=ok, documents=[{"text": too_long}])
+
+    model.run_rerank_queries(queries=[ok], documents=[{"text": ok}])
     with pytest.raises(ValueError):
         model.run_rerank_queries(queries=[too_long], documents=[{"text": ok}])
     with pytest.raises(ValueError):
