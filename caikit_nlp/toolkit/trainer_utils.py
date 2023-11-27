@@ -15,8 +15,6 @@
 # Standard
 from datetime import datetime
 
-import alog
-
 # Third Party
 import torch
 
@@ -24,12 +22,14 @@ import torch
 from caikit import get_config
 from caikit.core.data_model import DataStream
 from caikit.core.exceptions import error_handler
+import alog
 
 log = alog.use_channel("TRNR_UTILS")
 error = error_handler.get(log)
 
 
 def validate_training_data(train_stream: DataStream, model_name: str, module_id: str):
+    
     global_default = get_config().training_data_limit.__default__
     module_default = (
         get_config()
