@@ -45,7 +45,11 @@ allowed_tuning_init_methods = [
 log = alog.use_channel("PFT_CNFG_TLKT")
 error = error_handler.get(log)
 
-SOURCE_DIR_VALIDATION_REGEX = re.compile(r"^[-a-zA-Z_0-9\/]+")
+SOURCE_DIR_VALIDATION_REGEX = re.compile(r"^[-a-zA-Z_0-9\/\.]+")
+# 🤮 FIXME: This two dot regex is added as a way to avoid expressions like ..
+# giving access to un-intended directories. But this is an ugly hack
+# and we need to figure out better solution or better regex
+TWO_DOTS_REGEX = re.compile(r"(\.\.)+")
 
 
 class TuningType(str, Enum):
@@ -62,7 +66,8 @@ def resolve_base_model(base_model, cls, torch_dtype):
 
         error.value_check(
             "<NLP66932773E>",
-            re.fullmatch(SOURCE_DIR_VALIDATION_REGEX, base_model),
+            re.fullmatch(SOURCE_DIR_VALIDATION_REGEX, base_model)
+            and not re.search(TWO_DOTS_REGEX, base_model),
             "invalid characters in base_model name",
         )
         if get_config().base_models_dir:
