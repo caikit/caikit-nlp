@@ -29,7 +29,7 @@ error = error_handler.get(log)
 
 
 def validate_training_data(train_stream: DataStream, model_name: str, module_id: str):
-    
+
     global_default = get_config().training_data_limit.__default__
     module_default = (
         get_config()
