@@ -421,8 +421,6 @@ def test__select_device(use_ipex, use_xpu, use_mps, expected, monkeypatch):
 )
 def test__get_backend(use_ipex, use_device, expected):
     # Make the Mac MPS test work depending on availability
-    if expected == mps and not (mps.is_built() and mps.is_available()):
-        expected = "inductor"
     assert EmbeddingModule._get_backend(use_ipex, use_device) == expected
 
 
