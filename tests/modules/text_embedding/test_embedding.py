@@ -390,8 +390,18 @@ def test_run_sentence_similarities():
         (True, "false", "false", None),
         (False, "false", "false", None),
         (False, "true", "false", None),
-        (False, "false", "true", "mps"),
-        (False, "true", "true", "mps"),
+        (
+            False,
+            "false",
+            "true",
+            "mps" if mps.is_built() and mps.is_available() else None,
+        ),
+        (
+            False,
+            "true",
+            "true",
+            "mps" if mps.is_built() and mps.is_available() else None,
+        ),
     ],
 )
 def test__select_device(use_ipex, use_xpu, use_mps, expected, monkeypatch):
@@ -405,7 +415,7 @@ def test__select_device(use_ipex, use_xpu, use_mps, expected, monkeypatch):
     [
         (True, None, "ipex"),
         (True, "mps", "ipex"),
-        (False, "mps", mps),
+        (False, "mps", mps if mps.is_built() and mps.is_available() else "inductor"),
         (False, None, "inductor"),
     ],
 )
