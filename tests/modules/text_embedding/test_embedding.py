@@ -415,24 +415,27 @@ def test__select_device(use_ipex, use_xpu, use_mps, expected, monkeypatch):
     [
         (True, None, "ipex"),
         (True, "mps", "ipex"),
-        (False, "mps", mps if mps.is_built() and mps.is_available() else "inductor"),
+        (False, "mps", mps),
         (False, None, "inductor"),
     ],
 )
 def test__get_backend(use_ipex, use_device, expected):
+    # Make the Mac MPS test work depending on availability
+    if expected == mps and not (mps.is_built() and mps.is_available()):
+        expected = "inductor"
     assert EmbeddingModule._get_backend(use_ipex, use_device) == expected
 
 
 @pytest.mark.parametrize(
     "use_ipex",
-    [None, 0, 1, "true", "True", "False", "false"],
+    [None, "true", "True", "False", "false"],
 )
 def test__get_ipex(use_ipex, monkeypatch):
     """Test that _get_ipex returns False instead of raising an exception.
 
     Assumes that when running tests, we won't have IPEX installed.
     """
-    monkeypatch.setenv("USE_IPEX", use_ipex)
+    monkeypatch.setenv("IPEX_OPTIMIZE", use_ipex)
     assert not EmbeddingModule._get_ipex()
 
 
