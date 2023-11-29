@@ -50,11 +50,6 @@ import alog
 logger = alog.use_channel("TXT_EMB")
 error = error_handler.get(logger)
 
-# Avoid a warning by explicitly setting TOKENIZERS_PARALLELISM if not already set.
-tokenizers_parallelism = "TOKENIZERS_PARALLELISM"
-if os.environ.get(tokenizers_parallelism) is None:
-    os.environ[tokenizers_parallelism] = "true"
-
 # To avoid dependency problems, make sentence-transformers an optional import and
 # defer any ModuleNotFoundError until someone actually tries to init a model with this module.
 try:
@@ -236,6 +231,16 @@ class EmbeddingModule(ModuleBase):
         Returns:
             List[str]: the texts after checking and/or truncating
         """
+
+        # NOTE: When inference is called immediately after load (typical case with lazy loading),
+        # using the tokenizer right away here results in a warning like:
+        #     huggingface/tokenizers: The current process just got forked, after parallelism
+        #     has already been used. Disabling parallelism to avoid deadlocks...
+        #     To disable this warning, you can either:
+        #     - Avoid using `tokenizers` before the fork if possible
+        #     - Explicitly set the environment variable TOKENIZERS_PARALLELISM=(true | false)
+        # A warmup encode() call in load() will take care of this (the first option above).
+        # This here comment is in case we need to set TOKENIZERS_PARALLELISM in the future.
 
         if truncate_input_tokens < 0:
             return texts
