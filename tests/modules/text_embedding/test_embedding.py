@@ -7,6 +7,7 @@ import tempfile
 
 # Third Party
 from pytest import approx
+from torch.backends import mps
 import numpy as np
 import pytest
 
@@ -378,3 +379,66 @@ def test_run_sentence_similarities():
         assert len(scores) == len(SENTENCES)
         for score in scores:
             assert isinstance(score, float)
+
+
+@pytest.mark.parametrize(
+    "use_ipex, use_xpu, use_mps, expected",
+    [
+        (True, "true", "true", "xpu"),
+        (True, "true", "false", "xpu"),
+        (True, "false", "true", None),
+        (True, "false", "false", None),
+        (False, "false", "false", None),
+        (False, "true", "false", None),
+        (
+            False,
+            "false",
+            "true",
+            "mps" if mps.is_built() and mps.is_available() else None,
+        ),
+        (
+            False,
+            "true",
+            "true",
+            "mps" if mps.is_built() and mps.is_available() else None,
+        ),
+    ],
+)
+def test__select_device(use_ipex, use_xpu, use_mps, expected, monkeypatch):
+    monkeypatch.setenv("USE_XPU", use_xpu)
+    monkeypatch.setenv("USE_MPS", use_mps)
+    assert EmbeddingModule._select_device(use_ipex) == expected
+
+
+@pytest.mark.parametrize(
+    "use_ipex, use_device, expected",
+    [
+        (True, None, "ipex"),
+        (True, "mps", "ipex"),
+        (False, "mps", mps),
+        (False, None, "inductor"),
+    ],
+)
+def test__get_backend(use_ipex, use_device, expected):
+    # Make the Mac MPS test work depending on availability
+    assert EmbeddingModule._get_backend(use_ipex, use_device) == expected
+
+
+@pytest.mark.parametrize(
+    "use_ipex",
+    [None, "true", "True", "False", "false"],
+)
+def test__get_ipex(use_ipex, monkeypatch):
+    """Test that _get_ipex returns False instead of raising an exception.
+
+    Assumes that when running tests, we won't have IPEX installed.
+    """
+    monkeypatch.setenv("IPEX_OPTIMIZE", use_ipex)
+    assert not EmbeddingModule._get_ipex()
+
+
+def test__optimize(monkeypatch):
+    """Test that _optimize does nothing when disabled"""
+    fake = "fake model"  # Will be returned as-is
+    monkeypatch.setenv("PT2_COMPILE", "False")
+    assert fake == EmbeddingModule._optimize(fake, False, "bogus")

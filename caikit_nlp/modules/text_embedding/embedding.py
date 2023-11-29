@@ -17,6 +17,10 @@ from typing import List, Optional
 import importlib
 import os
 
+# Third Party
+from torch.backends import mps
+import torch
+
 # First Party
 from caikit.core import ModuleBase, ModuleConfig, ModuleSaver, module
 from caikit.core.data_model.json_dict import JsonDict
@@ -66,6 +70,10 @@ except ModuleNotFoundError:
             importlib.import_module("sentence_transformers")
 
     SentenceTransformer = SentenceTransformerNotAvailable
+
+
+# For testing env vars for values that mean false
+FALSY = ("no", "n", "false", "0", "f", "off")
 
 
 @module(
@@ -118,7 +126,93 @@ class EmbeddingModule(ModuleBase):
         artifacts_path = os.path.abspath(os.path.join(model_path, artifacts_path))
         error.dir_check("<NLP34197772E>", artifacts_path)
 
-        return cls.bootstrap(model_name_or_path=artifacts_path)
+        ipex = cls._get_ipex()
+        device = cls._select_device(ipex)
+        model = SentenceTransformer(model_name_or_path=artifacts_path, device=device)
+        if device is not None:
+            model.to(torch.device(device))
+        model = EmbeddingModule._optimize(model, ipex, device)
+
+        # Validate model with any encode test (simple and hardcoded for now).
+        # This gets some of the first-time inference cost out of the way.
+        # This avoids using the tokenizer (for truncation) before it is ready.
+        model.encode("warmup")
+
+        return cls(model)
+
+    @staticmethod
+    def _get_ipex():
+        """Get IPEX optimization library if enabled and available, else return False
+
+        Returns ipex library or False
+        """
+        ret = False
+
+        # Enabled by environment variable
+        # When IPEX_OPTIMIZE is not false, attempt to import the library and use it.
+        if os.getenv("IPEX_OPTIMIZE", "false").lower() not in FALSY:
+            try:
+                ret = importlib.import_module("intel_extension_for_pytorch")
+            except Exception as ie:  # pylint: disable=broad-exception-caught
+                # We don't require the module so catch, log, proceed to return False
+                msg = (
+                    f"IPEX_OPTIMIZE enabled in env, but skipping ipex.optimize() because "
+                    f"import intel_extension_for_pytorch failed with exception: {ie}"
+                )
+                logger.warning(msg, exc_info=1)
+
+        return ret
+
+    @staticmethod
+    def _select_device(use_ipex):
+        """Use environment variables and availability to determine the device to use"""
+        if use_ipex:
+            # If enabled, use "xpu" (IPEX on GPU instead of IPEX on CPU)
+            if os.getenv("USE_XPU", "false").lower() not in FALSY:
+                return "xpu"
+        elif (
+            os.getenv("USE_MPS", "false").lower() not in FALSY
+            and mps.is_built()
+            and mps.is_available()
+        ):
+            # Never use on ipex, but otherwise use mps if enabled and available
+            return "mps"
+
+        return "cuda" if torch.cuda.is_available() else None
+
+    @staticmethod
+    def _get_backend(use_ipex, use_device):
+        """Determine the backend to use for torch compile.
+
+        Considers global ipex if enabled first, next mps device, finally defaults.
+
+        Returns the backend for torch.compile()
+        """
+        if use_ipex:
+            return "ipex"
+        if use_device == "mps":
+            return mps
+        return "inductor"  # default backend
+
+    @staticmethod
+    def _optimize(model, ipex, device):
+
+        if ipex:
+            model = ipex.optimize(model)
+
+        # torch.compile won't work everywhere, but when set we'll try it
+        if os.getenv("PT2_COMPILE", "false").lower() not in FALSY:
+            backend = EmbeddingModule._get_backend(ipex, device)
+            try:
+                model = torch.compile(model, backend=backend, mode="max-autotune")
+            except Exception as e:  # pylint: disable=broad-exception-caught
+                # Not always supported (e.g. in a python version) so catch, log, proceed.
+                warn_msg = (
+                    f"PT2_COMPILE enabled in env, but continuing without torch.compile() "
+                    f"because it failed with exception: {e}"
+                )
+                logger.warning(warn_msg, exc_info=True)
+        return model
 
     @EmbeddingTask.taskmethod()
     def run_embedding(self, text: str) -> EmbeddingResult:
