@@ -275,7 +275,7 @@ class EmbeddingModule(ModuleBase):
                 # decode the truncated input tokens back to text to be returned
                 ret.append(
                     self.model.tokenizer.decode(
-                        tokenized.input_ids[0], skip_special_tokens=True
+                        tokenized.input_ids[0], skip_special_tokens=False
                     )
                 )
 
