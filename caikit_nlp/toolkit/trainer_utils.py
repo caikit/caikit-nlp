@@ -44,10 +44,14 @@ def validate_training_data(train_stream: DataStream, model_name: str, module_id:
     )
 
     if max_num_examples > 0:
+        train_stream_size = len(train_stream)
         error.value_check(
             "<NLP77627434E>",
-            len(train_stream) <= max_num_examples,
-            "Number of examples larger than maximum number of examples allowed for this model",
+            train_stream_size <= max_num_examples,
+            "Number of examples ({}) exceeds the maximum number of examples allowed "
+            "({}) for this model",
+            train_stream_size,
+            max_num_examples,
         )
 
 
