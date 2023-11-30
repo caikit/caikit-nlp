@@ -56,10 +56,7 @@ from ...data_model import (
     PromptOutputModelType,
     TuningConfig,
 )
-from ...resources.pretrained_model import (
-    HFAutoCausalLM,
-    HFAutoSeq2SeqLM,
-)
+from ...resources.pretrained_model import HFAutoCausalLM, HFAutoSeq2SeqLM
 from ...toolkit.data_type_utils import get_torch_dtype, str_to_torch_dtype
 from ...toolkit.task_specific_utils import convert_to_generation_record
 from ...toolkit.text_generation.model_run_utils import (
