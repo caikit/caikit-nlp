@@ -148,7 +148,7 @@ def get_peft_config(
         TuningType.PROMPT_TUNING,
         TuningType.MULTITASK_PROMPT_TUNING,
     ]:
-        peft_config = _create_peft_config(
+        peft_config = _create_prompt_tuning_config(
             tuning_type, tuning_config, cls, base_model, task_type, output_model_types
         )
     else:
@@ -213,7 +213,7 @@ def _filter_params_for_prompt_config(prompt_config, params):
     return allowed_params
 
 
-def _create_peft_config(
+def _create_prompt_tuning_config(
     tuning_type, tuning_config, cls, base_model, task_type, output_model_types
 ) -> PromptTuningConfig:
     """Creates Huggingface PromptTuningConfig from Caikit tuning configuration."""
@@ -268,7 +268,7 @@ def _create_peft_config(
 
     # NOTE: We currently only support TEXT as init type, this is to later only easily
     # switch to MPT
-    peft_config = cls.create_hf_tuning_config(
+    prompt_tuning_config = cls.create_hf_tuning_config(
         base_model=base_model,
         tuning_type=tuning_type,
         task_type=task_type,
@@ -276,7 +276,7 @@ def _create_peft_config(
         tuning_config=tuning_config,
         output_model_types=output_model_types,
     )
-    return peft_config
+    return prompt_tuning_config
 
 
 def _create_lora_config(tuning_config, task_type) -> LoraConfig:
