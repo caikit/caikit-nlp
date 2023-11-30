@@ -257,30 +257,55 @@ class EmbeddingModule(ModuleBase):
             max_length = max_tokens
             ret = texts  # will not alter texts when truncation is not allowed
 
-        for text in texts:
-            tokenized = self.model.tokenizer(
-                text,
-                return_attention_mask=False,
-                return_token_type_ids=False,
-                return_overflowing_tokens=True,
-                return_length=True,
-                truncation=True,
-                max_length=max_length,
-            )
+        tokenized = self.model.tokenizer(
+            texts,
+            return_attention_mask=False,
+            return_token_type_ids=False,
+            return_overflowing_tokens=True,
+            return_offsets_mapping=True,
+            return_length=True,
+            truncation=True,
+            max_length=max_length,
+        )
 
-            lengths = tokenized["length"]
+        for i, text in enumerate(texts):
+            mapping = tokenized["overflow_to_sample_mapping"]
+            lengths = [
+                tokenized["length"][idx] for idx, v in enumerate(mapping) if v == i
+            ]
             was_truncated = len(lengths) > 1  # multiple lengths when truncated
 
             if okay_to_truncate and was_truncated:
+                offsets = [
+                    tokenized["offset_mapping"][idx]
+                    for idx, v in enumerate(mapping)
+                    if v == i
+                ]
+                truncated_offsets = offsets[0]
+                start = next(
+                    idx
+                    for idx, val in (enumerate(truncated_offsets))
+                    if val != (0, 0)
+                    # TODO: __default=
+                )
+                end = next(
+                    idx
+                    for idx, val in reversed(list(enumerate(truncated_offsets)))
+                    if val != (0, 0)
+                )  # TODO: default check for miss or zero len
                 # decode the truncated input tokens back to text to be returned
                 ret.append(
-                    self.model.tokenizer.decode(
-                        tokenized.input_ids[0], skip_special_tokens=False
-                    )
+                    text[
+                        truncated_offsets[start][0] : truncated_offsets[end][1]
+                    ]  # TODO: boundaries
+                    # self.model.tokenizer.decode(
+                    # tokenized.input_ids[0][start : end + 1],  # TODO: boundaries
+                    # skip_special_tokens=False,
+                    # )
                 )
 
             elif okay_to_truncate and not was_truncated:
-                ret.append(text)  # return original text
+                ret.append(text)  # return original text  # TODO: overwrite in place
 
             elif was_truncated:
                 tokens = sum(lengths)  # add up total tokens for error message
@@ -348,7 +373,9 @@ class EmbeddingModule(ModuleBase):
         ):  # encode allows str, but the result would lack a dimension
             texts = [texts]
 
+        print("BEFORE: ", texts)
         texts = self._truncate_input_tokens(truncate_input_tokens, texts)
+        print("AFTER: ", texts)
 
         embeddings = self.model.encode(texts)
         vectors = [Vector1D.from_vector(e) for e in embeddings]
