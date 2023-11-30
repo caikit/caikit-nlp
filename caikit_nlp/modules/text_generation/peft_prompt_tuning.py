@@ -18,6 +18,7 @@ from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
 import gc
 import json
 import os
+import tempfile
 
 # Third Party
 from accelerate import Accelerator
@@ -501,7 +502,6 @@ class PeftPromptTuning(ModuleBase):
                 silence_progress_bars=silence_progress_bars,
                 # NOTE: following can override above arguments in order
                 **filtered_training_arguments,
-                **processing_configuration,
             )
 
             # Use HF Trainer to kick off training on either
