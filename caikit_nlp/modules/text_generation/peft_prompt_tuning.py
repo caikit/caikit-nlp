@@ -78,7 +78,7 @@ from ...toolkit.text_generation.training_utils import (
     collect_trainer_arguments,
     infer_max_steps,
     launch_training,
-    preprocess_function
+    preprocess_function,
 )
 from ...toolkit.trainer_utils import validate_training_data
 from ...toolkit.verbalizer_utils import render_verbalizer
@@ -367,7 +367,8 @@ class PeftPromptTuning(ModuleBase):
         if accumulate_steps:
             log.warning(
                 "<NLP36083095W>",
-                "accumulate_steps parameter is DEPRECATED and will be removed in future. This parameter is also not getting used internally anymore")
+                "accumulate_steps parameter is DEPRECATED and will be removed in future. This parameter is also not getting used internally anymore",
+            )
 
         # Configure random seed
         transformers.set_seed(seed)
@@ -391,7 +392,7 @@ class PeftPromptTuning(ModuleBase):
         # grad error, where `tensor 0` is created by peft
         base_model.model.gradient_checkpointing_enable()
 
-         # Get config of the base model
+        # Get config of the base model
         base_model_config = base_model.get_config()
 
         # Remove _name_or_path field as a model can be
@@ -441,7 +442,6 @@ class PeftPromptTuning(ModuleBase):
         device = cls._get_device(device)
 
         # cls.convert_peft_model_to_type(device, peft_model, torch_dtype)
-
 
         ## Generate data loader from stream
         training_dataset: Union[
@@ -493,7 +493,6 @@ class PeftPromptTuning(ModuleBase):
                 training_metadata={"loss": []},
             )
 
-
         # Open an intermediate checkpoint directory until we've bootstrapped
         # our model or we've early exited (if epochs < 1)
         with tempfile.TemporaryDirectory() as checkpoint_dir:
@@ -521,7 +520,6 @@ class PeftPromptTuning(ModuleBase):
                 checkpoint_dir,
                 base_model,
             )
-
 
         # Wrap up the trained model in a class instance
         return cls(

@@ -208,7 +208,10 @@ def launch_training(
     elif tokenizer:
         tokenizer.save_pretrained(checkpoint_dir)
     else:
-        log.warning("<NLP47068212W>", "Cannot save tokenizer as not available to train function.")
+        log.warning(
+            "<NLP47068212W>",
+            "Cannot save tokenizer as not available to train function.",
+        )
 
     # Below will return log history but launch will automatically attach rank to it.
     # if started in distributed fashion
