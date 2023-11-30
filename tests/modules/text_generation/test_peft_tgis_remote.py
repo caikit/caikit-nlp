@@ -106,7 +106,9 @@ def test_purge_prompt_on_del(saved_causal_lm_dummy_model, stub_tgis_backend):
         mock_tgis_model.__del__()
         stub_tgis_backend.unload_prompt_artifacts.assert_called_once()
         prompt_id = os.path.basename(saved_causal_lm_dummy_model)
-        stub_tgis_backend.unload_prompt_artifacts.assert_called_with(mock_tgis_model.base_model_name, prompt_id)
+        stub_tgis_backend.unload_prompt_artifacts.assert_called_with(
+            mock_tgis_model.base_model_name, prompt_id
+        )
 
 
 def test_purge_prompt_disabled_on_del(saved_causal_lm_dummy_model, stub_tgis_backend):
