@@ -98,8 +98,9 @@ class PeftPromptTuningTGIS(ModuleBase):  # pylint: disable=too-many-instance-att
         if get_config().unload_tgis_prompt_artifacts:
             tgis_backend = getattr(self, "_tgis_backend", None)
             prompt_cache_id = getattr(self, "_prompt_cache_id", None)
-            if tgis_backend and prompt_cache_id:
-                tgis_backend.unload_prompt_artifacts(prompt_cache_id)
+            model_id = getattr(self, "base_model_name", None)
+            if tgis_backend and prompt_cache_id and model_id:
+                tgis_backend.unload_prompt_artifacts(model_id, prompt_cache_id)
 
     @classmethod
     def load(cls, model_path: str, load_backend: BackendBase) -> "PeftPromptTuningTGIS":
