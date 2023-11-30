@@ -33,6 +33,7 @@ from tests.fixtures import (
     seq2seq_lm_dummy_model,
     seq2seq_lm_train_kwargs,
     set_cpu_device,
+    temp_config,
 )
 import caikit_nlp
 
@@ -92,13 +93,17 @@ def test_run_stream_out_model(causal_lm_dummy_model):
         assert isinstance(pred, GeneratedTextStreamResult)
 
 
-def test_verbalizer_rendering(causal_lm_dummy_model):
+def test_verbalizer_rendering(causal_lm_dummy_model, monkeypatch):
     """Ensure that our model renders its verbalizer text correctly before calling tokenizer."""
     # Mock the tokenizer; we want to make sure its inputs are rendered properly
-    causal_lm_dummy_model.tokenizer = mock.Mock(
-        side_effect=RuntimeError("Tokenizer is a mock!"),
-        # Set eos token property to be attribute of tokenizer
-        eos_token="</s>",
+    monkeypatch.setattr(
+        causal_lm_dummy_model,
+        "tokenizer",
+        mock.Mock(
+            side_effect=RuntimeError("Tokenizer is a mock!"),
+            # Set eos token property to be attribute of tokenizer
+            eos_token="</s>",
+        ),
     )
     input_text = "This text doesn't matter"
     causal_lm_dummy_model.verbalizer = " | {{input}} |"
@@ -257,6 +262,19 @@ def test_prompt_output_types(causal_lm_train_kwargs):
     assert model
 
 
+def test_error_empty_stream(causal_lm_train_kwargs):
+    patch_kwargs = {
+        "num_epochs": 1,
+        "verbalizer": "Tweet text : {{input}} Label : ",
+        "train_stream": caikit.core.data_model.DataStream.from_iterable([]),
+    }
+    causal_lm_train_kwargs.update(patch_kwargs)
+    with pytest.raises(ValueError):
+        caikit_nlp.modules.text_generation.PeftPromptTuning.train(
+            **causal_lm_train_kwargs
+        )
+
+
 ### Implementation details
 # These tests can probably be removed and tested directly through .save() once
 # full seq2seq support is completed and verified.
@@ -362,6 +380,16 @@ def test_run_truncate_tokens_0(causal_lm_dummy_model):
     assert isinstance(pred, GeneratedTextResult)
 
 
+def test_run_with_preserve_input_text(causal_lm_dummy_model):
+    """Ensure preserve input text removes input
+    from generated output when set to False"""
+    input_text = "This text doesn't matter"
+    pred = causal_lm_dummy_model.run(input_text, preserve_input_text=True)
+    assert input_text in pred.generated_text
+    pred = causal_lm_dummy_model.run(input_text, preserve_input_text=False)
+    assert input_text not in pred.generated_text
+
+
 def test_run_sampling_param_ignored_greedy_decoding(causal_lm_dummy_model):
     """Ensure sampling parameter gets ignored when decoding method
     is set to GREEDY
@@ -399,3 +427,240 @@ def test_run_exponential_decay_len_penatly_object(causal_lm_dummy_model):
         exponential_decay_length_penalty=penalty,
     )
     assert isinstance(pred, GeneratedTextResult)
+
+
+def test_train_with_data_validation_raises(causal_lm_train_kwargs, set_cpu_device):
+    """Check if we are able to throw error for when number of examples are more than configured limit"""
+    patch_kwargs = {
+        "num_epochs": 1,
+        "verbalizer": "Tweet text : {{input}} Label : ",
+        "train_stream": caikit.core.data_model.DataStream.from_iterable(
+            [
+                ClassificationTrainRecord(
+                    text="@foo what a cute dog!", labels=["no complaint"]
+                ),
+                ClassificationTrainRecord(
+                    text="@bar this is the worst idea ever.", labels=["complaint"]
+                ),
+            ]
+        ),
+        "torch_dtype": torch.bfloat16,
+        "device": "cpu",
+    }
+    causal_lm_train_kwargs.update(patch_kwargs)
+
+    model_name = causal_lm_train_kwargs["base_model"]._model_name
+    module = caikit_nlp.modules.text_generation.PeftPromptTuning
+    with temp_config(training_data_limit={module.MODULE_ID: {model_name: 1}}):
+        with pytest.raises(ValueError):
+            module.train(**causal_lm_train_kwargs)
+
+
+def test_train_with_data_validation_success(causal_lm_train_kwargs, set_cpu_device):
+    """Check if we are able to train successfully if training data is within limits"""
+    patch_kwargs = {
+        "num_epochs": 1,
+        "verbalizer": "Tweet text : {{input}} Label : ",
+        "train_stream": caikit.core.data_model.DataStream.from_iterable(
+            [
+                ClassificationTrainRecord(
+                    text="@foo what a cute dog!", labels=["no complaint"]
+                ),
+                ClassificationTrainRecord(
+                    text="@bar this is the worst idea ever.", labels=["complaint"]
+                ),
+            ]
+        ),
+        "torch_dtype": torch.bfloat16,
+        "device": "cpu",
+    }
+    causal_lm_train_kwargs.update(patch_kwargs)
+
+    model_name = causal_lm_train_kwargs["base_model"]._model_name
+    module = caikit_nlp.modules.text_generation.PeftPromptTuning
+    with temp_config(training_data_limit={module.MODULE_ID: {model_name: 2}}):
+
+        model = module.train(**causal_lm_train_kwargs)
+        assert model
+
+
+def test_train_with_non_existent_limit_success(causal_lm_train_kwargs, set_cpu_device):
+    """Check if we are able to train successfully if training data limit doesn't exist for particular model"""
+    patch_kwargs = {
+        "num_epochs": 1,
+        "verbalizer": "Tweet text : {{input}} Label : ",
+        "train_stream": caikit.core.data_model.DataStream.from_iterable(
+            [
+                ClassificationTrainRecord(
+                    text="@foo what a cute dog!", labels=["no complaint"]
+                )
+            ]
+        ),
+        "torch_dtype": torch.bfloat16,
+        "device": "cpu",
+    }
+    causal_lm_train_kwargs.update(patch_kwargs)
+
+    model_name = causal_lm_train_kwargs["base_model"]._model_name
+    module = caikit_nlp.modules.text_generation.PeftPromptTuning
+    with temp_config(training_data_limit={module.MODULE_ID: {"foo": 2}}):
+
+        model = module.train(**causal_lm_train_kwargs)
+        assert model
+
+
+def test_train_with_no_limit_for_module(causal_lm_train_kwargs, set_cpu_device):
+    """Check if we are able to train successfully if training data limit doesn't exist prompt tuning module"""
+    patch_kwargs = {
+        "num_epochs": 1,
+        "verbalizer": "Tweet text : {{input}} Label : ",
+        "train_stream": caikit.core.data_model.DataStream.from_iterable(
+            [
+                ClassificationTrainRecord(
+                    text="@foo what a cute dog!", labels=["no complaint"]
+                )
+            ]
+        ),
+        "torch_dtype": torch.bfloat16,
+        "device": "cpu",
+    }
+    causal_lm_train_kwargs.update(patch_kwargs)
+
+    model_name = causal_lm_train_kwargs["base_model"]._model_name
+    module = caikit_nlp.modules.text_generation.PeftPromptTuning
+    with temp_config(training_data_limit={}):
+
+        model = module.train(**causal_lm_train_kwargs)
+        assert model
+
+
+def test_train_module_level_data_validation_raises(
+    causal_lm_train_kwargs, set_cpu_device
+):
+    """Check if train raises with module level default configuration
+    if training data is within limits and model config is not provided
+    """
+    patch_kwargs = {
+        "num_epochs": 1,
+        "verbalizer": "Tweet text : {{input}} Label : ",
+        "train_stream": caikit.core.data_model.DataStream.from_iterable(
+            [
+                ClassificationTrainRecord(
+                    text="@foo what a cute dog!", labels=["no complaint"]
+                ),
+                ClassificationTrainRecord(
+                    text="@bar this is the worst idea ever.", labels=["complaint"]
+                ),
+            ]
+        ),
+        "torch_dtype": torch.bfloat16,
+        "device": "cpu",
+    }
+    causal_lm_train_kwargs.update(patch_kwargs)
+
+    module = caikit_nlp.modules.text_generation.PeftPromptTuning
+    with temp_config(
+        training_data_limit={module.MODULE_ID: {"__default__": 1, "foo": 2}}
+    ):
+        with pytest.raises(ValueError):
+            module.train(**causal_lm_train_kwargs)
+
+
+def test_train_module_level_data_validation_success(
+    causal_lm_train_kwargs, set_cpu_device
+):
+    """Check if we are able to train successfully with module level default configuration
+    if training data is within limits and model config present
+    """
+    patch_kwargs = {
+        "num_epochs": 1,
+        "verbalizer": "Tweet text : {{input}} Label : ",
+        "train_stream": caikit.core.data_model.DataStream.from_iterable(
+            [
+                ClassificationTrainRecord(
+                    text="@foo what a cute dog!", labels=["no complaint"]
+                ),
+                ClassificationTrainRecord(
+                    text="@bar this is the worst idea ever.", labels=["complaint"]
+                ),
+            ]
+        ),
+        "torch_dtype": torch.bfloat16,
+        "device": "cpu",
+    }
+    causal_lm_train_kwargs.update(patch_kwargs)
+
+    model_name = causal_lm_train_kwargs["base_model"]._model_name
+    module = caikit_nlp.modules.text_generation.PeftPromptTuning
+    with temp_config(
+        training_data_limit={module.MODULE_ID: {"__default__": 1, model_name: 2}}
+    ):
+
+        model = module.train(**causal_lm_train_kwargs)
+        assert model
+
+
+def test_train_global_default_data_validation_raises(
+    causal_lm_train_kwargs, set_cpu_device
+):
+    """Check if train raises with global default configuration
+    if training data is within limits and model config is not provided
+    """
+    patch_kwargs = {
+        "num_epochs": 1,
+        "verbalizer": "Tweet text : {{input}} Label : ",
+        "train_stream": caikit.core.data_model.DataStream.from_iterable(
+            [
+                ClassificationTrainRecord(
+                    text="@foo what a cute dog!", labels=["no complaint"]
+                ),
+                ClassificationTrainRecord(
+                    text="@bar this is the worst idea ever.", labels=["complaint"]
+                ),
+            ]
+        ),
+        "torch_dtype": torch.bfloat16,
+        "device": "cpu",
+    }
+    causal_lm_train_kwargs.update(patch_kwargs)
+
+    module = caikit_nlp.modules.text_generation.PeftPromptTuning
+    with temp_config(
+        training_data_limit={"__default__": 1, module.MODULE_ID: {"foo": 2}}
+    ):
+        with pytest.raises(ValueError):
+            module.train(**causal_lm_train_kwargs)
+
+
+def test_train_global_default_data_validation_success(
+    causal_lm_train_kwargs, set_cpu_device
+):
+    """Check if we are able to train successfully with global default configuration
+    if training data is within limits and model config is present
+    """
+    patch_kwargs = {
+        "num_epochs": 1,
+        "verbalizer": "Tweet text : {{input}} Label : ",
+        "train_stream": caikit.core.data_model.DataStream.from_iterable(
+            [
+                ClassificationTrainRecord(
+                    text="@foo what a cute dog!", labels=["no complaint"]
+                ),
+                ClassificationTrainRecord(
+                    text="@bar this is the worst idea ever.", labels=["complaint"]
+                ),
+            ]
+        ),
+        "torch_dtype": torch.bfloat16,
+        "device": "cpu",
+    }
+    causal_lm_train_kwargs.update(patch_kwargs)
+
+    model_name = causal_lm_train_kwargs["base_model"]._model_name
+    module = caikit_nlp.modules.text_generation.PeftPromptTuning
+    with temp_config(
+        training_data_limit={"__default__": 1, module.MODULE_ID: {model_name: 2}}
+    ):
+
+        model = module.train(**causal_lm_train_kwargs)
+        assert model

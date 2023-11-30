@@ -14,8 +14,8 @@ classifiers=[
     "License :: OSI Approved :: Apache Software License"
 ]
 dependencies = [
-    "caikit[runtime-grpc,runtime-http]>=0.22.0,<0.23.0",
-    "caikit-tgis-backend>=0.1.17,<0.2.0",
+    "caikit[runtime-grpc,runtime-http]>=0.25.0,<0.26.0",
+    "caikit-tgis-backend>=0.1.25,<0.2.0",
     # TODO: loosen dependencies
     "accelerate>=0.22.0",
     "datasets>=2.4.0",
@@ -32,7 +32,7 @@ dependencies = [
     # which broke caikit-nlp build. peft hasn't released newer version yet, so to get
     # the build fix, we pulling peft from main branch commit. In future, we will pull PEFT from
     # pypi
-    "peft@git+https://github.com/huggingface/peft.git#8c17d556a8fe9522e10d73d7bd3fad46a6ecae14"
+    "peft@git+https://github.com/huggingface/peft.git@8c17d556a8fe9522e10d73d7bd3fad46a6ecae14"
 ]
 
 [tool.setuptools.packages.find]

@@ -19,7 +19,7 @@ from typing import List, Optional, Tuple, Union
 
 # Third Party
 from peft.peft_model import PeftModel
-from transformers import StoppingCriteria, TextStreamer
+from transformers import AutoModel, AutoTokenizer, StoppingCriteria, TextStreamer
 import numpy as np
 import torch
 
@@ -27,6 +27,7 @@ import torch
 from caikit.core.data_model.producer import ProducerId
 from caikit.core.exceptions import error_handler
 from caikit.interfaces.nlp.data_model import (
+    FinishReason,
     GeneratedTextResult,
     GeneratedTextStreamResult,
     TokenStreamDetails,
@@ -131,10 +132,10 @@ class SequenceStoppingCriteria(StoppingCriteria):
 
 
 def generate_text_func(
-    model,
-    tokenizer,
+    model: "Union[PeftModel, AutoModel]",
+    tokenizer: "AutoTokenizer",
     producer_id: ProducerId,
-    eos_token: str,
+    eos_token: Optional[str],
     text: str,
     max_new_tokens: Optional[int] = 20,
     min_new_tokens: Optional[int] = 0,
@@ -151,6 +152,8 @@ def generate_text_func(
         Union[Tuple[int, float], ExponentialDecayLengthPenalty]
     ] = None,
     stop_sequences: Optional[List[str]] = None,
+    preserve_input_text: Optional[bool] = True,
+    task_type: Optional[str] = None,
     **kwargs,
 ):
     """
@@ -163,6 +166,12 @@ def generate_text_func(
                 Caikit producer id associated with the module
             eos_token: str
                 End of sequence token to be used with generation
+            preserve_input_text: bool
+                Applicable only for CAUSAL_LM task type.
+                Whether or not the source string should be contained in the generated output,
+                e.g., as a prefix. Default True. (Source string will appear as prefix)
+            task_type: str or None
+                Task type such as CAUSAL_LM, SEQ_2_SEQ_LM, SEQ_CLS or None
             {}
         Returns:
             GeneratedTextResult
@@ -234,20 +243,58 @@ def generate_text_func(
         for g in generate_ids
     ]
 
-    if generate_ids[0][-1].item() == eos_token:
-        finish_reason = "EOS_TOKEN"
-    elif generate_ids.size(1) - 1 == max_new_tokens:
-        finish_reason = "MAX_TOKENS"
+    if preserve_input_text is not True:
+        generated_text = __postprocess_remove_input_text(
+            tokenizer, preds, inputs, task_type
+        )
     else:
-        finish_reason = "OTHER"
+        generated_text = preds[0]
+
+    if (eos_token and tokenizer.decode(generate_ids[0, -1].item()) == eos_token) or (
+        generate_ids[0, -1] == tokenizer.eos_token_id
+    ):
+        finish_reason = FinishReason.EOS_TOKEN
+    elif ("stopping_criteria" in gen_optional_params) and (
+        gen_optional_params["stopping_criteria"](
+            generate_ids,
+            None,  # scores, unused by SequenceStoppingCriteria
+        )
+    ):
+        finish_reason = FinishReason.STOP_SEQUENCE
+    else:
+        finish_reason = FinishReason.MAX_TOKENS
+
     return GeneratedTextResult(
         generated_tokens=token_count,
-        generated_text=preds[0],
+        generated_text=generated_text,
         finish_reason=finish_reason,
         producer_id=producer_id,
         input_token_count=input_token_count,
         seed=seed,
     )
+
+
+def __postprocess_remove_input_text(tokenizer, preds, inputs, task_type):
+    """For Causal LM task types, preserve_input_text set to False will
+    remove the input text from generated output.
+    """
+    if task_type == "CAUSAL_LM":
+        prompt_length = len(
+            tokenizer.decode(
+                inputs["input_ids"][0],
+                skip_special_tokens=True,
+                clean_up_tokenization_spaces=True,
+            )
+        )
+        generated_text = preds[0][prompt_length:]
+    else:
+        log.warning(
+            "<NLP16125792W>",
+            f"preserve_input_text flag is not applicable for task type {task_type}. \
+              Returning model generated prediction",
+        )
+        generated_text = preds[0]
+    return generated_text
 
 
 def generate_text_func_stream(
