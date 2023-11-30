@@ -391,6 +391,18 @@ class PeftPromptTuning(ModuleBase):
         # grad error, where `tensor 0` is created by peft
         base_model.model.gradient_checkpointing_enable()
 
+         # Get config of the base model
+        base_model_config = base_model.get_config()
+
+        # Remove _name_or_path field as a model can be
+        # saved in different location but still same
+        del base_model_config["_name_or_path"]
+        error.value_check(
+            "<NLP07232147E>",
+            "_name_or_path" not in base_model_config,
+            "_name_or_path needs to be removed from config!",
+        )
+
         task_type, output_model_types, peft_config, tuning_type = get_peft_config(
             tuning_type,
             tuning_config,
@@ -409,12 +421,8 @@ class PeftPromptTuning(ModuleBase):
             cls.MODULE_ID,
         )
 
-        # Coerce the passed model into a resource; if we have one, this is a noop
-        # TODO: When splitting up this mono-module, use the configured resource
-        #   type of the concrete class to bootstrap
-        torch_dtype = get_torch_dtype(torch_dtype)
-
         train_stream = train_stream.map(convert_to_generation_record)
+
         if val_stream:
             error.value_check(
                 "<NLP63201425E>", len(val_stream) > 0, "val_stream cannot be empty"
@@ -432,7 +440,7 @@ class PeftPromptTuning(ModuleBase):
         # transformers model) to the right underlying type.
         device = cls._get_device(device)
 
-        cls.convert_peft_model_to_type(device, peft_model, torch_dtype)
+        # cls.convert_peft_model_to_type(device, peft_model, torch_dtype)
 
 
         ## Generate data loader from stream
@@ -514,17 +522,6 @@ class PeftPromptTuning(ModuleBase):
                 base_model,
             )
 
-        # Get config of the base model
-        base_model_config = base_model.get_config()
-
-        # Remove _name_or_path field as a model can be
-        # saved in different location but still same
-        del base_model_config["_name_or_path"]
-        error.value_check(
-            "<NLP07232147E>",
-            "_name_or_path" not in base_model_config,
-            "_name_or_path needs to be removed from config!",
-        )
 
         # Wrap up the trained model in a class instance
         return cls(
@@ -536,7 +533,7 @@ class PeftPromptTuning(ModuleBase):
             task_type=task_type,
             tuning_type=tuning_type,
             output_model_types=output_model_types,
-            training_metadata=training_loss_tracker,
+            training_metadata={"loss": training_loss_history},
             # TODO: Export other training params to model as well
         )
 
