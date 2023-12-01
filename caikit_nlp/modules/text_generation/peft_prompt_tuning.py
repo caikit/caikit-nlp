@@ -31,6 +31,7 @@ from peft import (
     TaskType,
     get_peft_model,
 )
+from peft.utils.other import fsdp_auto_wrap_policy
 from transformers import AutoModelForCausalLM, default_data_collator
 from transformers.models.auto.tokenization_auto import AutoTokenizer
 import numpy as np
@@ -71,6 +72,7 @@ from ...toolkit.text_generation.training_utils import (
     launch_training,
     preprocess_function,
 )
+from ...toolkit.torch_run import get_torch_elastic_launch_config
 from ...toolkit.trainer_utils import validate_training_data
 from ...toolkit.verbalizer_utils import render_verbalizer
 from .peft_config import TuningType, get_peft_config, resolve_base_model
@@ -485,6 +487,31 @@ class PeftPromptTuning(ModuleBase):
                 training_metadata={"loss": []},
             )
 
+
+        processing_configuration = {}
+
+        # Conditionally enable sharding if multiple GPUs available
+        if torch.cuda.is_available() and torch.cuda.device_count() > 1:
+            processing_configuration = {
+                "fsdp": "full_shard auto_wrap offload",
+                "fsdp_config": {
+                    # NOTE: Every transformers model has `_no_split_modules` property that can be
+                    # leveraged to identify the layers to split. This seems to be a decent
+                    # "default" behavior unless we want to optimize further. We will start with
+                    # this generic approach, since it allows us to handle variety
+                    # of models and iterate on it, based on what we encounter.
+                    "fsdp_transformer_layer_cls_to_wrap": base_model._model._no_split_modules,
+                    # We need to use the original parameters for peft because we have mixed values
+                    # for require_grads in our parameters, which otherwise breaks layer flattening
+                    # in FSDP.
+                    "use_orig_params": "True",
+                    # Recommended configs for peft
+                    "fsdp_sharding_strategy": 1,
+                    "fsdp_auto_wrap_policy": "TRANSFORMER_BASED_WRAP",
+                    "fsdp_backward_prefetch_policy": "BACKWARD_PRE"
+                },
+            }
+
         # Open an intermediate checkpoint directory until we've bootstrapped
         # our model or we've early exited (if epochs < 1)
         with tempfile.TemporaryDirectory() as checkpoint_dir:
@@ -501,17 +528,35 @@ class PeftPromptTuning(ModuleBase):
                 silence_progress_bars=silence_progress_bars,
                 # NOTE: following can override above arguments in order
                 **filtered_training_arguments,
+                **processing_configuration,
             )
 
-            # Use HF Trainer to kick off training on either
-            # CPU or GPU
-            training_loss_history = launch_training(
-                peft_model,
-                training_dataset,
-                training_args,
-                checkpoint_dir,
-                base_model,
-            )
+            if torch.cuda.is_available() and torch.cuda.device_count() > 1:
+                launch_config = get_torch_elastic_launch_config()
+
+                training_loss_history = torch.distributed.launcher.api.elastic_launch(
+                    launch_config, launch_training
+                )(
+                    peft_model,
+                    training_dataset,
+                    training_args,
+                    checkpoint_dir,
+                    base_model,
+                )
+                # NOTE: We are currently only storing the loss information from
+                # rank 0, i.e main process. training_loss_history is dictionary containing
+                # rank of the process as key
+                training_loss_history = training_loss_history[0]
+            else:
+                # Use HF Trainer to kick off training on either
+                # CPU or GPU
+                training_loss_history = launch_training(
+                    peft_model,
+                    training_dataset,
+                    training_args,
+                    checkpoint_dir,
+                    base_model,
+                )
 
         # Wrap up the trained model in a class instance
         return cls(

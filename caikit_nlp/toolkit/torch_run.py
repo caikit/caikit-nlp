@@ -21,6 +21,7 @@ Ref: https://github.com/pytorch/pytorch/blob/main/torch/distributed/run.py
 
 # Standard
 import os
+import uuid
 
 # Third Party
 from torch import cuda
@@ -64,16 +65,17 @@ def determine_local_world_size():
 
 
 def get_torch_elastic_launch_config(
-    master_addr: str,
-    master_port: str,
     start_method: str = "spawn",
-    max_restarts=3,
+    max_restarts=1,
 ) -> LaunchConfig:
 
     # Constants; we assume everything executes on the same node
     min_nodes = 1
     max_nodes = 1
     rdzv_configs = {"rank": 0}
+    run_id = str(uuid.uuid4())
+
+    log.debug("<NLP30952034D>", f"run_id: {run_id}")
 
     nproc_per_node = determine_local_world_size()
 
@@ -96,9 +98,14 @@ def get_torch_elastic_launch_config(
         max_nodes=max_nodes,
         nproc_per_node=nproc_per_node,
         start_method=start_method,
+        # rdzv_backend="c10d",
+        # rdzv_endpoint="localhost:0",
         rdzv_backend="static",
-        rdzv_endpoint=f"{master_addr}:{master_port}",
+        rdzv_endpoint="localhost:29500",
+        run_id = run_id,
         rdzv_configs=rdzv_configs,
         tee=Std.ALL,
-        max_restarts=max_restarts,
+        # TODO: Make this configurable
+        log_dir="./torch_log/"
+        # max_restarts=max_restarts,
     )

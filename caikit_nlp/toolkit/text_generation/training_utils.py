@@ -24,7 +24,7 @@ import torch
 
 # First Party
 from caikit.core.data_model import DataStream
-from caikit.core.toolkit import error_handler
+from caikit.core.exceptions import error_handler
 import alog
 
 # Local
@@ -110,11 +110,13 @@ def collect_trainer_arguments(
         # huggingface configurations
         "push_to_hub": False,
         # dataset configurations
-        "remove_unused_columns": True,
+        "remove_unused_columns": False,
         "dataloader_pin_memory": False,
         # Required for iterable dataset
         "max_steps": max_steps,
         # others
+        # NOTE: Below would automatically adjust the batch size if the provided
+        # batch size doesn't fit in memory
         "auto_find_batch_size": True,
         **dtype_based_params,
         **kwargs,
@@ -174,13 +176,15 @@ def launch_training(
     tokenizer=None,
 ) -> None:
     """Utility function to wrap trainer and execute training"""
+
     # If we have a caikit resource, grab the trainer through it
     if caikit_resource is not None:
         trainer = caikit_resource.get_trainer(
             train_dataset=training_dataset, model=base_model, **training_args
         )
+
     else:
-        # If trainer is not provided fetch it from base_model
+        # If trainer is not provided fetch it from base_m`odel
         if hasattr(base_model, "get_trainer"):
             trainer = base_model.get_trainer(
                 train_dataset=training_dataset, **training_args
