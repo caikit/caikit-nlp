@@ -1,28 +1,33 @@
-FROM registry.access.redhat.com/ubi8/ubi-minimal:latest as builder
+FROM registry.access.redhat.com/ubi8/ubi-minimal:latest as base
 
 RUN microdnf update -y && \
     microdnf install -y \
-        git python39-pip && \
-    pip3 install --upgrade --no-cache-dir pip && \
+        git python39 && \
+    pip3 install --upgrade --no-cache-dir pip wheel && \
     microdnf clean all
+
+FROM base as builder
+WORKDIR /build
+
+RUN pip3 install --no-cache tox
+COPY README.md .
+COPY pyproject.toml .
+COPY tox.ini .
+COPY caikit_nlp caikit_nlp
+# .git is required for setuptools-scm get the version
+RUN --mount=source=.git,target=.git,type=bind tox -e build
+
+
+FROM base as deploy
 
 RUN python3 -m venv /opt/caikit/
 
 ENV VIRTUAL_ENV=/opt/caikit
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
-COPY dist/caikit_nlp*.whl /tmp/
+COPY --from=builder /build/dist/caikit_nlp*.whl /tmp/
 RUN pip install --no-cache /tmp/caikit_nlp*.whl && rm /tmp/caikit_nlp*.whl
 
-
-FROM registry.access.redhat.com/ubi8/ubi-minimal:latest as deploy
-
-RUN microdnf update -y && \
-    microdnf install -y \
-        shadow-utils python39 && \
-    microdnf clean all
-
-COPY --from=builder /opt/caikit /opt/caikit
 COPY LICENSE /opt/caikit/
 COPY README.md /opt/caikit/
 
@@ -30,9 +35,6 @@ RUN groupadd --system caikit --gid 1001 && \
     adduser --system --uid 1001 --gid 0 --groups caikit \
     --home-dir /caikit --shell /sbin/nologin \
     --comment "Caikit User" caikit
-
-ENV VIRTUAL_ENV=/opt/caikit
-ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 USER caikit
 
