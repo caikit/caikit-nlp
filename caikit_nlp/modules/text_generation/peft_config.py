@@ -132,17 +132,31 @@ def get_peft_config(
         f"Too many output model types. Got {len(output_model_types)}, "
         f"maximum {base_model.MAX_NUM_TRANSFORMERS}",
     )
-    # Ensure that our verbalizer is a string and will not render to a hardcoded string
-    error.value_check(
-        "<NLP83837412E>",
-        is_valid_verbalizer(verbalizer),
-        "Provided verbalizer is an invalid type or has no renderable placeholders",
-    )
 
-    # Coerce the passed model into a resource; if we have one, this is a noop
-    # TODO: When splitting up this mono-module, use the configured resource
-    #   type of the concrete class to bootstrap
-    torch_dtype = get_torch_dtype(torch_dtype)
+    if verbalizer:
+        log.warning(
+            "<NLP21323085W>",
+            "verbalizer parameter is DEPRECATED for this function \
+            and will be removed in future. \
+            This parameter is also not getting used in creation of peft config",
+        )
+        # Ensure that our verbalizer is a string and
+        # will not render to a hardcoded string
+        # TODO: This check should happen in prompt tuning module and not here
+        error.value_check(
+            "<NLP83837412E>",
+            is_valid_verbalizer(verbalizer),
+            "Provided verbalizer is an invalid type or has no renderable placeholders",
+        )
+
+    if torch_dtype:
+        log.warning(
+            "<NLP16173085W>",
+            "torch_dtype parameter is DEPRECATED for this function \
+            and will be removed in future. \
+            This parameter is also not getting used in creation of peft config",
+        )
+        torch_dtype = get_torch_dtype(torch_dtype)
 
     if tuning_type in [
         TuningType.PROMPT_TUNING,
