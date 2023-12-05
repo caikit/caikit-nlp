@@ -13,9 +13,11 @@
 # limitations under the License.
 
 # Standard
+from copy import deepcopy
 from typing import List, Optional
 import importlib
 import os
+import time
 
 # Third Party
 from torch.backends import mps
@@ -100,6 +102,12 @@ class EmbeddingModule(ModuleBase):
     ):
         super().__init__()
         self.model = model
+
+        # Separate copy of tokenizer just for _truncate_input_tokens()
+        # This avoids RuntimeError('Already borrowed') which is way too frequent
+        # otherwise when using Python threads and tokenize for truncation followed
+        # by sentence-transformers tokenize/encode.
+        self._tokenizer = deepcopy(self.model.tokenizer)
 
     @classmethod
     def load(cls, model_path: str, *args, **kwargs) -> "EmbeddingModule":
@@ -214,6 +222,18 @@ class EmbeddingModule(ModuleBase):
                 logger.warning(warn_msg, exc_info=True)
         return model
 
+    @staticmethod
+    def _with_retry(fn, *args, **kwargs):
+        retries = 5
+        for count in range(retries):
+            try:
+                return fn(*args, **kwargs)
+            except Exception as e:  # pylint: disable=broad-exception-caught
+                warn_msg = f"Retry {fn} due to: {e}"
+                logger.warning(warn_msg, exc_info=True)
+                time.sleep(0.1 * (count * 2))
+        error.log_raise("<NLP31069292E>", RuntimeError(f"Too many retries of fn={fn}"))
+
     def _truncate_input_tokens(
         self, truncate_input_tokens, texts: List[str]
     ) -> List[str]:
@@ -257,7 +277,8 @@ class EmbeddingModule(ModuleBase):
             max_length = max_tokens
             ret = texts  # will not alter texts when truncation is not allowed
 
-        tokenized = self.model.tokenizer(
+        tokenized = self._with_retry(
+            self._tokenizer,
             texts,
             return_attention_mask=False,
             return_token_type_ids=False,
@@ -286,26 +307,21 @@ class EmbeddingModule(ModuleBase):
                     idx
                     for idx, val in (enumerate(truncated_offsets))
                     if val != (0, 0)
-                    # TODO: __default=
                 )
                 end = next(
                     idx
                     for idx, val in reversed(list(enumerate(truncated_offsets)))
                     if val != (0, 0)
-                )  # TODO: default check for miss or zero len
+                )
                 # decode the truncated input tokens back to text to be returned
                 ret.append(
                     text[
-                        truncated_offsets[start][0] : truncated_offsets[end][1]
-                    ]  # TODO: boundaries
-                    # self.model.tokenizer.decode(
-                    # tokenized.input_ids[0][start : end + 1],  # TODO: boundaries
-                    # skip_special_tokens=False,
-                    # )
+                        truncated_offsets[start][0]: truncated_offsets[end][1]
+                    ]
                 )
 
             elif okay_to_truncate and not was_truncated:
-                ret.append(text)  # return original text  # TODO: overwrite in place
+                ret.append(text)  # return original text
 
             elif was_truncated:
                 tokens = sum(lengths)  # add up total tokens for error message
@@ -343,7 +359,7 @@ class EmbeddingModule(ModuleBase):
 
         text = self._truncate_input_tokens(truncate_input_tokens, [text])[0]
         return EmbeddingResult(
-            result=Vector1D.from_vector(self.model.encode(text)),
+            result=Vector1D.from_vector(self._with_retry(self.model.encode, text)),
             producer_id=self.PRODUCER_ID,
         )
 
@@ -373,11 +389,9 @@ class EmbeddingModule(ModuleBase):
         ):  # encode allows str, but the result would lack a dimension
             texts = [texts]
 
-        print("BEFORE: ", texts)
         texts = self._truncate_input_tokens(truncate_input_tokens, texts)
-        print("AFTER: ", texts)
 
-        embeddings = self.model.encode(texts)
+        embeddings = self._with_retry(self.model.encode, texts)
         vectors = [Vector1D.from_vector(e) for e in embeddings]
         return EmbeddingResults(
             results=ListOfVector1D(vectors=vectors), producer_id=self.PRODUCER_ID
@@ -411,8 +425,8 @@ class EmbeddingModule(ModuleBase):
         )[0]
         sentences = self._truncate_input_tokens(truncate_input_tokens, sentences)
 
-        source_embedding = self.model.encode(source_sentence)
-        embeddings = self.model.encode(sentences)
+        source_embedding = self._with_retry(self.model.encode, source_sentence)
+        embeddings = self._with_retry(self.model.encode, sentences)
 
         res = cos_sim(source_embedding, embeddings)
         return SentenceSimilarityResult(
@@ -449,8 +463,8 @@ class EmbeddingModule(ModuleBase):
         )
         sentences = self._truncate_input_tokens(truncate_input_tokens, sentences)
 
-        source_embedding = self.model.encode(source_sentences)
-        embeddings = self.model.encode(sentences)
+        source_embedding = self._with_retry(self.model.encode, source_sentences)
+        embeddings = self._with_retry(self.model.encode, sentences)
 
         res = cos_sim(source_embedding, embeddings)
         float_list_list = res.tolist()
@@ -606,11 +620,15 @@ class EmbeddingModule(ModuleBase):
         queries = self._truncate_input_tokens(truncate_input_tokens, queries)
 
         doc_embeddings = normalize_embeddings(
-            self.model.encode(doc_texts, convert_to_tensor=True).to(self.model.device)
+            self._with_retry(self.model.encode, doc_texts, convert_to_tensor=True).to(
+                self.model.device
+            )
         )
 
         query_embeddings = normalize_embeddings(
-            self.model.encode(queries, convert_to_tensor=True).to(self.model.device)
+            self._with_retry(self.model.encode, queries, convert_to_tensor=True).to(
+                self.model.device
+            )
         )
 
         res = semantic_search(

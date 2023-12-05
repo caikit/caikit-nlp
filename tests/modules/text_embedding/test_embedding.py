@@ -716,3 +716,37 @@ def test_embeddings_with_truncation(truncate_input_tokens, loaded_model):
     assert not np.allclose(vectors[0].data.values, vectors[1].data.values)
     assert not np.allclose(vectors[0].data.values, vectors[2].data.values)
     assert not np.allclose(vectors[1].data.values, vectors[2].data.values)
+
+
+def test__with_retry_happy_path(loaded_model):
+    """works with args/kwargs, no problems"""
+    loaded_model._with_retry(print, "hello", "world", sep="<:)>", end="!!!\n")
+
+
+def test__with_retry_fail(loaded_model):
+    """fn never works, loops then raises RuntimeError"""
+
+    def fn():
+        assert 0
+
+    with pytest.raises(RuntimeError):
+        loaded_model._with_retry(fn)
+
+
+def test__with_retry_fail_fail_win(loaded_model):
+    """fn needs a few tries, logs, loops and succeeds"""
+
+    def generate_ints():
+        yield from range(9)  # More than enough for retry loop
+
+    ints = generate_ints()
+
+    def fail_fail_win():
+        for i in ints:
+            if i < 2:  # fail, fail
+                assert 0
+            else:  # win
+                return i + 1
+
+    # Third try did not raise an exception. Returns 3.
+    assert 3 == loaded_model._with_retry(fail_fail_win)
