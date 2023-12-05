@@ -304,9 +304,7 @@ class EmbeddingModule(ModuleBase):
                 ]
                 truncated_offsets = offsets[0]
                 start = next(
-                    idx
-                    for idx, val in (enumerate(truncated_offsets))
-                    if val != (0, 0)
+                    idx for idx, val in (enumerate(truncated_offsets)) if val != (0, 0)
                 )
                 end = next(
                     idx
@@ -315,9 +313,7 @@ class EmbeddingModule(ModuleBase):
                 )
                 # decode the truncated input tokens back to text to be returned
                 ret.append(
-                    text[
-                        truncated_offsets[start][0]: truncated_offsets[end][1]
-                    ]
+                    text[truncated_offsets[start][0] : truncated_offsets[end][1]]
                 )
 
             elif okay_to_truncate and not was_truncated:
