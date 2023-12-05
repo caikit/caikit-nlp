@@ -70,6 +70,9 @@ class TextGeneration(ModuleBase):
 
     # Below list is taken from
     # https://huggingface.co/docs/transformers/main/en/main_classes/trainer#transformers.TrainingArguments
+    # FIXME: Temporarily disable duplicate code check here as
+    # we will remove below code in next iteration when we consolidate HF Trainer
+    # pylint: disable=duplicate-code
     allowed_training_args = {
         "weight_decay",
         "adam_beta1",
