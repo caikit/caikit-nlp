@@ -66,6 +66,7 @@ def collect_trainer_arguments(
     learning_rate,
     max_steps,
     silence_progress_bars=True,
+    accumulate_steps=1,
     **kwargs
 ):
     """Utility function to return processed HF Trainer argument dictionary"""
@@ -107,6 +108,7 @@ def collect_trainer_arguments(
         "weight_decay": 0.01,
         "save_total_limit": 3,
         "gradient_checkpointing": True,
+        "gradient_accumulation_steps": accumulate_steps,
         # huggingface configurations
         "push_to_hub": False,
         # dataset configurations
