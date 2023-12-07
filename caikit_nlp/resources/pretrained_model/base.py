@@ -29,7 +29,6 @@ from transformers import (
     TrainingArguments,
 )
 from transformers.models.auto.auto_factory import _BaseAutoModelClass
-from trl import DataCollatorForCompletionOnlyLM
 import torch
 
 # First Party
@@ -305,11 +304,10 @@ class PretrainedModelBase(ABC, ModuleBase):
                     "<NLP19348182E>",
                     "Response Template needs to be set to use completion only",
                 )
-            data_collator = DataCollatorForCompletionOnlyLM(
-                response_template, tokenizer=self._tokenizer
-            )
-        else:
-            data_collator = self._get_data_collator(**kwargs)
+            kwargs["train_on_completion"] = train_on_completion
+            kwargs["response_template"] = response_template
+
+        data_collator = self._get_data_collator(**kwargs)
 
         trainer_arguments = {
             "train_dataset": train_dataset,

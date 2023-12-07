@@ -350,7 +350,9 @@ class PeftPromptTuning(ModuleBase):
             seed: int
                 Integer to be used as random seed for training.
             train_on_completion: bool
-                True will train the model on the generated prompts only. Default: False.
+                True will train the model on the generated prompts only.
+                Only applicable to Causal LMs.
+                Default: False.
             response_template: Optional[str] = None
                 Only if train_on_completion is set to True, pass a response template that
                 will be used to parse out the response.
