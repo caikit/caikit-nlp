@@ -21,6 +21,7 @@ import os
 
 # Third Party
 from torch.utils.data import IterableDataset
+from trl import DataCollatorForCompletionOnlyLM
 from transformers import (
     AutoTokenizer,
     DataCollatorWithPadding,
@@ -280,6 +281,8 @@ class PretrainedModelBase(ABC, ModuleBase):
         eval_dataset: Union[IterableDataset, None] = None,
         optimizers=(None, None),
         model=None,
+        train_on_completion=False,
+        response_template=None,
         **kwargs,
     ):
         """
@@ -296,7 +299,7 @@ class PretrainedModelBase(ABC, ModuleBase):
 
         training_args = TrainingArguments(**kwargs)
 
-        data_collator = self._get_data_collator(**kwargs)
+        data_collator = self._get_data_collator(train_on_completion, response_template, **kwargs)
 
         trainer_arguments = {
             "train_dataset": train_dataset,
@@ -311,13 +314,15 @@ class PretrainedModelBase(ABC, ModuleBase):
 
         return LoggingTrainer(self._model, training_args, **trainer_arguments)
 
-    def _get_data_collator(self, **kwargs):
+    def _get_data_collator(self, train_on_completion, response_template, **kwargs):
         """Function to return appropriate data collator based on resource.
 
         The default implementation of the base resource uses
         DataCollatorWithPadding which will dynamically pad the inputs received.
 
         Args:
+            train_on_completion: bool,
+            response_template: str,
             **kwargs:
                 All the keyword arguments passed to this function
                 will get filtered out to appropriate ones that are
@@ -325,13 +330,15 @@ class PretrainedModelBase(ABC, ModuleBase):
         Returns:
             transformers.DataCollator
         """
+        if train_on_completion:
+            return DataCollatorForCompletionOnlyLM(response_template, tokenizer=self._tokenizer)
+        else: 
+            applicable_args = ["max_length", "pad_to_multiple_of"]
+            collator_kwargs = {key: kwargs[key] for key in applicable_args if key in kwargs}
 
-        applicable_args = ["max_length", "pad_to_multiple_of"]
-        collator_kwargs = {key: kwargs[key] for key in applicable_args if key in kwargs}
-
-        return DataCollatorWithPadding(
-            tokenizer=self._tokenizer, padding=True, **collator_kwargs
-        )
+            return DataCollatorWithPadding(
+                tokenizer=self._tokenizer, padding=True, **collator_kwargs
+            )
 
     # pylint: disable=unused-argument
     @classmethod

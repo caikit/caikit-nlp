@@ -347,6 +347,11 @@ class PeftPromptTuning(ModuleBase):
                 Silences TQDM progress bars at train time. Default: True.
             seed: int
                 Integer to be used as random seed for training.
+            train_on_completion: bool
+                True will train the model on the generated prompts only. Default: False.
+            response_template: Optional[str] = None
+                Only if train_on_completion is set to True, pass a response template that
+                will be used to parse out the response.
         Returns:
             PeftPromptTuning
                 Instance of this class with tuned prompt vectors.
@@ -505,6 +510,8 @@ class PeftPromptTuning(ModuleBase):
                 training_args,
                 checkpoint_dir,
                 base_model,
+                train_on_completion,
+                response_template,
             )
 
         # Wrap up the trained model in a class instance
