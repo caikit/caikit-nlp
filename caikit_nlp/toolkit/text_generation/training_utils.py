@@ -175,13 +175,17 @@ def launch_training(
     caikit_resource=None,
     tokenizer=None,
     train_on_completion=False,
-    response_template=None
+    response_template=None,
 ) -> None:
     """Utility function to wrap trainer and execute training"""
     # If we have a caikit resource, grab the trainer through it
     if caikit_resource is not None:
         trainer = caikit_resource.get_trainer(
-            train_dataset=training_dataset, model=base_model, train_on_completion=train_on_completion, response_template=response_template, **training_args
+            train_dataset=training_dataset,
+            model=base_model,
+            train_on_completion=train_on_completion,
+            response_template=response_template,
+            **training_args
         )
     else:
         # If trainer is not provided fetch it from base_model

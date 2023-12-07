@@ -365,7 +365,8 @@ class PeftPromptTuning(ModuleBase):
         if train_on_completion:
             if not response_template:
                 error.value_check(
-                    "<NLP41651387E>", "Response template is need for train on completion"
+                    "<NLP41651387E>",
+                    "Response template is need for train on completion",
                 )
 
         # Configure random seed
@@ -518,8 +519,8 @@ class PeftPromptTuning(ModuleBase):
                 training_args,
                 checkpoint_dir,
                 base_model,
-                train_on_completion,
-                response_template,
+                train_on_completion=train_on_completion,
+                response_template=response_template,
             )
 
         # Wrap up the trained model in a class instance
