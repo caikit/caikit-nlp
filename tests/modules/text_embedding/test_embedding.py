@@ -449,21 +449,25 @@ def test__optimize(monkeypatch):
     assert fake == EmbeddingModule._optimize(fake, False, "bogus")
 
 
-@pytest.mark.parametrize("truncate_input_tokens, expected_len", [(99, 205), (333, 673)])
-def test__truncate_input_tokens(truncate_input_tokens, expected_len, loaded_model):
+@pytest.mark.parametrize("truncate_input_tokens", [-1, 99, 10, 333])
+def test__truncate_input_tokens(truncate_input_tokens, loaded_model):
 
-    too_long = "x  " * (truncate_input_tokens - 5) + "y  y  z  "  # z will go over
+    if truncate_input_tokens < 0:
+        num_xs = 500  # fill-er up
+    else:
+        num_xs = truncate_input_tokens - 4  # subtract room for (y  y), but not z
+
+    too_long = "x  " * num_xs + "y  y  z  "  # z will go over
     actual = loaded_model._truncate_input_tokens(
         truncate_input_tokens=truncate_input_tokens, texts=[too_long, too_long]
-    )[0]
+    )
 
-    # TODO: Test -1 for no change in a separate test with a different string
-    # if truncate_input_tokens < 0:
-    # assert actual == too_long
+    assert actual[0] == actual[1]  # they are still the same
 
-    # assert len(actual) == expected_len
-    assert len(actual) == (truncate_input_tokens - 2) * 3
-    assert actual == too_long
+    if truncate_input_tokens < 0:
+        assert actual[0] == too_long, "expected no truncation"
+    else:
+        assert actual[0] + "  z  " == too_long, "expected truncation"
 
 
 @pytest.mark.parametrize("truncate_input_tokens", [0, 513])

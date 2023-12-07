@@ -78,6 +78,22 @@ except ModuleNotFoundError:
 FALSY = ("no", "n", "false", "0", "f", "off")
 
 
+def env_var_to_int(name, default):
+    """Returns the integer value of name env var or default value if None or invalid integer"""
+    s = os.getenv(name, default)
+    try:
+        return int(s)
+    except (TypeError, ValueError):
+        return default
+
+
+# Batch size for encode() if <= 0 or invalid, the sentence-transformers default is used
+BATCH_SIZE = env_var_to_int("BATCH_SIZE", default=0)
+
+# Retry count for catching sporadic encode() or tokenize() errors (in case if they come back)
+RETRY_COUNT = env_var_to_int("RETRY_COUNT", default=5)
+
+
 @module(
     "eeb12558-b4fa-4f34-a9fd-3f5890e9cd3f",
     "EmbeddingModule",
@@ -224,8 +240,8 @@ class EmbeddingModule(ModuleBase):
 
     @staticmethod
     def _with_retry(fn, *args, **kwargs):
-        retries = 5
-        for count in range(retries):
+        retries = max(RETRY_COUNT, 0)
+        for count in range(1 + retries):  # try once plus retries (if needed)
             try:
                 return fn(*args, **kwargs)
             except Exception as e:  # pylint: disable=broad-exception-caught
@@ -233,6 +249,18 @@ class EmbeddingModule(ModuleBase):
                 logger.warning(warn_msg, exc_info=True)
                 time.sleep(0.1 * (count * 2))
         error.log_raise("<NLP31069292E>", RuntimeError(f"Too many retries of fn={fn}"))
+
+    def _encode_with_retry(self, *args, **kwargs):
+        """All encode calls should use this for consistent param adding and retry loop"""
+
+        # Add the batch_size kwarg if not passed in and given a usable BATCH_SIZE
+        if BATCH_SIZE > 0:
+            if kwargs is None:
+                kwargs = {}
+            if "batch_size" not in kwargs:
+                kwargs["batch_size"] = BATCH_SIZE
+
+        return self._with_retry(self.model.encode, *args, **kwargs)
 
     def _truncate_input_tokens(
         self, truncate_input_tokens, texts: List[str]
@@ -297,21 +325,24 @@ class EmbeddingModule(ModuleBase):
             was_truncated = len(lengths) > 1  # multiple lengths when truncated
 
             if okay_to_truncate and was_truncated:
+                # Get the text offsets for the tokens that are kept after truncation
                 offsets = [
                     tokenized["offset_mapping"][idx]
                     for idx, v in enumerate(mapping)
                     if v == i
                 ]
                 truncated_offsets = offsets[0]
+                # Find the first token offset (i.e. skip added start token)
                 start = next(
                     idx for idx, val in (enumerate(truncated_offsets)) if val != (0, 0)
                 )
+                # Find the last token offset (i.e. skip added end token)
                 end = next(
                     idx
                     for idx, val in reversed(list(enumerate(truncated_offsets)))
                     if val != (0, 0)
                 )
-                # decode the truncated input tokens back to text to be returned
+                # Use the start/end offsets to slice the text based on token truncation
                 ret.append(
                     text[truncated_offsets[start][0] : truncated_offsets[end][1]]
                 )
@@ -355,7 +386,7 @@ class EmbeddingModule(ModuleBase):
 
         text = self._truncate_input_tokens(truncate_input_tokens, [text])[0]
         return EmbeddingResult(
-            result=Vector1D.from_vector(self._with_retry(self.model.encode, text)),
+            result=Vector1D.from_vector(self._encode_with_retry(text)),
             producer_id=self.PRODUCER_ID,
         )
 
@@ -387,7 +418,7 @@ class EmbeddingModule(ModuleBase):
 
         texts = self._truncate_input_tokens(truncate_input_tokens, texts)
 
-        embeddings = self._with_retry(self.model.encode, texts)
+        embeddings = self._encode_with_retry(texts)
         vectors = [Vector1D.from_vector(e) for e in embeddings]
         return EmbeddingResults(
             results=ListOfVector1D(vectors=vectors), producer_id=self.PRODUCER_ID
@@ -421,8 +452,8 @@ class EmbeddingModule(ModuleBase):
         )[0]
         sentences = self._truncate_input_tokens(truncate_input_tokens, sentences)
 
-        source_embedding = self._with_retry(self.model.encode, source_sentence)
-        embeddings = self._with_retry(self.model.encode, sentences)
+        source_embedding = self._encode_with_retry(source_sentence)
+        embeddings = self._encode_with_retry(sentences)
 
         res = cos_sim(source_embedding, embeddings)
         return SentenceSimilarityResult(
@@ -459,8 +490,8 @@ class EmbeddingModule(ModuleBase):
         )
         sentences = self._truncate_input_tokens(truncate_input_tokens, sentences)
 
-        source_embedding = self._with_retry(self.model.encode, source_sentences)
-        embeddings = self._with_retry(self.model.encode, sentences)
+        source_embedding = self._encode_with_retry(source_sentences)
+        embeddings = self._encode_with_retry(sentences)
 
         res = cos_sim(source_embedding, embeddings)
         float_list_list = res.tolist()
@@ -616,13 +647,13 @@ class EmbeddingModule(ModuleBase):
         queries = self._truncate_input_tokens(truncate_input_tokens, queries)
 
         doc_embeddings = normalize_embeddings(
-            self._with_retry(self.model.encode, doc_texts, convert_to_tensor=True).to(
+            self._encode_with_retry(doc_texts, convert_to_tensor=True).to(
                 self.model.device
             )
         )
 
         query_embeddings = normalize_embeddings(
-            self._with_retry(self.model.encode, queries, convert_to_tensor=True).to(
+            self._encode_with_retry(queries, convert_to_tensor=True).to(
                 self.model.device
             )
         )
