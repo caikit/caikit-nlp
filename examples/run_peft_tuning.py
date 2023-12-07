@@ -248,12 +248,6 @@ def register_common_arguments(subparsers: Tuple[argparse.ArgumentParser]) -> Non
             choices=[True,False],
         )
         subparser.add_argument(
-            "--train_on_completion",
-            help="Train on completion True or False",
-            default=False,
-            choices=[True,False],
-        )
-        subparser.add_argument(
             "--response_template",
             help="Response template to identify response",
             default=None
