@@ -331,6 +331,8 @@ class PretrainedModelBase(ABC, ModuleBase):
             transformers.DataCollator
         """
         if train_on_completion:
+            if response_template==None:
+                error("<NLP19348182E>", "Response Template needs to be set to use completion only")
             return DataCollatorForCompletionOnlyLM(response_template, tokenizer=self._tokenizer)
         else: 
             applicable_args = ["max_length", "pad_to_multiple_of"]

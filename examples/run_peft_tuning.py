@@ -241,6 +241,24 @@ def register_common_arguments(subparsers: Tuple[argparse.ArgumentParser]) -> Non
             default="float32",
             choices=["float16", "bfloat16", "float32"],
         )
+        subparser.add_argument(
+            "--train_on_completion",
+            help="Train on completion True or False",
+            default=False,
+            choices=[True,False],
+        )
+        subparser.add_argument(
+            "--train_on_completion",
+            help="Train on completion True or False",
+            default=False,
+            choices=[True,False],
+        )
+        subparser.add_argument(
+            "--response_template",
+            help="Response template to identify response",
+            default=None
+        )
+        
 
 
 def register_multitask_prompt_tuning_args(subparser: argparse.ArgumentParser):
@@ -414,6 +432,8 @@ if __name__ == "__main__":
         silence_progress_bars=not args.verbose,
         accumulate_steps=args.accumulate_steps,
         torch_dtype=args.torch_dtype,
+        train_on_completion=args.train_on_completion,
+        response_template=args.response_template
     )
     model.save(args.output_dir, save_base_model=not args.prompt_only)
     print_colored("[Training Complete]")
