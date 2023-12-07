@@ -279,6 +279,7 @@ class PretrainedModelBase(ABC, ModuleBase):
         train_dataset: IterableDataset,
         eval_dataset: Union[IterableDataset, None] = None,
         optimizers=(None, None),
+        model=None,
         **kwargs,
     ):
         """
@@ -303,6 +304,10 @@ class PretrainedModelBase(ABC, ModuleBase):
             "optimizers": optimizers,
             "eval_dataset": eval_dataset,
         }
+        # If extra model is provided, we will configure trainer
+        # with that model
+        if model:
+            return LoggingTrainer(model, training_args, **trainer_arguments)
 
         return LoggingTrainer(self._model, training_args, **trainer_arguments)
 

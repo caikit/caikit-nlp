@@ -45,7 +45,11 @@ allowed_tuning_init_methods = [
 log = alog.use_channel("PFT_CNFG_TLKT")
 error = error_handler.get(log)
 
-SOURCE_DIR_VALIDATION_REGEX = re.compile(r"^[-a-zA-Z_0-9\/]+")
+SOURCE_DIR_VALIDATION_REGEX = re.compile(r"^[-a-zA-Z_0-9\/\.]+")
+# 🤮 FIXME: This two dot regex is added as a way to avoid expressions like ..
+# giving access to un-intended directories. But this is an ugly hack
+# and we need to figure out better solution or better regex
+TWO_DOTS_REGEX = re.compile(r"(\.\.)+")
 
 
 class TuningType(str, Enum):
@@ -62,7 +66,8 @@ def resolve_base_model(base_model, cls, torch_dtype):
 
         error.value_check(
             "<NLP66932773E>",
-            re.fullmatch(SOURCE_DIR_VALIDATION_REGEX, base_model),
+            re.fullmatch(SOURCE_DIR_VALIDATION_REGEX, base_model)
+            and not re.search(TWO_DOTS_REGEX, base_model),
             "invalid characters in base_model name",
         )
         if get_config().base_models_dir:
@@ -299,6 +304,7 @@ def _create_lora_config(tuning_config, task_type) -> LoraConfig:
     config_kwargs = tuning_config.to_dict()
     log.info("<NLP61012781I>", f"Parameters used: {config_kwargs}")
     config_params = _filter_params_for_prompt_config(tuning_config, config_kwargs)
-    del config_params["output_model_types"]
+    if "output_model_types" in config_params:
+        del config_params["output_model_types"]
     lora_config = LoraConfig(task_type=task_type, **config_params)
     return lora_config

@@ -8,6 +8,7 @@ __pycache__/
 
 # Distribution / packaging
 data/classification_data/
+models/
 tmp_models/
 models_to_upload/
 upload_models/

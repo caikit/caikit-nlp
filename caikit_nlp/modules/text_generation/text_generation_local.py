@@ -70,6 +70,9 @@ class TextGeneration(ModuleBase):
 
     # Below list is taken from
     # https://huggingface.co/docs/transformers/main/en/main_classes/trainer#transformers.TrainingArguments
+    # FIXME: Temporarily disable duplicate code check here as
+    # we will remove below code in next iteration when we consolidate HF Trainer
+    # pylint: disable=duplicate-code
     allowed_training_args = {
         "weight_decay",
         "adam_beta1",
@@ -224,6 +227,9 @@ class TextGeneration(ModuleBase):
             TextGeneration
                 Instance of this class with fine-tuned models.
         """
+        error.value_check(
+            "<NLP96406893E>", len(train_stream) > 0, "train_stream cannot be empty"
+        )
 
         torch_dtype = get_torch_dtype(torch_dtype)
 
@@ -531,13 +537,18 @@ class TextGeneration(ModuleBase):
         temperature: Optional[float] = None,
         repetition_penalty: Optional[float] = None,
         max_time: Optional[float] = None,
+        preserve_input_text: bool = True,
         **kwargs,
     ) -> GeneratedTextResult:
 
         f"""
         Run the full text generation model.
         Args:
-            {GENERATE_FUNCTION_ARGS}
+            {GENERATE_FUNCTION_ARGS},
+            preserve_input_text: bool
+                Applicable only to Causal LLMs.
+                Whether or not the source string should be contained in the generated output,
+                e.g., as a prefix. Default True. (Source string will appear as prefix)
         Returns:
             GeneratedTextResult
                 Generated text result produced by the model.
@@ -562,6 +573,8 @@ class TextGeneration(ModuleBase):
             temperature=temperature,
             repetition_penalty=repetition_penalty,
             max_time=max_time,
+            preserve_input_text=preserve_input_text,
+            task_type=self.model.TASK_TYPE,
             **kwargs,
         )
 

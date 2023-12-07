@@ -1,1 +1,7 @@
-venv
+*
+!README.md
+!LICENSE
+!caikit_nlp
+!pyproject.toml
+!tox.ini
+!.git

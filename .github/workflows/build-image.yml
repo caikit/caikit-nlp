@@ -1,0 +1,29 @@
+on:
+  push:
+    branches: ["main", "release-*"]
+    paths:
+      - "caikit_nlp"
+      - "README.md"
+      - "pyproject.toml"
+      - "Dockerfile"
+
+  pull_request:
+
+name: Build Image
+
+jobs:
+  build-image:
+    name: Build Image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v4
+        with:
+          python-version: 3.9
+      - name: Setup tox
+        run: |
+          pip install -U pip wheel
+          pip install tox
+      - name: Build image
+        run: |
+          docker build -t caikit-nlp:latest .
