@@ -14,6 +14,7 @@
 
 # Local
 from caikit_nlp.data_model import ExponentialDecayLengthPenalty
+from caikit_nlp.data_model.generation import LoraTuningConfig
 
 ## Setup #########################################################################
 
@@ -43,3 +44,17 @@ def test_sampling_parameters_from_json_and_back():
     )
     assert new.start_index == 1
     assert new.decay_factor == 0.95
+
+
+## Setup #########################################################################
+
+LoraConfig = LoraTuningConfig(r=1)
+
+## Tests ########################################################################
+def test_loraconfig_fields_accessible():
+    assert LoraConfig.r == 1
+
+
+def test_from_proto_and_back():
+    new = LoraTuningConfig.from_proto(LoraConfig.to_proto())
+    assert new.r == 1

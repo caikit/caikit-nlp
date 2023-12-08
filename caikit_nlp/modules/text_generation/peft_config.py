@@ -162,7 +162,7 @@ def get_peft_config(
             This parameter is also not getting used in creation of peft config",
         )
         torch_dtype = get_torch_dtype(torch_dtype)
-
+    print("type", tuning_type)
     if tuning_type in [
         TuningType.PROMPT_TUNING,
         TuningType.MULTITASK_PROMPT_TUNING,

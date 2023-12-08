@@ -53,6 +53,7 @@ import alog
 from ...data_model import (
     ExponentialDecayLengthPenalty,
     GenerationTrainRecord,
+    LoraTuningConfig,
     PromptOutputModelType,
     TuningConfig,
 )
@@ -286,7 +287,7 @@ class PeftPromptTuning(ModuleBase):
             DataStream[GenerationTrainRecord],
             DataStream[ClassificationTrainRecord],
         ],
-        tuning_config: TuningConfig,
+        tuning_config: Union[TuningConfig, LoraTuningConfig],
         val_stream: Optional[
             Union[
                 DataStream[GenerationTrainRecord],
@@ -315,7 +316,7 @@ class PeftPromptTuning(ModuleBase):
                 Base resource model used for underlying generation.
             train_stream: DataStream[GenerationTrainRecord] or DataStream[ClassificationTrainRecord]
                 Data to be used for training the prompt vectors of the generation model.
-            tuning_config: TuningConfig
+            tuning_config: Union[TuningConfig, LoraTuningConfig]
                 Additional model tuning configurations to be considered for prompt vector
                 initialization and training behavior.
             val_stream: Optional[DataStream[GenerationTrainRecord]
