@@ -192,6 +192,10 @@ class PeftPromptTuning(ModuleBase):
 
         verbalized_text = render_verbalizer(self.verbalizer, {"input": text})
 
+        mpt = False
+        if self.tuning_type == TuningType.MULTITASK_PROMPT_TUNING:
+            mpt = True
+
         return generate_text_func(
             self.model,
             self.tokenizer,
@@ -213,6 +217,7 @@ class PeftPromptTuning(ModuleBase):
             stop_sequences=stop_sequences,
             preserve_input_text=preserve_input_text,
             task_type=self.task_type,
+            mpt=mpt,
         )
 
     # NOTE: We need to disable wip decorator here otherwise we get issues in

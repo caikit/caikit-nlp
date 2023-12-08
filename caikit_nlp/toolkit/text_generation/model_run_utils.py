@@ -154,6 +154,7 @@ def generate_text_func(
     stop_sequences: Optional[List[str]] = None,
     preserve_input_text: Optional[bool] = True,
     task_type: Optional[str] = None,
+    mpt: bool = False,
     **kwargs,
 ):
     """
@@ -224,10 +225,11 @@ def generate_text_func(
     # NOTE: Below is required as `task_id` is a required field for generation
     # with MPT in PEFT. We are manually setting task id to 0 vector since
     # we do not allow setting task specific id anyways.
-    if isinstance(model, PeftModel):
-        gen_optional_params["task_ids"] = torch.zeros(
-            inputs["input_ids"].shape[0], dtype=inputs["input_ids"].dtype
-        ).to(model.device)
+    if mpt:
+        if isinstance(model, PeftModel):
+            gen_optional_params["task_ids"] = torch.zeros(
+                inputs["input_ids"].shape[0], dtype=inputs["input_ids"].dtype
+            ).to(model.device)
 
     with torch.no_grad():
         generate_ids = model.generate(
