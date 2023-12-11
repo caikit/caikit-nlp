@@ -25,6 +25,7 @@ from transformers import (
     DataCollatorForLanguageModeling,
 )
 from transformers.models.auto import modeling_auto
+from trl import DataCollatorForCompletionOnlyLM
 import torch
 
 # First Party
@@ -168,6 +169,18 @@ class HFAutoCausalLM(PretrainedModelBase):
                 Collator to be used for causal language modeling.
         """
 
+        if "train_on_completion" in kwargs and kwargs["train_on_completion"]:
+            applicable_args = ["mlm", "response_template", "instruction_template"]
+            collator_kwargs = {
+                key: kwargs[key] for key in applicable_args if key in kwargs
+            }
+
+            if "mlm" not in collator_kwargs:
+                collator_kwargs["mlm"] = False
+
+            return DataCollatorForCompletionOnlyLM(
+                tokenizer=self._tokenizer, return_tensors="pt", **collator_kwargs
+            )
         applicable_args = ["mlm", "pad_to_multiple_of"]
         collator_kwargs = {key: kwargs[key] for key in applicable_args if key in kwargs}
 

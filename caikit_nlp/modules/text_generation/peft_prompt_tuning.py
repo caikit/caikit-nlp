@@ -300,6 +300,8 @@ class PeftPromptTuning(ModuleBase):
         torch_dtype: Optional[str] = None,  # TODO: Optional[Union[torch.dtype, str]]
         silence_progress_bars: Optional[bool] = True,
         seed: int = RANDOM_SEED,
+        train_on_completion: bool = False,
+        response_template: str = None,
         **kwargs,
     ) -> "PeftPromptTuning":
         """Run prompt tuning (vanilla or MPT) through PEFT on a CausalLM or Seq2seq model
@@ -347,6 +349,13 @@ class PeftPromptTuning(ModuleBase):
                 Silences TQDM progress bars at train time. Default: True.
             seed: int
                 Integer to be used as random seed for training.
+            train_on_completion: bool
+                True will train the model on the generated prompts only.
+                Only applicable to Causal LMs.
+                Default: False.
+            response_template: Optional[str] = None
+                Only if train_on_completion is set to True, pass a response template that
+                will be used to parse out the response.
         Returns:
             PeftPromptTuning
                 Instance of this class with tuned prompt vectors.
@@ -354,6 +363,13 @@ class PeftPromptTuning(ModuleBase):
         error.value_check(
             "<NLP46653367E>", len(train_stream) > 0, "train_stream cannot be empty"
         )
+
+        if train_on_completion:
+            if not response_template:
+                error.value_check(
+                    "<NLP41651387E>",
+                    "Response template is need for train on completion",
+                )
 
         # Configure random seed
         transformers.set_seed(seed)
@@ -505,6 +521,8 @@ class PeftPromptTuning(ModuleBase):
                 training_args,
                 checkpoint_dir,
                 base_model,
+                train_on_completion=train_on_completion,
+                response_template=response_template,
             )
 
         # Wrap up the trained model in a class instance

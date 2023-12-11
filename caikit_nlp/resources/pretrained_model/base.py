@@ -280,6 +280,8 @@ class PretrainedModelBase(ABC, ModuleBase):
         eval_dataset: Union[IterableDataset, None] = None,
         optimizers=(None, None),
         model=None,
+        train_on_completion=False,
+        response_template=None,
         **kwargs,
     ):
         """
@@ -295,6 +297,15 @@ class PretrainedModelBase(ABC, ModuleBase):
         """
 
         training_args = TrainingArguments(**kwargs)
+
+        if train_on_completion:
+            if response_template is None:
+                error(
+                    "<NLP19348182E>",
+                    "Response Template needs to be set to use completion only",
+                )
+            kwargs["train_on_completion"] = train_on_completion
+            kwargs["response_template"] = response_template
 
         data_collator = self._get_data_collator(**kwargs)
 
