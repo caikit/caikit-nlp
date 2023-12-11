@@ -408,7 +408,7 @@ if __name__ == "__main__":
         max_target_length=args.max_target_length,
         tuning_type=args.tuning_type,
         num_epochs=args.num_epochs,
-        lr=args.learning_rate,
+        learning_rate=args.learning_rate,
         batch_size=args.batch_size,
         verbalizer=dataset_info.verbalizer,
         silence_progress_bars=not args.verbose,
