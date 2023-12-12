@@ -53,6 +53,7 @@ import alog
 from ...data_model import (
     ExponentialDecayLengthPenalty,
     GenerationTrainRecord,
+    LoraTuningConfig,
     PromptOutputModelType,
     TuningConfig,
 )
@@ -73,7 +74,12 @@ from ...toolkit.text_generation.training_utils import (
 )
 from ...toolkit.trainer_utils import validate_training_data
 from ...toolkit.verbalizer_utils import render_verbalizer
-from .peft_config import TuningType, get_peft_config, resolve_base_model
+from .peft_config import (
+    TuningType,
+    _filter_params_for_prompt_config,
+    get_peft_config,
+    resolve_base_model,
+)
 
 log = alog.use_channel("PEFT_PROMPT")
 error = error_handler.get(log)
@@ -98,10 +104,10 @@ class PeftPromptTuning(ModuleBase):
     tuning_type_to_huggingface = {
         TuningType.PROMPT_TUNING: PeftType.PROMPT_TUNING,
         TuningType.MULTITASK_PROMPT_TUNING: PeftType.MULTITASK_PROMPT_TUNING,
+        TuningType.LORA: PeftType.LORA,
         # TuningType.MULTITASK_PREFIX_TUNING: PeftType.MULTITASK_PREFIX_TUNING,
         # TuningType.P_TUNING: PeftType.P_TUNING,
         # TuningType.PREFIX_TUNING: PeftType.PREFIX_TUNING,
-        # TuningType.LORA: PeftType.LORA,
     }
 
     RANDOM_SEED = 73
@@ -186,6 +192,10 @@ class PeftPromptTuning(ModuleBase):
 
         verbalized_text = render_verbalizer(self.verbalizer, {"input": text})
 
+        mpt = False
+        if self.tuning_type == TuningType.MULTITASK_PROMPT_TUNING:
+            mpt = True
+
         return generate_text_func(
             self.model,
             self.tokenizer,
@@ -207,6 +217,7 @@ class PeftPromptTuning(ModuleBase):
             stop_sequences=stop_sequences,
             preserve_input_text=preserve_input_text,
             task_type=self.task_type,
+            mpt=mpt,
         )
 
     # NOTE: We need to disable wip decorator here otherwise we get issues in
@@ -281,7 +292,7 @@ class PeftPromptTuning(ModuleBase):
             DataStream[GenerationTrainRecord],
             DataStream[ClassificationTrainRecord],
         ],
-        tuning_config: TuningConfig,
+        tuning_config: Union[TuningConfig, LoraTuningConfig],
         val_stream: Optional[
             Union[
                 DataStream[GenerationTrainRecord],
@@ -310,7 +321,7 @@ class PeftPromptTuning(ModuleBase):
                 Base resource model used for underlying generation.
             train_stream: DataStream[GenerationTrainRecord] or DataStream[ClassificationTrainRecord]
                 Data to be used for training the prompt vectors of the generation model.
-            tuning_config: TuningConfig
+            tuning_config: Union[TuningConfig, LoraTuningConfig]
                 Additional model tuning configurations to be considered for prompt vector
                 initialization and training behavior.
             val_stream: Optional[DataStream[GenerationTrainRecord]
@@ -853,7 +864,7 @@ class PeftPromptTuning(ModuleBase):
         elif tuning_type == TuningType.MULTITASK_PROMPT_TUNING:
             tuning_config_type = MultitaskPromptTuningConfig
 
-        config_params = cls._filter_params_for_prompt_config(
+        config_params = _filter_params_for_prompt_config(
             tuning_config_type, config_kwargs
         )
         log.info("<NLP41038481I>", f"Parameters used: {config_params}")
@@ -901,34 +912,6 @@ class PeftPromptTuning(ModuleBase):
         # HACK: Do NOT use the causal LM collator (for now) because
         # want to set labels ourselves. TODO: centralize collator management.
         return default_data_collator
-
-    @classmethod
-    def _filter_params_for_prompt_config(cls, prompt_config, params):
-        """Utility function to filter out required parameters for prompt_config
-        from `params`
-
-        Args:
-            prompt_config: PromptTuningConfig
-                Tuning config type, eg:, PromptTuningConfig
-            params: dict
-                Dictionary containing all the input training params
-
-        Returns:
-            dict:
-                Dictionary containing required params for prompt_config
-        """
-        # Inspect the underlying dataclass fileds; we do this because the common super class
-        # used for multi/vanilla prompt/prefix tuning is a DataClass; we can't use __dict__
-        # because the dataclass fields are omitted.
-        allowed_keys = list(prompt_config.__dataclass_fields__.keys())
-        allowed_params = dict(filter(lambda x: x[0] in allowed_keys, params.items()))
-        log.info(
-            "<NLP18184771I>",
-            "[{}] config params not supported by provided tuning type!".format(
-                params.keys() - allowed_params.keys()
-            ),
-        )
-        return allowed_params
 
     @staticmethod
     def convert_peft_model_to_type(

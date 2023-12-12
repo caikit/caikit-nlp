@@ -15,7 +15,7 @@
 """
 # Standard
 from enum import Enum
-from typing import List
+from typing import List, Optional, Union
 
 # First Party
 from caikit.core import DataObjectBase
@@ -71,6 +71,26 @@ class TuningConfig(DataObjectBase):
     # num_layers: int # Optional - The number of layers in the base transformer model
     #
     # encoder_hidden_size: int # Optional -  The hidden size of the prompt encoder.
+
+
+@caikit.core.dataobject(package="caikit_data_model.caikit_nlp")
+class LoraTuningConfig(DataObjectBase):
+    # Lora attention dimension.
+    r: int
+    # List of module names or regex expression of the module names to replace with Lora.
+    # For example, ['q', 'v'] or '.*decoder.*(SelfAttention|EncDecAttention).*(q|v)$
+    target_modules: Optional[Union[List[str], str]] = None
+    # The alpha parameter for Lora scaling.
+    lora_alpha: Optional[int] = 8
+    # The dropout probability for Lora layers.
+    lora_dropout: Optional[float] = 0.0
+    # Bias type for Lora. Can be ‘none’, ‘all’ or ‘lora_only’.
+    # If ‘all’ or ‘lora_only’, the corresponding biases will be updated during training.
+    # Be aware that this means that, even when disabling the adapters,
+    # the model will not produce the same output
+    # as the base model would have without adaptation.
+    bias: Optional[str] = "none"
+    output_model_types: List[str]
 
 
 @caikit.core.dataobject(package="caikit_data_model.caikit_nlp")
