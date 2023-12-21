@@ -978,7 +978,7 @@ class PeftPromptTuning(ModuleBase):
         device: str,
         eval_dataloader: Union[DataLoader, None] = None,
         metric: Optional[Callable] = None,
-        learning_rate: int = 1e-3,
+        learning_rate: float = 1e-3,
         tokenizer: Union[AutoTokenizer, None] = None,
         accumulate_steps: int = 1,
         silence_progress_bars: bool = True,
