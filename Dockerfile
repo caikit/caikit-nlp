@@ -1,15 +1,15 @@
-FROM registry.access.redhat.com/ubi8/ubi-minimal:latest as base
+FROM registry.access.redhat.com/ubi9/ubi-minimal:latest as base
 
 RUN microdnf update -y && \
     microdnf install -y \
-        git python39 && \
-    pip3 install --upgrade --no-cache-dir pip wheel && \
+        git python-pip && \
+    pip install --upgrade --no-cache-dir pip wheel && \
     microdnf clean all
 
 FROM base as builder
 WORKDIR /build
 
-RUN pip3 install --no-cache tox
+RUN pip install --no-cache tox
 COPY README.md .
 COPY pyproject.toml .
 COPY tox.ini .
@@ -20,7 +20,7 @@ RUN --mount=source=.git,target=.git,type=bind tox -e build
 
 FROM base as deploy
 
-RUN python3 -m venv /opt/caikit/
+RUN python -m venv /opt/caikit/
 
 ENV VIRTUAL_ENV=/opt/caikit
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
