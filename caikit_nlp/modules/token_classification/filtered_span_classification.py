@@ -141,7 +141,7 @@ class FilteredSpanClassification(ModuleBase):
 
         if threshold is None:
             threshold = self.default_threshold
-        if text == "":
+        if not text:
             # Allow empty text case to fall through - some tokenizers or
             # classifiers may error on this
             return TokenClassificationResults(results=[])
