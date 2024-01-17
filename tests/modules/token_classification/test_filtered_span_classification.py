@@ -187,6 +187,19 @@ def test_bootstrap_run_with_token_classification_no_results():
     assert len(token_classification_result.results) == 0
 
 
+def test_bootstrap_run_empty():
+    """Check if span classification model can run with empty string"""
+    model = FilteredSpanClassification.bootstrap(
+        lang="en",
+        tokenizer=SENTENCE_TOKENIZER,
+        classifier=BOOTSTRAPPED_SEQ_CLASS_MODEL,
+        default_threshold=0.5,
+    )
+    token_classification_result = model.run("")
+    assert isinstance(token_classification_result, TokenClassificationResults)
+    assert len(token_classification_result.results) == 0
+
+
 def test_save_load_and_run_model():
     """Check if we can run a saved model successfully"""
     model = FilteredSpanClassification.bootstrap(
@@ -383,6 +396,24 @@ def test_run_bidi_stream_with_multiple_spans_in_chunk():
     expected_number_of_sentences = 3
     count = len(result_list)
     assert count == expected_number_of_sentences
+
+
+def test_run_bidi_stream_empty():
+    """Check if span classification model can run with empty string for streaming"""
+    stream_input = data_model.DataStream.from_iterable("")
+    model = FilteredSpanClassification.bootstrap(
+        lang="en",
+        tokenizer=SENTENCE_TOKENIZER,
+        classifier=BOOTSTRAPPED_SEQ_CLASS_MODEL,
+        default_threshold=0.5,
+    )
+    streaming_token_classification_result = model.run_bidi_stream(stream_input)
+    assert isinstance(streaming_token_classification_result, Iterable)
+    # Convert to list to more easily check outputs
+    result_list = list(streaming_token_classification_result)
+    assert len(result_list) == 1
+    assert result_list[0].results == []
+    assert result_list[0].processed_index == 0
 
 
 def test_run_stream_vs_no_stream():
