@@ -727,18 +727,20 @@ def test__with_retry_happy_path(loaded_model):
     loaded_model._with_retry(print, "hello", "world", sep="<:)>", end="!!!\n")
 
 
-def test__with_retry_fail(loaded_model):
-    """fn never works, loops then raises RuntimeError"""
+def test__with_retry_fail(loaded_model, monkeypatch):
+    """fn never works, loops then raises the exception"""
 
     def fn():
-        assert 0
+        raise (ValueError("always fails with ValueError"))
 
-    with pytest.raises(RuntimeError):
+    with pytest.raises(ValueError):
         loaded_model._with_retry(fn)
 
 
-def test__with_retry_fail_fail_win(loaded_model):
-    """fn needs a few tries, logs, loops and succeeds"""
+def test__with_retry_fail_fail(loaded_model, monkeypatch):
+    """fn needs a few tries, tries twice and fails."""
+
+    monkeypatch.setattr(loaded_model, "RETRY_COUNT", 1)  # less than 3 tries
 
     def generate_ints():
         yield from range(9)  # More than enough for retry loop
@@ -748,8 +750,32 @@ def test__with_retry_fail_fail_win(loaded_model):
     def fail_fail_win():
         for i in ints:
             if i < 2:  # fail, fail
-                assert 0
-            else:  # win
+                raise (ValueError(f"fail {i}"))
+            else:  # win and return 3
+                return i + 1
+
+    # Without a third try raises first exception
+    with pytest.raises(ValueError) as e:
+        loaded_model._with_retry(fail_fail_win)
+
+    assert e.value.args[0] == "fail 0", "expected first exception 'fail 0'"
+
+
+def test__with_retry_fail_fail_win(loaded_model, monkeypatch):
+    """fn needs a few tries, logs, loops and succeeds"""
+
+    monkeypatch.setattr(loaded_model, "RETRY_COUNT", 6)  # test needs at least 3 tries
+
+    def generate_ints():
+        yield from range(9)  # More than enough for retry loop
+
+    ints = generate_ints()
+
+    def fail_fail_win():
+        for i in ints:
+            if i < 2:  # fail, fail
+                raise (ValueError("fail, fail"))
+            else:  # win and return 3
                 return i + 1
 
     # Third try did not raise an exception. Returns 3.
