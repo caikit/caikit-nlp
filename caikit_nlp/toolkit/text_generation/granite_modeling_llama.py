@@ -1,3 +1,5 @@
+# pylint: skip-file
+
 # coding=utf-8
 # Copyright 2022 EleutherAI and the HuggingFace Inc. team. All rights reserved.
 #
