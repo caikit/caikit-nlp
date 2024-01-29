@@ -35,10 +35,11 @@ import alog
 
 # Local
 from ...data_model import GenerationTrainRecord, PromptOutputModelType
+
+# Note: Below module is imported to allow loading of fm stack sphinx models
+from ...toolkit.text_generation import granite_modeling_llama
 from ...toolkit.verbalizer_utils import render_verbalizer
 from .base import PretrainedModelBase
-# Note: Below module is imported to allow loading of fm stack sphinx models
-import ...toolkit.text_generation.granite_modeling_llama
 
 log = alog.use_channel("HFRCLM")
 error = error_handler.get(log)
