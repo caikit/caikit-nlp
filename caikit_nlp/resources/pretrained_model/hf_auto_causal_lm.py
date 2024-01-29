@@ -37,7 +37,9 @@ import alog
 from ...data_model import GenerationTrainRecord, PromptOutputModelType
 
 # Note: Below module is imported to allow loading of fm stack sphinx models
-from ...toolkit.text_generation import granite_modeling_llama
+from ...toolkit.text_generation import (  # pylint: disable=unused-import
+    granite_modeling_llama,
+)
 from ...toolkit.verbalizer_utils import render_verbalizer
 from .base import PretrainedModelBase
 
