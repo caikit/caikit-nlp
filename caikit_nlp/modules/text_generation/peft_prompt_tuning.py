@@ -585,7 +585,8 @@ class PeftPromptTuning(ModuleBase):
             if peft_config.task_type == "CAUSAL_LM":
                 # get the transformers Causal LM model
                 base_model = AutoModelForCausalLM.from_pretrained(
-                    peft_config.base_model_name_or_path
+                    peft_config.base_model_name_or_path,
+                    torch_dtype=torch_dtype,
                 )
                 # get the PEFT causal LM model
                 model = PeftModel.from_pretrained(base_model, model_config)
