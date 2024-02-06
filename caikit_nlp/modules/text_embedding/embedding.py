@@ -153,6 +153,7 @@ class EmbeddingModule(ModuleBase):
         ipex = cls._get_ipex()
         device = cls._select_device(ipex)
         model = SentenceTransformer(model_name_or_path=artifacts_path, device=device)
+        model.eval()  # required for IPEX at least
         if device is not None:
             model.to(torch.device(device))
         model = EmbeddingModule._optimize(model, ipex, device)
