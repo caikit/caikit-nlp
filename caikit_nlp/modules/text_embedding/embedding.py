@@ -90,9 +90,6 @@ def env_var_to_int(name, default):
 # Batch size for encode() if <= 0 or invalid, the sentence-transformers default is used
 BATCH_SIZE = env_var_to_int("BATCH_SIZE", default=0)
 
-# Retry count for catching sporadic encode() or tokenize() errors (in case if they come back)
-RETRY_COUNT = env_var_to_int("RETRY_COUNT", default=5)
-
 
 @module(
     "eeb12558-b4fa-4f34-a9fd-3f5890e9cd3f",
@@ -108,6 +105,9 @@ RETRY_COUNT = env_var_to_int("RETRY_COUNT", default=5)
     ],
 )
 class EmbeddingModule(ModuleBase):
+
+    # Retry count if enabled to try again (was for thread contention errors)
+    RETRY_COUNT = max(env_var_to_int("RETRY_COUNT", default=0), 0)
 
     _ARTIFACTS_PATH_KEY = "artifacts_path"
     _ARTIFACTS_PATH_DEFAULT = "artifacts"
@@ -238,17 +238,25 @@ class EmbeddingModule(ModuleBase):
                 logger.warning(warn_msg, exc_info=True)
         return model
 
-    @staticmethod
-    def _with_retry(fn, *args, **kwargs):
-        retries = max(RETRY_COUNT, 0)
-        for count in range(1 + retries):  # try once plus retries (if needed)
+    def _with_retry(self, fn, *args, **kwargs):
+        first_exception = None
+        for count in range(1 + self.RETRY_COUNT):  # try once plus retries (if needed)
             try:
                 return fn(*args, **kwargs)
             except Exception as e:  # pylint: disable=broad-exception-caught
-                warn_msg = f"Retry {fn} due to: {e}"
-                logger.warning(warn_msg, exc_info=True)
-                time.sleep(0.1 * (count * 2))
-        error.log_raise("<NLP31069292E>", RuntimeError(f"Too many retries of fn={fn}"))
+                if first_exception is None:
+                    first_exception = e
+                if self.RETRY_COUNT > 0:
+                    warn_msg = f"Try {count + 1}: {fn} failed due to: {e}"
+                    logger.warning("<NLP54902271W>", warn_msg, exc_info=True)
+                    if count + 1 < self.RETRY_COUNT:
+                        time.sleep(0.1 * (count * 2))
+
+        # If above return did not happen, raise the first exception
+        error.log_raise(
+            log_code="<NLP13096081E>",
+            exception=first_exception,
+        )
 
     def _encode_with_retry(self, *args, **kwargs):
         """All encode calls should use this for consistent param adding and retry loop"""
