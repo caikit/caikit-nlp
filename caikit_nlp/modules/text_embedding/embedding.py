@@ -248,7 +248,7 @@ class EmbeddingModule(ModuleBase):
                     first_exception = e
                 if self.RETRY_COUNT > 0:
                     warn_msg = f"Try {count + 1}: {fn} failed due to: {e}"
-                    logger.warning("<NLP54902271E>", warn_msg, exc_info=True)
+                    logger.warning("<NLP54902271W>", warn_msg, exc_info=True)
                     if count + 1 < self.RETRY_COUNT:
                         time.sleep(0.1 * (count * 2))
 
