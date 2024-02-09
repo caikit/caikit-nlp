@@ -426,7 +426,7 @@ class PeftPromptTuning(ModuleBase):
 
         # Remove _name_or_path field as a model can be
         # saved in different location but still same
-        del base_model_config["_name_or_path"]
+        base_model_config.pop("_name_or_path", None)
         error.value_check(
             "<NLP07232147E>",
             "_name_or_path" not in base_model_config,
@@ -571,7 +571,8 @@ class PeftPromptTuning(ModuleBase):
             if peft_config.task_type == "CAUSAL_LM":
                 # get the transformers Causal LM model
                 base_model = AutoModelForCausalLM.from_pretrained(
-                    peft_config.base_model_name_or_path
+                    peft_config.base_model_name_or_path,
+                    torch_dtype=torch_dtype,
                 )
                 # get the PEFT causal LM model
                 model = PeftModel.from_pretrained(base_model, model_config)
