@@ -27,8 +27,8 @@ dependencies = [
     "tokenizers>=0.13.3",
     "torch>=2.0.1",
     "tqdm>=4.65.0",
-    "transformers>=4.32.0",
-    "peft==0.6.0",
+    "transformers>=4.36.0",
+    "peft>=0.7.1,<0.8.0",
 ]
 
 [tool.setuptools.packages.find]
