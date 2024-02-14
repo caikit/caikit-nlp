@@ -449,35 +449,14 @@ def test__optimize(monkeypatch):
     assert fake == EmbeddingModule._optimize(fake, False, "bogus")
 
 
-@pytest.mark.parametrize("truncate_input_tokens", [-1, 99, 10, 333])
-def test__truncate_input_tokens(truncate_input_tokens, loaded_model):
-
-    if truncate_input_tokens < 0:
-        num_xs = 500  # fill-er up
-    else:
-        num_xs = truncate_input_tokens - 4  # subtract room for (y  y), but not z
-
-    too_long = "x  " * num_xs + "y  y  z  "  # z will go over
-    actual = loaded_model._truncate_input_tokens(
-        truncate_input_tokens=truncate_input_tokens, texts=[too_long, too_long]
-    )
-
-    assert actual[0] == actual[1]  # they are still the same
-
-    if truncate_input_tokens < 0:
-        assert actual[0] == too_long, "expected no truncation"
-    else:
-        assert actual[0] + "  z  " == too_long, "expected truncation"
-
-
 @pytest.mark.parametrize("truncate_input_tokens", [0, 513])
 def test__truncate_input_tokens_raises(truncate_input_tokens, loaded_model):
     model_max = loaded_model.model.max_seq_length
 
     too_long = "x " * (model_max - 1)  # This will go over
     with pytest.raises(ValueError):
-        loaded_model._truncate_input_tokens(
-            truncate_input_tokens=truncate_input_tokens, texts=[too_long]
+        loaded_model.model.encode(
+            sentences=[too_long], truncate_input_tokens=truncate_input_tokens
         )
 
 
@@ -699,7 +678,7 @@ def test_embeddings_with_truncation(truncate_input_tokens, loaded_model):
         repeat = truncate_input_tokens
 
     # Build a text like "x x x.. x " with room for one more token
-    repeat = repeat - 2  # space for start/end tokens
+    # repeat = repeat - 2  # space for start/end tokens
     repeat = repeat - 1  # space for the final x or y token to show difference
 
     base = "x " * repeat  # A bunch of "x" tokens
@@ -714,7 +693,10 @@ def test_embeddings_with_truncation(truncate_input_tokens, loaded_model):
     vectors = res.results.vectors
 
     # x...xyz is the same as x...xy because that is exactly where truncation worked
+    assert len(vectors[2].data.values) == len(vectors[3].data.values)
     assert np.allclose(vectors[2].data.values, vectors[3].data.values)
+    for i in range(len(vectors[2].data.values)):
+        assert approx(vectors[2].data.values[i]) == approx(vectors[3].data.values[i])
 
     # Make sure the base, x, y are not a match (we kept the significant last char)
     assert not np.allclose(vectors[0].data.values, vectors[1].data.values)
