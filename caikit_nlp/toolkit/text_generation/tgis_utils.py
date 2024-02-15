@@ -40,6 +40,8 @@ GENERATE_FUNCTION_TGIS_ARGS = """
     preserve_input_text: str
         Whether or not the source string should be contained in the generated output,
         e.g., as a prefix.
+    input_tokens: str
+        parameter for the input_tokenss.        
 """.format(
     GENERATE_FUNCTION_ARGS
 )
@@ -48,6 +50,7 @@ GENERATE_FUNCTION_TGIS_ARGS = """
 def validate_inf_params(
     text,
     preserve_input_text,
+    input_tokens,
     eos_token,
     max_new_tokens,
     min_new_tokens,
@@ -74,6 +77,7 @@ def validate_inf_params(
     )
     error.type_check("<NLP65883535E>", str, text=text)
     error.type_check("<NLP65883537E>", bool, preserve_input_text=preserve_input_text)
+    error.type_check("<NLP65883538E>", bool, input_tokens=input_tokens)
     error.type_check("<NLP85452188E>", str, allow_none=True, eos_token=eos_token)
     error.type_check(
         "<NLP03860681E>",
@@ -174,6 +178,7 @@ def validate_inf_params(
 
 def get_params(
     preserve_input_text,
+    input_tokens,
     max_new_tokens,
     min_new_tokens,
     truncate_input_tokens,
@@ -212,7 +217,7 @@ def get_params(
     res_options = generation_pb2.ResponseOptions(
         input_text=preserve_input_text,
         generated_tokens=True,
-        input_tokens=False,
+        input_tokens=input_tokens,
         token_logprobs=True,
         token_ranks=True,
     )
@@ -268,6 +273,7 @@ class TGISGenerationClient:
         self,
         text,
         preserve_input_text,
+        input_tokens,
         max_new_tokens,
         min_new_tokens,
         truncate_input_tokens,
@@ -305,6 +311,7 @@ class TGISGenerationClient:
         validate_inf_params(
             text=text,
             preserve_input_text=preserve_input_text,
+            input_tokens=input_tokens,
             eos_token=self.eos_token,
             max_new_tokens=max_new_tokens,
             min_new_tokens=min_new_tokens,
@@ -325,6 +332,7 @@ class TGISGenerationClient:
 
         params = get_params(
             preserve_input_text=preserve_input_text,
+            input_tokens=input_tokens,
             max_new_tokens=max_new_tokens,
             min_new_tokens=min_new_tokens,
             truncate_input_tokens=truncate_input_tokens,
@@ -379,6 +387,7 @@ class TGISGenerationClient:
         self,
         text,
         preserve_input_text,
+        input_tokens,
         max_new_tokens,
         min_new_tokens,
         truncate_input_tokens,
@@ -416,6 +425,7 @@ class TGISGenerationClient:
         validate_inf_params(
             text=text,
             preserve_input_text=preserve_input_text,
+            input_tokens=input_tokens,
             eos_token=self.eos_token,
             max_new_tokens=max_new_tokens,
             min_new_tokens=min_new_tokens,
@@ -434,6 +444,7 @@ class TGISGenerationClient:
 
         params = get_params(
             preserve_input_text=preserve_input_text,
+            input_tokens=input_tokens,
             max_new_tokens=max_new_tokens,
             min_new_tokens=min_new_tokens,
             truncate_input_tokens=truncate_input_tokens,
