@@ -198,6 +198,9 @@ class PeftPromptTuningTGIS(ModuleBase):  # pylint: disable=too-many-instance-att
         seed: Optional[np.uint64] = None,
         preserve_input_text: bool = False,
         input_tokens: bool = False,
+        generated_tokens: bool = True,
+        token_logprobs: bool = True,
+        token_ranks: bool = True,
     ) -> GeneratedTextResult:
         f"""Run inference against the model running in TGIS.
 
@@ -217,7 +220,10 @@ class PeftPromptTuningTGIS(ModuleBase):  # pylint: disable=too-many-instance-att
         return self.tgis_generation_client.unary_generate(
             text=verbalized_text,
             preserve_input_text=preserve_input_text,
-            input_tokens=input_tokens,
+            input_tokens=input_tokens,                
+            generated_tokens=generated_tokens,
+            token_logprobs=token_logprobs,   
+            token_ranks=token_ranks, 
             max_new_tokens=max_new_tokens,
             min_new_tokens=min_new_tokens,
             truncate_input_tokens=truncate_input_tokens,
@@ -254,6 +260,9 @@ class PeftPromptTuningTGIS(ModuleBase):  # pylint: disable=too-many-instance-att
         seed: Optional[np.uint64] = None,
         preserve_input_text: bool = False,
         input_tokens: bool = False,
+        generated_tokens: bool = True,
+        token_logprobs: bool = True,
+        token_ranks: bool = True,
     ) -> Iterable[GeneratedTextStreamResult]:
         f"""Run output stream inferencing against the model running in TGIS
 
@@ -273,7 +282,10 @@ class PeftPromptTuningTGIS(ModuleBase):  # pylint: disable=too-many-instance-att
         return self.tgis_generation_client.stream_generate(
             text=verbalized_text,
             preserve_input_text=preserve_input_text,
-            input_tokens=input_tokens,
+            input_tokens=input_tokens,                
+            generated_tokens=generated_tokens,
+            token_logprobs=token_logprobs,   
+            token_ranks=token_ranks, 
             max_new_tokens=max_new_tokens,
             min_new_tokens=min_new_tokens,
             truncate_input_tokens=truncate_input_tokens,

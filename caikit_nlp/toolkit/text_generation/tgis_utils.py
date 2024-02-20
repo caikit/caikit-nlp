@@ -40,7 +40,13 @@ GENERATE_FUNCTION_TGIS_ARGS = """
         Whether or not the source string should be contained in the generated output,
         e.g., as a prefix.
     input_tokens: str
-        parameter for the input_tokenss.        
+        parameter for the input_tokenss.  
+    generated_tokens: str
+        parameter for the generated_tokens.  
+    token_logprobs: str
+        parameter for the token_logprobs.  
+    token_ranks: str
+        parameter for the token_ranks.                                
 """.format(
     GENERATE_FUNCTION_ARGS
 )
@@ -50,6 +56,9 @@ def validate_inf_params(
     text,
     preserve_input_text,
     input_tokens,
+    generated_tokens,
+    token_logprobs,
+    token_ranks,
     eos_token,
     max_new_tokens,
     min_new_tokens,
@@ -77,6 +86,9 @@ def validate_inf_params(
     error.type_check("<NLP65883535E>", str, text=text)
     error.type_check("<NLP65883537E>", bool, preserve_input_text=preserve_input_text)
     error.type_check("<NLP65883538E>", bool, input_tokens=input_tokens)
+    error.type_check("<NLP65883539E>", bool, generated_tokens=generated_tokens)
+    error.type_check("<NLP65883540E>", bool, token_logprobs=token_logprobs)
+    error.type_check("<NLP65883541E>", bool, token_ranks=token_ranks)
     error.type_check("<NLP85452188E>", str, allow_none=True, eos_token=eos_token)
     error.type_check(
         "<NLP03860681E>",
@@ -178,6 +190,9 @@ def validate_inf_params(
 def get_params(
     preserve_input_text,
     input_tokens,
+    generated_tokens,
+    token_logprobs,
+    token_ranks,
     max_new_tokens,
     min_new_tokens,
     truncate_input_tokens,
@@ -215,10 +230,10 @@ def get_params(
 
     res_options = generation_pb2.ResponseOptions(
         input_text=preserve_input_text,
-        generated_tokens=True,
+        generated_tokens=generated_tokens,
         input_tokens=input_tokens,
-        token_logprobs=True,
-        token_ranks=True,
+        token_logprobs=token_logprobs,
+        token_ranks=token_ranks,
     )
     stopping = generation_pb2.StoppingCriteria(
         stop_sequences=stop_sequences,
@@ -273,6 +288,9 @@ class TGISGenerationClient:
         text,
         preserve_input_text,
         input_tokens,
+        generated_tokens,
+        token_logprobs,
+        token_ranks,
         max_new_tokens,
         min_new_tokens,
         truncate_input_tokens,
@@ -311,6 +329,9 @@ class TGISGenerationClient:
             text=text,
             preserve_input_text=preserve_input_text,
             input_tokens=input_tokens,
+            generated_tokens=generated_tokens,
+            token_logprobs=token_logprobs,   
+            token_ranks=token_ranks,         
             eos_token=self.eos_token,
             max_new_tokens=max_new_tokens,
             min_new_tokens=min_new_tokens,
@@ -332,6 +353,9 @@ class TGISGenerationClient:
         params = get_params(
             preserve_input_text=preserve_input_text,
             input_tokens=input_tokens,
+            generated_tokens=generated_tokens,
+            token_logprobs=token_logprobs,   
+            token_ranks=token_ranks,   
             max_new_tokens=max_new_tokens,
             min_new_tokens=min_new_tokens,
             truncate_input_tokens=truncate_input_tokens,
@@ -387,6 +411,9 @@ class TGISGenerationClient:
         text,
         preserve_input_text,
         input_tokens,
+        generated_tokens,
+        token_logprobs,
+        token_ranks,    
         max_new_tokens,
         min_new_tokens,
         truncate_input_tokens,
@@ -424,7 +451,10 @@ class TGISGenerationClient:
         validate_inf_params(
             text=text,
             preserve_input_text=preserve_input_text,
-            input_tokens=input_tokens,
+            input_tokens=input_tokens,            
+            generated_tokens=generated_tokens,
+            token_logprobs=token_logprobs,   
+            token_ranks=token_ranks, 
             eos_token=self.eos_token,
             max_new_tokens=max_new_tokens,
             min_new_tokens=min_new_tokens,
@@ -443,7 +473,10 @@ class TGISGenerationClient:
 
         params = get_params(
             preserve_input_text=preserve_input_text,
-            input_tokens=input_tokens,
+            input_tokens=input_tokens,           
+            generated_tokens=generated_tokens,
+            token_logprobs=token_logprobs,   
+            token_ranks=token_ranks, 
             max_new_tokens=max_new_tokens,
             min_new_tokens=min_new_tokens,
             truncate_input_tokens=truncate_input_tokens,
