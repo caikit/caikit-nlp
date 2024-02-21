@@ -27,8 +27,9 @@ from caikit.core.modules import ModuleBase, ModuleConfig, ModuleSaver, module
 from caikit.interfaces.nlp.data_model import (
     GeneratedTextResult,
     GeneratedTextStreamResult,
+    TokenizationResults,
 )
-from caikit.interfaces.nlp.tasks import TextGenerationTask
+from caikit.interfaces.nlp.tasks import TextGenerationTask, TokenizationTask
 from caikit_tgis_backend import TGISBackend
 import alog
 
@@ -297,4 +298,22 @@ class TextGenerationTGIS(ModuleBase):
                 max_time=max_time,
                 exponential_decay_length_penalty=exponential_decay_length_penalty,
                 stop_sequences=stop_sequences,
+            )
+
+    @TokenizationTask.taskmethod()
+    def run_tokenizer(
+        self,
+        text: str,
+    ) -> TokenizationResults:
+        f"""Run tokenization task against the model running in TGIS.
+
+        Args:
+           text to tokenize
+        Returns:
+            TokenizationResults
+                tokenized words and token count
+        """
+        if self._model_loaded:
+            return self.tgis_generation_client.unary_tokenize(
+                text=text,
             )
