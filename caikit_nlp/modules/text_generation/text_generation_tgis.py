@@ -52,7 +52,11 @@ error = error_handler.get(log)
 # pylint: disable=too-many-instance-attributes
 
 
-@module(backend_type=TGISBackend.backend_type, base_module=TextGeneration)
+@module(
+    backend_type=TGISBackend.backend_type,
+    base_module=TextGeneration,
+    tasks=[TextGenerationTask, TokenizationTask],
+)
 class TextGenerationTGIS(ModuleBase):
     """Module to provide text generation capabilities"""
 
@@ -305,7 +309,7 @@ class TextGenerationTGIS(ModuleBase):
         self,
         text: str,
     ) -> TokenizationResults:
-        f"""Run tokenization task against the model running in TGIS.
+        """Run tokenization task against the model running in TGIS.
 
         Args:
            text to tokenize
