@@ -488,47 +488,42 @@ class TGISGenerationClient:
 
     def unary_tokenize(
         self,
-        text,
+        text: str,
     ) -> TokenizationResults:
         """Tokenize unary input using TGIS
 
         Args:
-            {}
+            text: str
+                Text to tokenize
         Returns:
             TokenizationResults
-                tokens and input token count
+                The token count
         """
 
-        # In case internal client is not configured - generation
+        # In case internal client is not configured - tokenization
         # cannot be done (individual modules may already check
         # for this)
         error.value_check(
-            "<NLP72700256E>",
+            "<NLP72786256E>",
             self.tgis_client is not None,
-            "Backend must be configured and loaded for generate",
+            "Backend must be configured and loaded for tokenization",
         )
 
         log.debug("Building protobuf request to send to TGIS")
 
         gen_reqs = [generation_pb2.TokenizeRequest(text=text)]
-        if not self.prefix_id:
-            request = generation_pb2.BatchedTokenizeRequest(
-                requests=gen_reqs,
-                model_id=self.base_model_name,
-            )
-        else:
-            request = generation_pb2.BatchedTokenizeRequest(
-                requests=gen_reqs,
-                model_id=self.base_model_name,
-                prefix_id=self.prefix_id,
-            )
+
+        request = generation_pb2.BatchedTokenizeRequest(
+            requests=gen_reqs,
+            model_id=self.base_model_name,
+        )
 
         # Currently, we send a batch request of len(x)==1, so we expect one response back
         with alog.ContextTimer(log.trace, "TGIS request duration: "):
             batch_response = self.tgis_client.Tokenize(request)
 
         error.value_check(
-            "<NLP38899018E>",
+            "<NLP38899081E>",
             len(batch_response.responses) == 1,
             f"Got {len(batch_response.responses)} responses for a single request",
         )
