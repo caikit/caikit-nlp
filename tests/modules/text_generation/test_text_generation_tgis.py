@@ -51,6 +51,26 @@ def test_bootstrap_and_run_seq2seq():
     StubTGISClient.validate_unary_generate_response(result)
 
 
+def test_bootstrap_and_tokenize_casualllm():
+    """Check if we can bootstrap and tokenize text"""
+    model = TextGenerationTGIS.bootstrap(
+        CAUSAL_LM_MODEL, load_backend=StubTGISBackend()
+    )
+
+    result = model.run_tokenizer(SAMPLE_TEXT)
+    StubTGISClient.validate_tokenize_response(result)
+
+
+def test_bootstrap_and_tokenize_seq2seq():
+    """Check if we can bootstrap and tokenize text"""
+    model = TextGenerationTGIS.bootstrap(
+        SEQ2SEQ_LM_MODEL, load_backend=StubTGISBackend()
+    )
+
+    result = model.run_tokenizer(SAMPLE_TEXT)
+    StubTGISClient.validate_tokenize_response(result)
+
+
 def test_run_multi_response_errors():
     """Check if multiple responses errors"""
     with mock.patch.object(StubTGISClient, "Generate") as mock_gen_stream:
