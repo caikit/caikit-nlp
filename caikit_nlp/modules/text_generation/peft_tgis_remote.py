@@ -298,7 +298,7 @@ class PeftPromptTuningTGIS(ModuleBase):  # pylint: disable=too-many-instance-att
         """Run tokenization task against the model running in TGIS.
 
         Args:
-        text: str
+            text: str
                 Text to tokenize
         Returns:
             TokenizationResults
