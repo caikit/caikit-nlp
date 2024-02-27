@@ -454,7 +454,8 @@ def test__truncate_input_tokens_raises(truncate_input_tokens, loaded_model):
     model_max = loaded_model.model.max_seq_length
 
     too_long = "x " * (model_max - 1)  # This will go over
-    with pytest.raises(ValueError):
+    over = model_max + 1
+    with pytest.raises(ValueError, match=f"({over} > {model_max})"):
         loaded_model.model.encode(
             sentences=[too_long], truncate_input_tokens=truncate_input_tokens
         )
@@ -484,40 +485,41 @@ def test_too_many_tokens_default(loaded_model):
     """These endpoints raise an error when truncation would happen."""
 
     model_max = loaded_model.model.max_seq_length
+    over = model_max + 1
 
     ok = "x " * (model_max - 2)  # Subtract 2 for begin/end tokens
     too_long = "x " * (model_max - 1)  # This will go over
 
     # embedding(s)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=f"({over} > {model_max})"):
         loaded_model.run_embedding(text=too_long)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=f"({over} > {model_max})"):
         loaded_model.run_embeddings(texts=[too_long])
 
     # sentence similarity(ies) test both source_sentence and sentences
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=f"({over} > {model_max})"):
         loaded_model.run_sentence_similarity(source_sentence=too_long, sentences=[ok])
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=f"({over} > {model_max})"):
         loaded_model.run_sentence_similarity(source_sentence=ok, sentences=[too_long])
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=f"({over} > {model_max})"):
         loaded_model.run_sentence_similarities(
             source_sentences=[too_long], sentences=[ok]
         )
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=f"({over} > {model_max})"):
         loaded_model.run_sentence_similarities(
             source_sentences=[ok], sentences=[too_long]
         )
 
     # reranker test both query and document text
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=f"({over} > {model_max})"):
         loaded_model.run_rerank_query(query=too_long, documents=[{"text": ok}])
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=f"({over} > {model_max})"):
         loaded_model.run_rerank_query(query=ok, documents=[{"text": too_long}])
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=f"({over} > {model_max})"):
         loaded_model.run_rerank_queries(queries=[too_long], documents=[{"text": ok}])
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=f"({over} > {model_max})"):
         loaded_model.run_rerank_queries(queries=[ok], documents=[{"text": too_long}])
 
 
@@ -530,41 +532,42 @@ def test_too_many_tokens_error_params(truncate_input_tokens, loaded_model):
     """
 
     model_max = loaded_model.model.max_seq_length
+    over = model_max + 1
 
     ok = "x " * (model_max - 2)  # Subtract 2 for begin/end tokens
     too_long = "x " * (model_max - 1)  # This will go over
 
     # embedding(s)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=f"({over} > {model_max})"):
         loaded_model.run_embedding(
             text=too_long, truncate_input_tokens=truncate_input_tokens
         )
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=f"({over} > {model_max})"):
         loaded_model.run_embeddings(
             texts=[too_long], truncate_input_tokens=truncate_input_tokens
         )
 
     # sentence similarity(ies) test both source_sentence and sentences
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=f"({over} > {model_max})"):
         loaded_model.run_sentence_similarity(
             source_sentence=too_long,
             sentences=[ok],
             truncate_input_tokens=truncate_input_tokens,
         )
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=f"({over} > {model_max})"):
         loaded_model.run_sentence_similarity(
             source_sentence=ok,
             sentences=[too_long],
             truncate_input_tokens=truncate_input_tokens,
         )
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=f"({over} > {model_max})"):
         loaded_model.run_sentence_similarities(
             source_sentences=[too_long],
             sentences=[ok],
             truncate_input_tokens=truncate_input_tokens,
         )
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=f"({over} > {model_max})"):
         loaded_model.run_sentence_similarities(
             source_sentences=[ok],
             sentences=[too_long],
@@ -572,26 +575,26 @@ def test_too_many_tokens_error_params(truncate_input_tokens, loaded_model):
         )
 
     # reranker test both query and document text
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=f"({over} > {model_max})"):
         loaded_model.run_rerank_query(
             query=too_long,
             documents=[{"text": ok}],
             truncate_input_tokens=truncate_input_tokens,
         )
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=f"({over} > {model_max})"):
         loaded_model.run_rerank_query(
             query=ok,
             documents=[{"text": too_long}],
             truncate_input_tokens=truncate_input_tokens,
         )
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=f"({over} > {model_max})"):
         loaded_model.run_rerank_queries(
             queries=[too_long],
             documents=[{"text": ok}],
             truncate_input_tokens=truncate_input_tokens,
         )
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=f"({over} > {model_max})"):
         loaded_model.run_rerank_queries(
             queries=[ok],
             documents=[{"text": too_long}],

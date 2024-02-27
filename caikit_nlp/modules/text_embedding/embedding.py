@@ -21,7 +21,6 @@ import time
 
 # Third Party
 from torch.backends import mps
-from transformers.tokenization_utils_base import TruncationStrategy
 import numpy as np
 import torch
 
@@ -93,7 +92,7 @@ def env_var_to_int(name, default):
 # Batch size for encode() if <= 0 or invalid, the sentence-transformers default is used
 BATCH_SIZE = env_var_to_int("BATCH_SIZE", default=0)
 
-# Should we use dtype=bfloat16 for IPEX and autocast in encode.
+# To use dtype=bfloat16 for IPEX with autocast in encode.
 BFLOAT16 = os.getenv("BFLOAT16", "false").lower() not in FALSY
 
 
@@ -200,7 +199,6 @@ class EmbeddingModule(ModuleBase):
     def _select_device(use_ipex):
         """Use environment variables and availability to determine the device to use"""
         if use_ipex:
-            print("Use IPEX!!!")
             # If enabled, use "xpu" (IPEX on GPU instead of IPEX on CPU)
             if os.getenv("USE_XPU", "false").lower() not in FALSY:
                 return "xpu"
@@ -210,7 +208,6 @@ class EmbeddingModule(ModuleBase):
             and mps.is_available()
         ):
             # Never use on ipex, but otherwise use mps if enabled and available
-            print("USE MPS!!!")
             return "mps"
 
         return "cuda" if torch.cuda.is_available() else None
@@ -243,7 +240,6 @@ class EmbeddingModule(ModuleBase):
         # torch.compile won't work everywhere, but when set we'll try it
         if os.getenv("PT2_COMPILE", "false").lower() not in FALSY:
             backend = EmbeddingModule._get_backend(ipex, device)
-            print("PT2_COMPILE USING BACKEND: ", backend)
             try:
                 model = torch.compile(model, backend=backend, mode="max-autotune")
             except Exception as e:  # pylint: disable=broad-exception-caught
@@ -287,116 +283,6 @@ class EmbeddingModule(ModuleBase):
 
         return self._with_retry(self.model.encode, *args, **kwargs)
 
-    def _xxx_truncate_input_tokens(
-        self, truncate_input_tokens, texts: List[str]
-    ) -> List[str]:
-        """Truncate input tokens
-        Args:
-            truncate_input_tokens: int
-                Truncation length for input tokens.
-                If less than zero, this is disabled (returns texts without processing).
-                If zero or greater than the model's maximum, then this is a test
-                to see if truncation is needed. If needed, an exception is thrown.
-                Otherwise, we take this usable truncation limit to truncate the tokens and then
-                decode them to return truncated strings that can be used with this model.
-            texts: List[str]
-                Input texts to be checked and optionally truncated.
-        Returns:
-            List[str]: the texts after checking and/or truncating
-        """
-
-        # NOTE: When inference is called immediately after load (typical case with lazy loading),
-        # using the tokenizer right away here results in a warning like:
-        #     huggingface/tokenizers: The current process just got forked, after parallelism
-        #     has already been used. Disabling parallelism to avoid deadlocks...
-        #     To disable this warning, you can either:
-        #     - Avoid using `tokenizers` before the fork if possible
-        #     - Explicitly set the environment variable TOKENIZERS_PARALLELISM=(true | false)
-        # A warmup encode() call in load() will take care of this (the first option above).
-        # This here comment is in case we need to set TOKENIZERS_PARALLELISM in the future.
-
-        if truncate_input_tokens < 0:
-            return texts
-
-        max_tokens = self.model.max_seq_length
-
-        # Do truncation if given a usable truncation value, else test for need to truncation
-        if 0 < truncate_input_tokens <= max_tokens:
-            okay_to_truncate = True
-            max_length = truncate_input_tokens
-            ret = []  # will return truncated texts
-        else:
-            okay_to_truncate = False
-            max_length = max_tokens
-            ret = texts  # will not alter texts when truncation is not allowed
-
-        tokenized = self._with_retry(
-            self._tokenizer,
-            texts,
-            return_attention_mask=False,
-            return_token_type_ids=False,
-            return_overflowing_tokens=True,
-            return_offsets_mapping=True,
-            return_length=True,
-            truncation=True,
-            max_length=max_length,
-        )
-
-        texts_map = tokenized["overflow_to_sample_mapping"]
-
-        for text_number, text in enumerate(texts):
-            # positions: the positions (in lengths and offsets arrays) that belong to this text
-            positions = [
-                position
-                for position, sample_number in enumerate(texts_map)
-                if sample_number == text_number
-            ]
-            lengths = [tokenized["length"][pos] for pos in positions]
-
-            was_truncated = len(lengths) > 1  # multiple lengths when truncated
-
-            if not okay_to_truncate and was_truncated:
-                # Raise error. We don't allow silent truncation in this case.
-                tokens = sum(lengths)  # add up total tokens for error message
-                error.log_raise(
-                    "<NLP08391926E>",
-                    ValueError(
-                        f"Token sequence length is longer than the specified "
-                        f"maximum sequence length for this model ({tokens} > {max_tokens})."
-                    ),
-                )
-
-            elif okay_to_truncate and not was_truncated:
-                ret.append(text)  # collect original text to return
-
-            elif okay_to_truncate and was_truncated:
-                # Truncate the text that maps to the truncated tokens.
-                # The offset_mapping describes the text position for each token.
-                # Added tokens were not in the text, so they show up as (0, 0).
-
-                # Get the text offsets for the tokens that are to be kept after truncation.
-                # Take the first set of offsets that mapped to this text's positions.
-                # This first set represents what will be kept after truncation.
-                # Each offset tells us which chars in the original text map to this token.
-                offsets = next(tokenized["offset_mapping"][pos] for pos in positions)
-
-                # Find the first offset that is not empty (0, 0) to avoid added tokens
-                start = next(offset for offset in offsets if offset != (0, 0))
-
-                # Find the last offset that is not empty (0, 0) to avoid added tokens
-                end = next(
-                    offset for offset in reversed(list(offsets)) if offset != (0, 0)
-                )
-
-                # Use the start-beginning end-ending to slice the text based on token truncation
-                # i.e. if start=(0,5) and end=(72,78) then we want slice [0:78]
-                truncated_text = text[start[0] : end[1]]
-
-                ret.append(truncated_text)  # return the truncated text for this one
-
-        return tokenized
-        # return ret
-
     @EmbeddingTask.taskmethod()
     def run_embedding(
         self,
@@ -419,8 +305,6 @@ class EmbeddingModule(ModuleBase):
         """
         error.type_check("<NLP27491611E>", str, text=text)
 
-        # text = self._truncate_input_tokens(truncate_input_tokens, [text])[0]
-        # texts = self._truncate_input_tokens(truncate_input_tokens, texts)
         embeddings = self._encode_with_retry(
             text, truncate_input_tokens=truncate_input_tokens
         )
@@ -455,8 +339,6 @@ class EmbeddingModule(ModuleBase):
         ):  # encode allows str, but the result would lack a dimension
             texts = [texts]
 
-        # texts = self._truncate_input_tokens(truncate_input_tokens, texts)
-
         embeddings = self._encode_with_retry(
             texts, truncate_input_tokens=truncate_input_tokens
         )
@@ -487,11 +369,6 @@ class EmbeddingModule(ModuleBase):
         Returns:
             SentenceSimilarityResult: Similarity scores for each sentence.
         """
-
-        # source_sentence = self._truncate_input_tokens(
-        # truncate_input_tokens, [source_sentence]
-        # )[0]
-        # sentences = self._truncate_input_tokens(truncate_input_tokens, sentences)
 
         source_embedding = self._encode_with_retry(
             source_sentence, truncate_input_tokens=truncate_input_tokens
@@ -529,11 +406,6 @@ class EmbeddingModule(ModuleBase):
             SentenceSimilarityResults: Similarity scores for each source sentence in order.
                 Each one contains the source-sentence's score for each sentence in order.
         """
-
-        # source_sentences = self._truncate_input_tokens(
-        # truncate_input_tokens, source_sentences
-        # )
-        # sentences = self._truncate_input_tokens(truncate_input_tokens, sentences)
 
         source_embedding = self._encode_with_retry(
             source_sentences, truncate_input_tokens=truncate_input_tokens
@@ -692,9 +564,6 @@ class EmbeddingModule(ModuleBase):
 
         doc_texts = [get_text(doc) for doc in documents]
 
-        # doc_texts = self._truncate_input_tokens(truncate_input_tokens, doc_texts)
-        # queries = self._truncate_input_tokens(truncate_input_tokens, queries)
-
         doc_embeddings = normalize_embeddings(
             self._encode_with_retry(
                 doc_texts,
@@ -795,7 +664,7 @@ class SentenceTransformerWithTruncate(SentenceTransformer):
         Args:
             truncate_input_tokens: int
                 Truncation length for input tokens.
-                If less than zero, this is disabled (returns texts without processing).
+                If less than zero, this truncation is left up to the tokenizer default.
                 If zero or greater than the model's maximum, then this is a test
                 to see if truncation is needed. If needed, an exception is thrown.
                 Otherwise, we take this usable truncation limit to truncate the tokens and then
@@ -836,7 +705,7 @@ class SentenceTransformerWithTruncate(SentenceTransformer):
 
         to_tokenize = [[str(s).strip() for s in col] for col in to_tokenize]
         tokenized = self.tokenizer(
-            *to_tokenize,  # texts,
+            *to_tokenize,
             return_attention_mask=True,
             return_token_type_ids=False,
             return_overflowing_tokens=True,
@@ -850,7 +719,7 @@ class SentenceTransformerWithTruncate(SentenceTransformer):
 
         texts_map = tokenized["overflow_to_sample_mapping"]
 
-        for text_number, _text in enumerate(texts):
+        for text_number, text in enumerate(texts):
             # positions: the positions (in lengths and offsets arrays) that belong to this text
             positions = [
                 position
@@ -862,8 +731,24 @@ class SentenceTransformerWithTruncate(SentenceTransformer):
             was_truncated = len(lengths) > 1  # multiple lengths when truncated
 
             if not okay_to_truncate and was_truncated:
+                # On truncation errors, we're asked to provide the actual tokens vs limit in the
+                # error message (like some models typically do). In order to calculate the tokens
+                # we will re-tokenize without padding to get that length for the error message.
+                re_tokenized = self.tokenizer(
+                    text,
+                    return_attention_mask=False,
+                    return_token_type_ids=False,
+                    return_overflowing_tokens=True,
+                    return_offsets_mapping=False,
+                    return_length=True,
+                    truncation=True,
+                    max_length=max_length,
+                )
+                re_lengths = [re_tokenized["length"][pos] for pos in positions]
                 # Raise error. We don't allow silent truncation in this case.
-                tokens = sum(lengths)  # add up total tokens for error message
+                tokens = (
+                    sum(re_lengths) - 2
+                )  # add up total tokens for error message (-2 begin/end)
                 error.log_raise(
                     "<NLP08391926E>",
                     ValueError(
@@ -874,48 +759,6 @@ class SentenceTransformerWithTruncate(SentenceTransformer):
 
         return tokenized
 
-    def xxx_tokenize(self, texts: List[str], truncate_input_tokens: Optional[int] = 0):
-        if isinstance(texts[0], str):
-            to_tokenize = [texts]
-        else:
-            assert 0
-
-        to_tokenize = [[str(s).strip() for s in col] for col in to_tokenize]
-
-        # Lowercase
-        # if self.do_lower_case:
-        # to_tokenize = [[s.lower() for s in col] for col in to_tokenize]
-
-        # Do truncation if given a usable truncation value, else test for need to truncation
-        max_length = self.max_seq_length
-        if truncate_input_tokens < 0:
-            # Truncate using the model max (sentence-transformers norm)
-            truncation = TruncationStrategy.LONGEST_FIRST
-        elif 0 < truncate_input_tokens <= max_length:
-            # Truncate using the passed in max
-            truncation = TruncationStrategy.LONGEST_FIRST
-            max_length = truncate_input_tokens
-        else:
-            # default (truncate_input_tokens=0 or anything over the model max)
-            # Model will return an error instead of truncating
-            truncation = TruncationStrategy.DO_NOT_TRUNCATE
-
-        output = {}  # TODO: no update needed
-        output.update(
-            self.tokenizer(
-                *to_tokenize,
-                padding=True,
-                truncation=truncation,
-                return_tensors="pt",
-                max_length=max_length,
-            )
-        )
-        # output.update(self.tokenizer(*to_tokenize, padding=True,
-        # truncation=TruncationStrategy.DO_NOT_TRUNCATE,
-        # # truncation=TruncationStrategy.DO_NOT_TRUNCATE,
-        # return_tensors="pt", max_length=self.max_seq_length))
-        return output
-
     def encode(
         self,
         sentences: Union[str, List[str]],
@@ -924,7 +767,7 @@ class SentenceTransformerWithTruncate(SentenceTransformer):
         convert_to_numpy: bool = True,
         convert_to_tensor: bool = False,
         truncate_input_tokens: Optional[int] = 0,
-    ) -> np.ndarray:  # TODO: convert-to-tensor
+    ) -> np.ndarray:
 
         self.eval()
 
@@ -956,7 +799,6 @@ class SentenceTransformerWithTruncate(SentenceTransformer):
 
             if BFLOAT16:
                 with torch.no_grad(), torch.cpu.amp.autocast():
-                    print("WITH AUTOCAST!!!")
                     out_features = self.forward(features)
                     embeddings = out_features["sentence_embedding"]
                     if convert_to_numpy:
@@ -964,7 +806,6 @@ class SentenceTransformerWithTruncate(SentenceTransformer):
                     all_embeddings.extend(embeddings)
             else:
                 with torch.no_grad():
-                    print("NOT BFLOAT16 NO AUTOCAST!!!")
                     out_features = self.forward(features)
                     embeddings = out_features["sentence_embedding"]
                     if convert_to_numpy:
