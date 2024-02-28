@@ -29,8 +29,9 @@ from caikit.core.module_backends import BackendBase, backend_types
 from caikit.interfaces.nlp.data_model import (
     GeneratedTextResult,
     GeneratedTextStreamResult,
+    TokenizationResults,
 )
-from caikit.interfaces.nlp.tasks import TextGenerationTask
+from caikit.interfaces.nlp.tasks import TextGenerationTask, TokenizationTask
 from caikit_tgis_backend import TGISBackend
 import alog
 
@@ -47,7 +48,11 @@ log = alog.use_channel("PEFT_PROMPT_REMOTE")
 error = error_handler.get(log)
 
 
-@modules.module(backend_type=TGISBackend.backend_type, base_module=PeftPromptTuning)
+@modules.module(
+    backend_type=TGISBackend.backend_type,
+    base_module=PeftPromptTuning,
+    tasks=[TextGenerationTask, TokenizationTask],
+)
 class PeftPromptTuningTGIS(ModuleBase):  # pylint: disable=too-many-instance-attributes
     SUPPORTED_LOAD_BACKENDS = [TGISBackend.backend_type, backend_types.LOCAL]
     ## Module Interface ##
@@ -299,4 +304,22 @@ class PeftPromptTuningTGIS(ModuleBase):  # pylint: disable=too-many-instance-att
             max_time=max_time,
             exponential_decay_length_penalty=exponential_decay_length_penalty,
             stop_sequences=stop_sequences,
+        )
+
+    @TokenizationTask.taskmethod()
+    def run_tokenizer(
+        self,
+        text: str,
+    ) -> TokenizationResults:
+        """Run tokenization task against the model running in TGIS.
+
+        Args:
+            text: str
+                Text to tokenize
+        Returns:
+            TokenizationResults
+                The token count
+        """
+        return self.tgis_generation_client.unary_tokenize(
+            text=text,
         )
