@@ -398,6 +398,19 @@ class TGISGenerationClient:
         )
         response = batch_response.responses[0]
 
+        token_list = []
+        for token in response.tokens:
+            token_list.append(GeneratedToken(text=token.text, logprob=token.logprob))
+
+        input_token_list = []
+        for token in response.input_tokens:
+            input_token_list.append(
+                GeneratedToken(text=token.text, logprob=token.logprob)
+            )
+
+        # print(f"BANG: \n{response}")
+        # breakpoint()
+
         return GeneratedTextResult(
             generated_text=response.text,
             generated_tokens=response.generated_token_count,
@@ -405,6 +418,8 @@ class TGISGenerationClient:
             producer_id=self.producer_id,
             input_token_count=response.input_token_count,
             seed=seed,
+            tokens=token_list,
+            input_tokens=input_token_list,
         )
 
     def stream_generate(
@@ -524,9 +539,15 @@ class TGISGenerationClient:
                 token_list.append(
                     GeneratedToken(text=token.text, logprob=token.logprob)
                 )
+            input_token_list = []
+            for token in stream_part.input_tokens:
+                input_token_list.append(
+                    GeneratedToken(text=token.text, logprob=token.logprob)
+                )
             yield GeneratedTextStreamResult(
                 generated_text=stream_part.text,
                 tokens=token_list,
+                input_tokens=input_token_list,
                 details=details,
             )
 
