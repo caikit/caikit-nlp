@@ -18,7 +18,7 @@ import transformers
 
 # First Party
 from caikit.config.config import merge_configs
-from caikit.interfaces.nlp.data_model import GeneratedTextResult
+from caikit.interfaces.nlp.data_model import GeneratedTextResult, TokenizationResults
 from caikit_tgis_backend import TGISBackend
 from caikit_tgis_backend.tgis_connection import TGISConnection
 import aconfig
@@ -108,14 +108,20 @@ def models_cache_dir(request):
 
 ### Fixtures for grabbing a randomly initialized model to test interfaces against
 ## Causal LM
-@pytest.fixture
+@pytest.fixture(scope="session")
 def causal_lm_train_kwargs():
     """Get the kwargs for a valid train call to a Causal LM."""
     model_kwargs = {
         "base_model": HFAutoCausalLM.bootstrap(
             model_name=CAUSAL_LM_MODEL, tokenizer_name=CAUSAL_LM_MODEL
         ),
-        "train_stream": caikit.core.data_model.DataStream.from_iterable([]),
+        "train_stream": caikit.core.data_model.DataStream.from_iterable(
+            [
+                caikit_nlp.data_model.GenerationTrainRecord(
+                    input="@foo what a cute dog!", output="no complaint"
+                ),
+            ]
+        ),
         "num_epochs": 0,
         "tuning_config": caikit_nlp.data_model.TuningConfig(
             num_virtual_tokens=8, prompt_tuning_init_text="hello world"
@@ -124,7 +130,7 @@ def causal_lm_train_kwargs():
     return model_kwargs
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def causal_lm_dummy_model(causal_lm_train_kwargs):
     """Train a Causal LM dummy model."""
     return caikit_nlp.modules.text_generation.PeftPromptTuning.train(
@@ -132,7 +138,7 @@ def causal_lm_dummy_model(causal_lm_train_kwargs):
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def saved_causal_lm_dummy_model(causal_lm_dummy_model):
     """Give a path to a saved dummy model that can be loaded"""
     with tempfile.TemporaryDirectory() as workdir:
@@ -142,14 +148,20 @@ def saved_causal_lm_dummy_model(causal_lm_dummy_model):
 
 
 ## Seq2seq
-@pytest.fixture
+@pytest.fixture(scope="session")
 def seq2seq_lm_train_kwargs():
     """Get the kwargs for a valid train call to a Causal LM."""
     model_kwargs = {
         "base_model": HFAutoSeq2SeqLM.bootstrap(
             model_name=SEQ2SEQ_LM_MODEL, tokenizer_name=SEQ2SEQ_LM_MODEL
         ),
-        "train_stream": caikit.core.data_model.DataStream.from_iterable([]),
+        "train_stream": caikit.core.data_model.DataStream.from_iterable(
+            [
+                caikit_nlp.data_model.GenerationTrainRecord(
+                    input="@foo what a cute dog!", output="no complaint"
+                ),
+            ]
+        ),
         "num_epochs": 0,
         "tuning_config": caikit_nlp.data_model.TuningConfig(
             num_virtual_tokens=16, prompt_tuning_init_text="hello world"
@@ -158,7 +170,7 @@ def seq2seq_lm_train_kwargs():
     return model_kwargs
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def seq2seq_lm_dummy_model(seq2seq_lm_train_kwargs):
     """Train a Seq2Seq LM dummy model."""
     return caikit_nlp.modules.text_generation.PeftPromptTuning.train(
@@ -192,6 +204,9 @@ class StubTGISClient:
     def GenerateStream(self, request):
         return StubTGISClient.stream_generate(request)
 
+    def Tokenize(self, request):
+        return StubTGISClient.tokenize(request)
+
     @staticmethod
     def unary_generate(request):
         fake_response = mock.Mock()
@@ -219,6 +234,14 @@ class StubTGISClient:
             yield fake_stream
 
     @staticmethod
+    def tokenize(request):
+        fake_response = mock.Mock()
+        fake_result = mock.Mock()
+        fake_result.token_count = 1
+        fake_response.responses = [fake_result]
+        return fake_response
+
+    @staticmethod
     def validate_unary_generate_response(result):
         assert isinstance(result, GeneratedTextResult)
         assert result.generated_text == "moose"
@@ -240,6 +263,11 @@ class StubTGISClient:
         assert first_result.details.generated_tokens == 1
         assert first_result.details.seed == 10
         assert first_result.details.input_token_count == 1
+
+    @staticmethod
+    def validate_tokenize_response(result):
+        assert isinstance(result, TokenizationResults)
+        assert result.token_count == 1
 
 
 class StubTGISBackend(TGISBackend):

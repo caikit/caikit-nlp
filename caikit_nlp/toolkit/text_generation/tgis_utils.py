@@ -22,6 +22,7 @@ from caikit.interfaces.nlp.data_model import (
     GeneratedTextResult,
     GeneratedTextStreamResult,
     GeneratedToken,
+    TokenizationResults,
     TokenStreamDetails,
 )
 from caikit_tgis_backend.protobufs import generation_pb2
@@ -484,3 +485,50 @@ class TGISGenerationClient:
                 tokens=token_list,
                 details=details,
             )
+
+    def unary_tokenize(
+        self,
+        text: str,
+    ) -> TokenizationResults:
+        """Tokenize unary input using TGIS
+
+        Args:
+            text: str
+                Text to tokenize
+        Returns:
+            TokenizationResults
+                The token count
+        """
+
+        # In case internal client is not configured - tokenization
+        # cannot be done (individual modules may already check
+        # for this)
+        error.value_check(
+            "<NLP72786256E>",
+            self.tgis_client is not None,
+            "Backend must be configured and loaded for tokenization",
+        )
+
+        log.debug("Building protobuf request to send to TGIS")
+
+        gen_reqs = [generation_pb2.TokenizeRequest(text=text)]
+
+        request = generation_pb2.BatchedTokenizeRequest(
+            requests=gen_reqs,
+            model_id=self.base_model_name,
+        )
+
+        # Currently, we send a batch request of len(x)==1, so we expect one response back
+        with alog.ContextTimer(log.trace, "TGIS request duration: "):
+            batch_response = self.tgis_client.Tokenize(request)
+
+        error.value_check(
+            "<NLP38899081E>",
+            len(batch_response.responses) == 1,
+            f"Got {len(batch_response.responses)} responses for a single request",
+        )
+        response = batch_response.responses[0]
+
+        return TokenizationResults(
+            token_count=response.token_count,
+        )
