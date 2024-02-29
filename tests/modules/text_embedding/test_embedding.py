@@ -23,7 +23,7 @@ from caikit.interfaces.nlp.data_model import (
 )
 
 # Local
-from caikit_nlp.modules.text_embedding import EmbeddingModule
+from caikit_nlp.modules.text_embedding import EmbeddingModule, utils
 from tests.fixtures import SEQ_CLASS_MODEL
 
 ## Setup ########################################################################
@@ -425,20 +425,18 @@ def test__get_backend(use_ipex, use_device, expected):
     "use_ipex",
     [None, "true", "True", "False", "false"],
 )
-def test__get_ipex(use_ipex, monkeypatch):
+def test__get_ipex(use_ipex):
     """Test that _get_ipex returns False instead of raising an exception.
 
     Assumes that when running tests, we won't have IPEX installed.
     """
-    monkeypatch.setenv("EMBEDDING_IPEX", use_ipex)
-    assert not EmbeddingModule._get_ipex()
+    assert not EmbeddingModule._get_ipex(use_ipex)
 
 
-def test__optimize(monkeypatch):
+def test__optimize():
     """Test that _optimize does nothing when disabled"""
     fake = "fake model"  # Will be returned as-is
-    monkeypatch.setenv("EMBEDDING_PT2_COMPILE", "False")
-    assert fake == EmbeddingModule._optimize(fake, False, "bogus")
+    assert fake == EmbeddingModule._optimize(fake, False, "bogus", False, False)
 
 
 @pytest.mark.parametrize("truncate_input_tokens", [0, 513])
@@ -704,7 +702,7 @@ def test__with_retry_happy_path(loaded_model):
     loaded_model._with_retry(print, "hello", "world", sep="<:)>", end="!!!\n")
 
 
-def test__with_retry_fail(loaded_model, monkeypatch):
+def test__with_retry_fail(loaded_model):
     """fn never works, loops then raises the exception"""
 
     def fn():
@@ -757,3 +755,37 @@ def test__with_retry_fail_fail_win(loaded_model, monkeypatch):
 
     # Third try did not raise an exception. Returns 3.
     assert 3 == loaded_model._with_retry(fail_fail_win)
+
+
+def test_env_val_to_bool():
+    assert not utils.env_val_to_bool(None)
+    assert not utils.env_val_to_bool("")
+    assert not utils.env_val_to_bool("   ")
+    assert not utils.env_val_to_bool(0)
+    assert not utils.env_val_to_bool("0")
+    assert not utils.env_val_to_bool(" False ")
+    assert not utils.env_val_to_bool("  false   ")
+    assert not utils.env_val_to_bool("   fAlSE    ")
+
+    assert utils.env_val_to_bool(1)
+    assert utils.env_val_to_bool("1")
+    assert utils.env_val_to_bool(" True ")
+    assert utils.env_val_to_bool("  true   ")
+    assert utils.env_val_to_bool("   tRuE    ")
+
+
+def test_env_val_to_int():
+    expected_default = 12345
+    assert expected_default == utils.env_val_to_int(None, expected_default)
+    assert expected_default == utils.env_val_to_int("", expected_default)
+    assert expected_default == utils.env_val_to_int("   ", expected_default)
+    assert expected_default == utils.env_val_to_int(" ss ", expected_default)
+    assert expected_default == utils.env_val_to_int("  sss   ", expected_default)
+    assert expected_default == utils.env_val_to_int("   ssss    ", expected_default)
+
+    assert 0 == utils.env_val_to_int(0, expected_default)
+    assert 0 == utils.env_val_to_int("0", expected_default)
+    assert 0 == utils.env_val_to_int(False, expected_default)
+    assert 456 == utils.env_val_to_int("456", expected_default)
+    assert 456 == utils.env_val_to_int(" 456 ", expected_default)
+    assert 1 == utils.env_val_to_int(True, expected_default)

@@ -50,6 +50,9 @@ from caikit.interfaces.nlp.tasks import (
 )
 import alog
 
+# Local
+from caikit_nlp.modules.text_embedding.utils import env_val_to_bool, env_val_to_int
+
 logger = alog.use_channel("TXT_EMB")
 error = error_handler.get(logger)
 
@@ -75,26 +78,13 @@ except ModuleNotFoundError:
 
     SentenceTransformer = SentenceTransformerNotAvailable
 
-
-# For testing env vars for values that mean false
-FALSY = ("no", "n", "false", "0", "f", "off")
-
-
-def env_val_to_int(val, default):
-    """Returns the integer value of env var or default value if None or invalid integer"""
-    try:
-        return int(val)
-    except (TypeError, ValueError):
-        return default
-
-
 embedding_cfg = get_config().get("embedding", {})
 
-RETRIES = embedding_cfg.get("retries", 0)
-BATCH_SIZE = embedding_cfg.get("batch_size", 0)
-PT2_COMPILE = embedding_cfg.get("pt2_compile", "false").lower() not in FALSY
-IPEX = embedding_cfg.get("ipex", "false").lower() not in FALSY
-AUTOCAST = embedding_cfg.get("autocast", "false").lower() not in FALSY
+AUTOCAST = env_val_to_bool(val=embedding_cfg.get("autocast"))
+IPEX = env_val_to_bool(val=embedding_cfg.get("ipex"))
+PT2_COMPILE = env_val_to_bool(val=embedding_cfg.get("pt2_compile"))
+RETRIES = env_val_to_int(val=embedding_cfg.get("retries"), default=0)
+BATCH_SIZE = env_val_to_int(val=embedding_cfg.get("batch_size"), default=0)
 DEVICE = embedding_cfg.get("device", "")
 
 
@@ -114,8 +104,7 @@ DEVICE = embedding_cfg.get("device", "")
 class EmbeddingModule(ModuleBase):
 
     # Retry count if enabled to try again (was for thread contention errors)
-    RETRY_COUNT = max(env_val_to_int(RETRIES, default=0), 0)  # Ensure non-negative int
-    USE_DEVICE = DEVICE
+    RETRY_COUNT = max(RETRIES, 0)  # Ensure non-negative, before using in loop!
 
     _ARTIFACTS_PATH_KEY = "artifacts_path"
     _ARTIFACTS_PATH_DEFAULT = "artifacts"
@@ -152,7 +141,7 @@ class EmbeddingModule(ModuleBase):
         artifacts_path = os.path.abspath(os.path.join(model_path, artifacts_path))
         error.dir_check("<NLP34197772E>", artifacts_path)
 
-        ipex = cls._get_ipex()
+        ipex = cls._get_ipex(IPEX)
         device = cls._select_device(ipex, DEVICE)
         model = SentenceTransformerWithTruncate(
             model_name_or_path=artifacts_path, device=device
@@ -160,7 +149,7 @@ class EmbeddingModule(ModuleBase):
         model.eval()  # required for IPEX at least
         if device is not None:
             model.to(torch.device(device))
-        model = EmbeddingModule._optimize(model, ipex, device)
+        model = EmbeddingModule._optimize(model, ipex, device, AUTOCAST, PT2_COMPILE)
 
         # Validate model with any encode test (simple and hardcoded for now).
         # This gets some of the first-time inference cost out of the way.
@@ -169,8 +158,8 @@ class EmbeddingModule(ModuleBase):
 
         return cls(model)
 
-    @staticmethod
-    def _get_ipex():
+    @classmethod
+    def _get_ipex(cls, ipex_flag):
         """Get IPEX optimization library if enabled and available, else return False
 
         Returns ipex library or False
@@ -179,7 +168,7 @@ class EmbeddingModule(ModuleBase):
 
         # Enabled by environment variable
         # When IPEX is not false, attempt to import the library and use it.
-        if IPEX:
+        if ipex_flag:
             try:
                 ret = importlib.import_module("intel_extension_for_pytorch")
             except Exception as ie:  # pylint: disable=broad-exception-caught
@@ -220,10 +209,10 @@ class EmbeddingModule(ModuleBase):
         return "inductor"  # default backend
 
     @staticmethod
-    def _optimize(model, ipex, device):
+    def _optimize(model, ipex, device, autocast, pt2_compile):
 
         if ipex:
-            if AUTOCAST:  # IPEX performs best with autocast using bfloat16
+            if autocast:  # IPEX performs best with autocast using bfloat16
                 model = ipex.optimize(
                     model, dtype=torch.bfloat16, weights_prepack=False
                 )
@@ -231,7 +220,7 @@ class EmbeddingModule(ModuleBase):
                 model = ipex.optimize(model, weights_prepack=False)
 
         # torch.compile won't work everywhere, but when set we'll try it
-        if PT2_COMPILE:
+        if pt2_compile:
             backend = EmbeddingModule._get_backend(ipex, device)
             try:
                 model = torch.compile(model, backend=backend, mode="max-autotune")
