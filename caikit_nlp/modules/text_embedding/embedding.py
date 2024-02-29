@@ -13,7 +13,6 @@
 # limitations under the License.
 
 # Standard
-from copy import deepcopy
 from typing import List, Optional, Union
 import importlib
 import os
@@ -25,6 +24,7 @@ import numpy as np
 import torch
 
 # First Party
+from caikit import get_config
 from caikit.core import ModuleBase, ModuleConfig, ModuleSaver, module
 from caikit.core.data_model.json_dict import JsonDict
 from caikit.core.exceptions import error_handler
@@ -80,20 +80,22 @@ except ModuleNotFoundError:
 FALSY = ("no", "n", "false", "0", "f", "off")
 
 
-def env_var_to_int(name, default):
-    """Returns the integer value of name env var or default value if None or invalid integer"""
-    s = os.getenv(name, default)
+def env_val_to_int(val, default):
+    """Returns the integer value of env var or default value if None or invalid integer"""
     try:
-        return int(s)
+        return int(val)
     except (TypeError, ValueError):
         return default
 
 
-# Batch size for encode() if <= 0 or invalid, the sentence-transformers default is used
-BATCH_SIZE = env_var_to_int("BATCH_SIZE", default=0)
+embedding_cfg = get_config().get("embedding", {})
 
-# To use dtype=bfloat16 for IPEX with autocast in encode.
-BFLOAT16 = os.getenv("BFLOAT16", "false").lower() not in FALSY
+RETRIES = embedding_cfg.get("retries", 0)
+BATCH_SIZE = embedding_cfg.get("batch_size", 0)
+PT2_COMPILE = embedding_cfg.get("pt2_compile", "false").lower() not in FALSY
+IPEX = embedding_cfg.get("ipex", "false").lower() not in FALSY
+AUTOCAST = embedding_cfg.get("autocast", "false").lower() not in FALSY
+DEVICE = embedding_cfg.get("device", "")
 
 
 @module(
@@ -112,7 +114,8 @@ BFLOAT16 = os.getenv("BFLOAT16", "false").lower() not in FALSY
 class EmbeddingModule(ModuleBase):
 
     # Retry count if enabled to try again (was for thread contention errors)
-    RETRY_COUNT = max(env_var_to_int("RETRY_COUNT", default=0), 0)
+    RETRY_COUNT = max(env_val_to_int(RETRIES, default=0), 0)  # Ensure non-negative int
+    USE_DEVICE = DEVICE
 
     _ARTIFACTS_PATH_KEY = "artifacts_path"
     _ARTIFACTS_PATH_DEFAULT = "artifacts"
@@ -123,12 +126,6 @@ class EmbeddingModule(ModuleBase):
     ):
         super().__init__()
         self.model = model
-
-        # Separate copy of tokenizer just for _truncate_input_tokens()
-        # This avoids RuntimeError('Already borrowed') which is way too frequent
-        # otherwise when using Python threads and tokenize for truncation followed
-        # by sentence-transformers tokenize/encode.
-        self._tokenizer = deepcopy(self.model.tokenizer)
 
     @classmethod
     def load(cls, model_path: str, *args, **kwargs) -> "EmbeddingModule":
@@ -156,7 +153,7 @@ class EmbeddingModule(ModuleBase):
         error.dir_check("<NLP34197772E>", artifacts_path)
 
         ipex = cls._get_ipex()
-        device = cls._select_device(ipex)
+        device = cls._select_device(ipex, DEVICE)
         model = SentenceTransformerWithTruncate(
             model_name_or_path=artifacts_path, device=device
         )
@@ -181,14 +178,14 @@ class EmbeddingModule(ModuleBase):
         ret = False
 
         # Enabled by environment variable
-        # When IPEX_OPTIMIZE is not false, attempt to import the library and use it.
-        if os.getenv("IPEX_OPTIMIZE", "false").lower() not in FALSY:
+        # When IPEX is not false, attempt to import the library and use it.
+        if IPEX:
             try:
                 ret = importlib.import_module("intel_extension_for_pytorch")
             except Exception as ie:  # pylint: disable=broad-exception-caught
                 # We don't require the module so catch, log, proceed to return False
                 msg = (
-                    f"IPEX_OPTIMIZE enabled in env, but skipping ipex.optimize() because "
+                    f"IPEX enabled in env, but skipping ipex.optimize() because "
                     f"import intel_extension_for_pytorch failed with exception: {ie}"
                 )
                 logger.warning(msg, exc_info=1)
@@ -196,17 +193,13 @@ class EmbeddingModule(ModuleBase):
         return ret
 
     @staticmethod
-    def _select_device(use_ipex):
+    def _select_device(use_ipex, device):
         """Use environment variables and availability to determine the device to use"""
         if use_ipex:
             # If enabled, use "xpu" (IPEX on GPU instead of IPEX on CPU)
-            if os.getenv("USE_XPU", "false").lower() not in FALSY:
+            if device == "xpu":
                 return "xpu"
-        elif (
-            os.getenv("USE_MPS", "false").lower() not in FALSY
-            and mps.is_built()
-            and mps.is_available()
-        ):
+        elif device == "mps" and mps.is_built() and mps.is_available():
             # Never use on ipex, but otherwise use mps if enabled and available
             return "mps"
 
@@ -230,7 +223,7 @@ class EmbeddingModule(ModuleBase):
     def _optimize(model, ipex, device):
 
         if ipex:
-            if BFLOAT16:
+            if AUTOCAST:  # IPEX performs best with autocast using bfloat16
                 model = ipex.optimize(
                     model, dtype=torch.bfloat16, weights_prepack=False
                 )
@@ -238,14 +231,14 @@ class EmbeddingModule(ModuleBase):
                 model = ipex.optimize(model, weights_prepack=False)
 
         # torch.compile won't work everywhere, but when set we'll try it
-        if os.getenv("PT2_COMPILE", "false").lower() not in FALSY:
+        if PT2_COMPILE:
             backend = EmbeddingModule._get_backend(ipex, device)
             try:
                 model = torch.compile(model, backend=backend, mode="max-autotune")
             except Exception as e:  # pylint: disable=broad-exception-caught
                 # Not always supported (e.g. in a python version) so catch, log, proceed.
                 warn_msg = (
-                    f"PT2_COMPILE enabled in env, but continuing without torch.compile() "
+                    f"PT2_COMPILE enabled, but continuing without torch.compile() "
                     f"because it failed with exception: {e}"
                 )
                 logger.warning(warn_msg, exc_info=True)
@@ -675,16 +668,6 @@ class SentenceTransformerWithTruncate(SentenceTransformer):
             List[str]: the texts after checking and/or truncating
         """
 
-        # NOTE: When inference is called immediately after load (typical case with lazy loading),
-        # using the tokenizer right away here results in a warning like:
-        #     huggingface/tokenizers: The current process just got forked, after parallelism
-        #     has already been used. Disabling parallelism to avoid deadlocks...
-        #     To disable this warning, you can either:
-        #     - Avoid using `tokenizers` before the fork if possible
-        #     - Explicitly set the environment variable TOKENIZERS_PARALLELISM=(true | false)
-        # A warmup encode() call in load() will take care of this (the first option above).
-        # This here comment is in case we need to set TOKENIZERS_PARALLELISM in the future.
-
         max_tokens = self.max_seq_length
 
         # Do truncation if given a usable truncation value, else test for need to truncation
@@ -797,7 +780,7 @@ class SentenceTransformerWithTruncate(SentenceTransformer):
             )
             features = batch_to_device(features, device)
 
-            if BFLOAT16:
+            if AUTOCAST:
                 with torch.no_grad(), torch.cpu.amp.autocast():
                     out_features = self.forward(features)
                     embeddings = out_features["sentence_embedding"]

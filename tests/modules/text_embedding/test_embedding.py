@@ -387,32 +387,24 @@ def test_run_sentence_similarities(loaded_model):
 
 
 @pytest.mark.parametrize(
-    "use_ipex, use_xpu, use_mps, expected",
+    "use_ipex, device, expected",
     [
-        (True, "true", "true", "xpu"),
-        (True, "true", "false", "xpu"),
-        (True, "false", "true", None),
-        (True, "false", "false", None),
-        (False, "false", "false", None),
-        (False, "true", "false", None),
+        (True, "", None),
+        (False, "", None),
+        (True, None, None),
+        (False, None, None),
+        (False, "xpu", None),
+        (True, "xpu", "xpu"),
+        (True, "mps", None),
         (
             False,
-            "false",
-            "true",
-            "mps" if mps.is_built() and mps.is_available() else None,
-        ),
-        (
-            False,
-            "true",
-            "true",
+            "mps",
             "mps" if mps.is_built() and mps.is_available() else None,
         ),
     ],
 )
-def test__select_device(use_ipex, use_xpu, use_mps, expected, monkeypatch):
-    monkeypatch.setenv("USE_XPU", use_xpu)
-    monkeypatch.setenv("USE_MPS", use_mps)
-    assert EmbeddingModule._select_device(use_ipex) == expected
+def test__select_device(use_ipex, device, expected, monkeypatch):
+    assert EmbeddingModule._select_device(use_ipex, device) == expected
 
 
 @pytest.mark.parametrize(
@@ -438,14 +430,14 @@ def test__get_ipex(use_ipex, monkeypatch):
 
     Assumes that when running tests, we won't have IPEX installed.
     """
-    monkeypatch.setenv("IPEX_OPTIMIZE", use_ipex)
+    monkeypatch.setenv("EMBEDDING_IPEX", use_ipex)
     assert not EmbeddingModule._get_ipex()
 
 
 def test__optimize(monkeypatch):
     """Test that _optimize does nothing when disabled"""
     fake = "fake model"  # Will be returned as-is
-    monkeypatch.setenv("PT2_COMPILE", "False")
+    monkeypatch.setenv("EMBEDDING_PT2_COMPILE", "False")
     assert fake == EmbeddingModule._optimize(fake, False, "bogus")
 
 
