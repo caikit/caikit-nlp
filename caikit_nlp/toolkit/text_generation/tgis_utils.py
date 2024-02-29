@@ -408,9 +408,6 @@ class TGISGenerationClient:
                 GeneratedToken(text=token.text, logprob=token.logprob)
             )
 
-        # print(f"BANG: \n{response}")
-        # breakpoint()
-
         return GeneratedTextResult(
             generated_text=response.text,
             generated_tokens=response.generated_token_count,
