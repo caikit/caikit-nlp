@@ -536,15 +536,17 @@ class TGISGenerationClient:
                 input_token_count=stream_part.input_token_count,
             )
             token_list = []
-            for token in stream_part.tokens:
-                token_list.append(
-                    GeneratedToken(text=token.text, logprob=token.logprob)
-                )
+            if stream_part.tokens is not None:
+                for token in stream_part.tokens:
+                    token_list.append(
+                        GeneratedToken(text=token.text, logprob=token.logprob)
+                    )
             input_token_list = []
-            for token in stream_part.input_tokens:
-                input_token_list.append(
-                    GeneratedToken(text=token.text, logprob=token.logprob)
-                )
+            if stream_part.input_tokens is not None:
+                for token in stream_part.input_tokens:
+                    input_token_list.append(
+                        GeneratedToken(text=token.text, logprob=token.logprob)
+                    )
             yield GeneratedTextStreamResult(
                 generated_text=stream_part.text,
                 tokens=token_list,
