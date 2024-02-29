@@ -240,7 +240,6 @@ class TextGenerationTGIS(ModuleBase):
             GeneratedTextResult
                 Generated text result produced by TGIS.
         """
-
         if self._model_loaded:
             return self.tgis_generation_client.unary_generate(
                 text=text,
