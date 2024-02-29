@@ -18,7 +18,7 @@ import transformers
 
 # First Party
 from caikit.config.config import merge_configs
-from caikit.interfaces.nlp.data_model import GeneratedTextResult
+from caikit.interfaces.nlp.data_model import GeneratedTextResult, TokenizationResults
 from caikit_tgis_backend import TGISBackend
 from caikit_tgis_backend.tgis_connection import TGISConnection
 import aconfig
@@ -192,6 +192,9 @@ class StubTGISClient:
     def GenerateStream(self, request):
         return StubTGISClient.stream_generate(request)
 
+    def Tokenize(self, request):
+        return StubTGISClient.tokenize(request)
+
     @staticmethod
     def unary_generate(request):
         fake_response = mock.Mock()
@@ -219,6 +222,14 @@ class StubTGISClient:
             yield fake_stream
 
     @staticmethod
+    def tokenize(request):
+        fake_response = mock.Mock()
+        fake_result = mock.Mock()
+        fake_result.token_count = 1
+        fake_response.responses = [fake_result]
+        return fake_response
+
+    @staticmethod
     def validate_unary_generate_response(result):
         assert isinstance(result, GeneratedTextResult)
         assert result.generated_text == "moose"
@@ -240,6 +251,11 @@ class StubTGISClient:
         assert first_result.details.generated_tokens == 1
         assert first_result.details.seed == 10
         assert first_result.details.input_token_count == 1
+
+    @staticmethod
+    def validate_tokenize_response(result):
+        assert isinstance(result, TokenizationResults)
+        assert result.token_count == 1
 
 
 class StubTGISBackend(TGISBackend):

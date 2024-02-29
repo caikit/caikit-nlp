@@ -57,6 +57,26 @@ def test_load_and_run(causal_lm_dummy_model, stub_tgis_backend):
         assert model_prompt_dir == stub_generation_request.prefix_id
 
 
+def test_load_and_tokenize(causal_lm_dummy_model, stub_tgis_backend):
+    """Ensure we can export an in memory model, load it, and tokenize it"""
+    # Patch our stub backend into caikit so that we don't actually try to start TGIS
+    causal_lm_dummy_model.verbalizer = "hello distributed {{input}}"
+
+    with mock.patch.object(StubTGISClient, "Tokenize") as mock_gen:
+        mock_gen.side_effect = StubTGISClient.tokenize
+
+        # Save the local model & reload it a TGIS backend distributed module
+        with tempfile.TemporaryDirectory() as model_dir:
+            causal_lm_dummy_model.save(model_dir)
+            mock_tgis_model = PeftPromptTuningTGIS.load(model_dir, stub_tgis_backend)
+
+    result = mock_tgis_model.run_tokenizer(SAMPLE_TEXT)
+    StubTGISClient.validate_tokenize_response(result)
+
+    # Validate that our verbalizer carried over correctly & was applied at inference time
+    assert mock_tgis_model.verbalizer == causal_lm_dummy_model.verbalizer
+
+
 def test_load_and_run_stream_out(causal_lm_dummy_model, stub_tgis_backend):
     """Ensure we can export an in memory model, load it, and (mock) run output streaming
     with the right text & prefix ID."""
