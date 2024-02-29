@@ -399,14 +399,18 @@ class TGISGenerationClient:
         response = batch_response.responses[0]
 
         token_list = []
-        for token in response.tokens:
-            token_list.append(GeneratedToken(text=token.text, logprob=token.logprob))
+        if response.tokens is not None:
+            for token in response.tokens:
+                token_list.append(
+                    GeneratedToken(text=token.text, logprob=token.logprob)
+                )
 
         input_token_list = []
-        for token in response.input_tokens:
-            input_token_list.append(
-                GeneratedToken(text=token.text, logprob=token.logprob)
-            )
+        if response.input_tokens is not None:
+            for token in response.input_tokens:
+                input_token_list.append(
+                    GeneratedToken(text=token.text, logprob=token.logprob)
+                )
 
         return GeneratedTextResult(
             generated_text=response.text,
