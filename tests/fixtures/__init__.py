@@ -108,20 +108,14 @@ def models_cache_dir(request):
 
 ### Fixtures for grabbing a randomly initialized model to test interfaces against
 ## Causal LM
-@pytest.fixture(scope="session")
+@pytest.fixture
 def causal_lm_train_kwargs():
     """Get the kwargs for a valid train call to a Causal LM."""
     model_kwargs = {
         "base_model": HFAutoCausalLM.bootstrap(
             model_name=CAUSAL_LM_MODEL, tokenizer_name=CAUSAL_LM_MODEL
         ),
-        "train_stream": caikit.core.data_model.DataStream.from_iterable(
-            [
-                caikit_nlp.data_model.GenerationTrainRecord(
-                    input="@foo what a cute dog!", output="no complaint"
-                ),
-            ]
-        ),
+        "train_stream": caikit.core.data_model.DataStream.from_iterable([]),
         "num_epochs": 0,
         "tuning_config": caikit_nlp.data_model.TuningConfig(
             num_virtual_tokens=8, prompt_tuning_init_text="hello world"
@@ -130,7 +124,7 @@ def causal_lm_train_kwargs():
     return model_kwargs
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture
 def causal_lm_dummy_model(causal_lm_train_kwargs):
     """Train a Causal LM dummy model."""
     return caikit_nlp.modules.text_generation.PeftPromptTuning.train(
@@ -138,7 +132,7 @@ def causal_lm_dummy_model(causal_lm_train_kwargs):
     )
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture
 def saved_causal_lm_dummy_model(causal_lm_dummy_model):
     """Give a path to a saved dummy model that can be loaded"""
     with tempfile.TemporaryDirectory() as workdir:
@@ -148,20 +142,14 @@ def saved_causal_lm_dummy_model(causal_lm_dummy_model):
 
 
 ## Seq2seq
-@pytest.fixture(scope="session")
+@pytest.fixture
 def seq2seq_lm_train_kwargs():
     """Get the kwargs for a valid train call to a Causal LM."""
     model_kwargs = {
         "base_model": HFAutoSeq2SeqLM.bootstrap(
             model_name=SEQ2SEQ_LM_MODEL, tokenizer_name=SEQ2SEQ_LM_MODEL
         ),
-        "train_stream": caikit.core.data_model.DataStream.from_iterable(
-            [
-                caikit_nlp.data_model.GenerationTrainRecord(
-                    input="@foo what a cute dog!", output="no complaint"
-                ),
-            ]
-        ),
+        "train_stream": caikit.core.data_model.DataStream.from_iterable([]),
         "num_epochs": 0,
         "tuning_config": caikit_nlp.data_model.TuningConfig(
             num_virtual_tokens=16, prompt_tuning_init_text="hello world"
@@ -170,7 +158,7 @@ def seq2seq_lm_train_kwargs():
     return model_kwargs
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture
 def seq2seq_lm_dummy_model(seq2seq_lm_train_kwargs):
     """Train a Seq2Seq LM dummy model."""
     return caikit_nlp.modules.text_generation.PeftPromptTuning.train(
