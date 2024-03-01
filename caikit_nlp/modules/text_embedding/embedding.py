@@ -646,15 +646,15 @@ class SentenceTransformerWithTruncate(SentenceTransformer):
         Args:
             truncate_input_tokens: int
                 Truncation length for input tokens.
-                If less than zero, this truncation is left up to the tokenizer default.
-                If zero or greater than the model's maximum, then this is a test
-                to see if truncation is needed. If needed, an exception is thrown.
-                Otherwise, we take this usable truncation limit to truncate the tokens and then
-                decode them to return truncated strings that can be used with this model.
+                If less than zero, this truncation is left up to the tokenizer default (model max).
+                If zero or greater than the model's maximum, then this is used as a test
+                to see if truncation is needed. If needed is needed, an exception is thrown.
+                Otherwise, we take this usable truncation limit to truncate the input tokens.
             texts: List[str]
                 Input texts to be checked and optionally truncated.
         Returns:
-            List[str]: the texts after checking and/or truncating
+            Dictionary of lists/arrays/tensors returned by the tokenizer with proper truncation
+            ('input_ids', 'attention_mask', etc.).
         """
 
         max_tokens = self.max_seq_length
@@ -740,6 +740,26 @@ class SentenceTransformerWithTruncate(SentenceTransformer):
         convert_to_tensor: bool = False,
         truncate_input_tokens: Optional[int] = 0,
     ) -> np.ndarray:
+        """
+        Computes sentence embeddings
+
+        :param sentences: the sentences to embed
+        :param batch_size: the batch size used for the computation
+        :param device: Which torch.device to use for the computation
+        :param convert_to_numpy: If true, the output is a list of numpy vectors. Else, it is a list
+                of pytorch tensors.
+        :param convert_to_tensor: If true, you get one large tensor as return. Overwrites any
+                setting from convert_to_numpy
+        :param truncate_input_tokens: Truncation length for input tokens.
+                Truncation length for input tokens.
+                If less than zero, this truncation is left up to the tokenizer default (model max).
+                If zero or greater than the model's maximum, then this is used as a test
+                to see if truncation is needed. If needed is needed, an exception is thrown.
+                Otherwise, we take this usable truncation limit to truncate the input tokens.
+
+        :return:
+           By default, a numpy matrix is returned.
+        """
 
         self.eval()
 

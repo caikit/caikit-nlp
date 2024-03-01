@@ -671,7 +671,6 @@ def test_embeddings_with_truncation(truncate_input_tokens, loaded_model):
         repeat = truncate_input_tokens
 
     # Build a text like "x x x.. x " with room for one more token
-    # repeat = repeat - 2  # space for start/end tokens
     repeat = repeat - 1  # space for the final x or y token to show difference
 
     base = "x " * repeat  # A bunch of "x" tokens
