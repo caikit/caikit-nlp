@@ -23,7 +23,7 @@ from caikit.interfaces.nlp.data_model import (
 )
 
 # Local
-from caikit_nlp.modules.text_embedding import EmbeddingModule
+from caikit_nlp.modules.text_embedding import EmbeddingModule, utils
 from tests.fixtures import SEQ_CLASS_MODEL
 
 ## Setup ########################################################################
@@ -387,32 +387,24 @@ def test_run_sentence_similarities(loaded_model):
 
 
 @pytest.mark.parametrize(
-    "use_ipex, use_xpu, use_mps, expected",
+    "use_ipex, device, expected",
     [
-        (True, "true", "true", "xpu"),
-        (True, "true", "false", "xpu"),
-        (True, "false", "true", None),
-        (True, "false", "false", None),
-        (False, "false", "false", None),
-        (False, "true", "false", None),
+        (True, "", None),
+        (False, "", None),
+        (True, None, None),
+        (False, None, None),
+        (False, "xpu", None),
+        (True, "xpu", "xpu"),
+        (True, "mps", None),
         (
             False,
-            "false",
-            "true",
-            "mps" if mps.is_built() and mps.is_available() else None,
-        ),
-        (
-            False,
-            "true",
-            "true",
+            "mps",
             "mps" if mps.is_built() and mps.is_available() else None,
         ),
     ],
 )
-def test__select_device(use_ipex, use_xpu, use_mps, expected, monkeypatch):
-    monkeypatch.setenv("USE_XPU", use_xpu)
-    monkeypatch.setenv("USE_MPS", use_mps)
-    assert EmbeddingModule._select_device(use_ipex) == expected
+def test__select_device(use_ipex, device, expected, monkeypatch):
+    assert EmbeddingModule._select_device(use_ipex, device) == expected
 
 
 @pytest.mark.parametrize(
@@ -433,41 +425,18 @@ def test__get_backend(use_ipex, use_device, expected):
     "use_ipex",
     [None, "true", "True", "False", "false"],
 )
-def test__get_ipex(use_ipex, monkeypatch):
+def test__get_ipex(use_ipex):
     """Test that _get_ipex returns False instead of raising an exception.
 
     Assumes that when running tests, we won't have IPEX installed.
     """
-    monkeypatch.setenv("IPEX_OPTIMIZE", use_ipex)
-    assert not EmbeddingModule._get_ipex()
+    assert not EmbeddingModule._get_ipex(use_ipex)
 
 
-def test__optimize(monkeypatch):
+def test__optimize():
     """Test that _optimize does nothing when disabled"""
     fake = "fake model"  # Will be returned as-is
-    monkeypatch.setenv("PT2_COMPILE", "False")
-    assert fake == EmbeddingModule._optimize(fake, False, "bogus")
-
-
-@pytest.mark.parametrize("truncate_input_tokens", [-1, 99, 10, 333])
-def test__truncate_input_tokens(truncate_input_tokens, loaded_model):
-
-    if truncate_input_tokens < 0:
-        num_xs = 500  # fill-er up
-    else:
-        num_xs = truncate_input_tokens - 4  # subtract room for (y  y), but not z
-
-    too_long = "x  " * num_xs + "y  y  z  "  # z will go over
-    actual = loaded_model._truncate_input_tokens(
-        truncate_input_tokens=truncate_input_tokens, texts=[too_long, too_long]
-    )
-
-    assert actual[0] == actual[1]  # they are still the same
-
-    if truncate_input_tokens < 0:
-        assert actual[0] == too_long, "expected no truncation"
-    else:
-        assert actual[0] + "  z  " == too_long, "expected truncation"
+    assert fake == EmbeddingModule._optimize(fake, False, "bogus", False, False)
 
 
 @pytest.mark.parametrize("truncate_input_tokens", [0, 513])
@@ -475,9 +444,10 @@ def test__truncate_input_tokens_raises(truncate_input_tokens, loaded_model):
     model_max = loaded_model.model.max_seq_length
 
     too_long = "x " * (model_max - 1)  # This will go over
-    with pytest.raises(ValueError):
-        loaded_model._truncate_input_tokens(
-            truncate_input_tokens=truncate_input_tokens, texts=[too_long]
+    over = model_max + 1
+    with pytest.raises(ValueError, match=f"({over} > {model_max})"):
+        loaded_model.model.encode(
+            sentences=[too_long], truncate_input_tokens=truncate_input_tokens
         )
 
 
@@ -505,40 +475,41 @@ def test_too_many_tokens_default(loaded_model):
     """These endpoints raise an error when truncation would happen."""
 
     model_max = loaded_model.model.max_seq_length
+    over = model_max + 1
 
     ok = "x " * (model_max - 2)  # Subtract 2 for begin/end tokens
     too_long = "x " * (model_max - 1)  # This will go over
 
     # embedding(s)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=f"({over} > {model_max})"):
         loaded_model.run_embedding(text=too_long)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=f"({over} > {model_max})"):
         loaded_model.run_embeddings(texts=[too_long])
 
     # sentence similarity(ies) test both source_sentence and sentences
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=f"({over} > {model_max})"):
         loaded_model.run_sentence_similarity(source_sentence=too_long, sentences=[ok])
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=f"({over} > {model_max})"):
         loaded_model.run_sentence_similarity(source_sentence=ok, sentences=[too_long])
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=f"({over} > {model_max})"):
         loaded_model.run_sentence_similarities(
             source_sentences=[too_long], sentences=[ok]
         )
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=f"({over} > {model_max})"):
         loaded_model.run_sentence_similarities(
             source_sentences=[ok], sentences=[too_long]
         )
 
     # reranker test both query and document text
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=f"({over} > {model_max})"):
         loaded_model.run_rerank_query(query=too_long, documents=[{"text": ok}])
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=f"({over} > {model_max})"):
         loaded_model.run_rerank_query(query=ok, documents=[{"text": too_long}])
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=f"({over} > {model_max})"):
         loaded_model.run_rerank_queries(queries=[too_long], documents=[{"text": ok}])
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=f"({over} > {model_max})"):
         loaded_model.run_rerank_queries(queries=[ok], documents=[{"text": too_long}])
 
 
@@ -551,41 +522,42 @@ def test_too_many_tokens_error_params(truncate_input_tokens, loaded_model):
     """
 
     model_max = loaded_model.model.max_seq_length
+    over = model_max + 1
 
     ok = "x " * (model_max - 2)  # Subtract 2 for begin/end tokens
     too_long = "x " * (model_max - 1)  # This will go over
 
     # embedding(s)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=f"({over} > {model_max})"):
         loaded_model.run_embedding(
             text=too_long, truncate_input_tokens=truncate_input_tokens
         )
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=f"({over} > {model_max})"):
         loaded_model.run_embeddings(
             texts=[too_long], truncate_input_tokens=truncate_input_tokens
         )
 
     # sentence similarity(ies) test both source_sentence and sentences
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=f"({over} > {model_max})"):
         loaded_model.run_sentence_similarity(
             source_sentence=too_long,
             sentences=[ok],
             truncate_input_tokens=truncate_input_tokens,
         )
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=f"({over} > {model_max})"):
         loaded_model.run_sentence_similarity(
             source_sentence=ok,
             sentences=[too_long],
             truncate_input_tokens=truncate_input_tokens,
         )
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=f"({over} > {model_max})"):
         loaded_model.run_sentence_similarities(
             source_sentences=[too_long],
             sentences=[ok],
             truncate_input_tokens=truncate_input_tokens,
         )
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=f"({over} > {model_max})"):
         loaded_model.run_sentence_similarities(
             source_sentences=[ok],
             sentences=[too_long],
@@ -593,26 +565,26 @@ def test_too_many_tokens_error_params(truncate_input_tokens, loaded_model):
         )
 
     # reranker test both query and document text
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=f"({over} > {model_max})"):
         loaded_model.run_rerank_query(
             query=too_long,
             documents=[{"text": ok}],
             truncate_input_tokens=truncate_input_tokens,
         )
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=f"({over} > {model_max})"):
         loaded_model.run_rerank_query(
             query=ok,
             documents=[{"text": too_long}],
             truncate_input_tokens=truncate_input_tokens,
         )
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=f"({over} > {model_max})"):
         loaded_model.run_rerank_queries(
             queries=[too_long],
             documents=[{"text": ok}],
             truncate_input_tokens=truncate_input_tokens,
         )
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=f"({over} > {model_max})"):
         loaded_model.run_rerank_queries(
             queries=[ok],
             documents=[{"text": too_long}],
@@ -699,7 +671,6 @@ def test_embeddings_with_truncation(truncate_input_tokens, loaded_model):
         repeat = truncate_input_tokens
 
     # Build a text like "x x x.. x " with room for one more token
-    repeat = repeat - 2  # space for start/end tokens
     repeat = repeat - 1  # space for the final x or y token to show difference
 
     base = "x " * repeat  # A bunch of "x" tokens
@@ -714,7 +685,10 @@ def test_embeddings_with_truncation(truncate_input_tokens, loaded_model):
     vectors = res.results.vectors
 
     # x...xyz is the same as x...xy because that is exactly where truncation worked
+    assert len(vectors[2].data.values) == len(vectors[3].data.values)
     assert np.allclose(vectors[2].data.values, vectors[3].data.values)
+    for i in range(len(vectors[2].data.values)):
+        assert approx(vectors[2].data.values[i]) == approx(vectors[3].data.values[i])
 
     # Make sure the base, x, y are not a match (we kept the significant last char)
     assert not np.allclose(vectors[0].data.values, vectors[1].data.values)
@@ -727,7 +701,7 @@ def test__with_retry_happy_path(loaded_model):
     loaded_model._with_retry(print, "hello", "world", sep="<:)>", end="!!!\n")
 
 
-def test__with_retry_fail(loaded_model, monkeypatch):
+def test__with_retry_fail(loaded_model):
     """fn never works, loops then raises the exception"""
 
     def fn():
@@ -780,3 +754,37 @@ def test__with_retry_fail_fail_win(loaded_model, monkeypatch):
 
     # Third try did not raise an exception. Returns 3.
     assert 3 == loaded_model._with_retry(fail_fail_win)
+
+
+def test_env_val_to_bool():
+    assert not utils.env_val_to_bool(None)
+    assert not utils.env_val_to_bool("")
+    assert not utils.env_val_to_bool("   ")
+    assert not utils.env_val_to_bool(0)
+    assert not utils.env_val_to_bool("0")
+    assert not utils.env_val_to_bool(" False ")
+    assert not utils.env_val_to_bool("  false   ")
+    assert not utils.env_val_to_bool("   fAlSE    ")
+
+    assert utils.env_val_to_bool(1)
+    assert utils.env_val_to_bool("1")
+    assert utils.env_val_to_bool(" True ")
+    assert utils.env_val_to_bool("  true   ")
+    assert utils.env_val_to_bool("   tRuE    ")
+
+
+def test_env_val_to_int():
+    expected_default = 12345
+    assert expected_default == utils.env_val_to_int(None, expected_default)
+    assert expected_default == utils.env_val_to_int("", expected_default)
+    assert expected_default == utils.env_val_to_int("   ", expected_default)
+    assert expected_default == utils.env_val_to_int(" ss ", expected_default)
+    assert expected_default == utils.env_val_to_int("  sss   ", expected_default)
+    assert expected_default == utils.env_val_to_int("   ssss    ", expected_default)
+
+    assert 0 == utils.env_val_to_int(0, expected_default)
+    assert 0 == utils.env_val_to_int("0", expected_default)
+    assert 0 == utils.env_val_to_int(False, expected_default)
+    assert 456 == utils.env_val_to_int("456", expected_default)
+    assert 456 == utils.env_val_to_int(" 456 ", expected_default)
+    assert 1 == utils.env_val_to_int(True, expected_default)
