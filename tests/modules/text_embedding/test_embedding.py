@@ -1,5 +1,5 @@
-"""Tests for text embedding module
-"""
+"""Tests for text embedding module"""
+
 # Standard
 from typing import List
 import os
@@ -33,6 +33,7 @@ from tests.fixtures import SEQ_CLASS_MODEL
 BOOTSTRAPPED_MODEL = EmbeddingModule.bootstrap(SEQ_CLASS_MODEL)
 
 INPUT = "The quick brown fox jumps over the lazy dog."
+INPUT_TOKEN_COUNT = 36  # Test tokenizer counts each non-whitespace character
 
 QUERY = "What is foo bar?"
 
@@ -95,6 +96,7 @@ def _assert_is_expected_embedding_result(actual):
     assert isinstance(actual, EmbeddingResult)
     vector = actual.result
     _assert_is_expected_vector(vector)
+    assert actual.input_token_count == INPUT_TOKEN_COUNT
 
 
 def _assert_is_expected_embeddings_results(actual):

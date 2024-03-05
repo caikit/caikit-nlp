@@ -13,7 +13,7 @@
 # limitations under the License.
 
 # Standard
-from collections.abc import Iterable, Sized
+from collections.abc import Collection, Iterable, Sized
 from typing import Callable, List, NamedTuple, Optional, Tuple, TypeVar, Union
 import importlib
 import os
@@ -671,6 +671,13 @@ class SentenceTransformerWithTruncate(SentenceTransformer):
     def _sum_token_count(
         tokenized: Union[BatchEncoding, Iterable[BatchEncoding]],
     ) -> int:
+        """Returns the number of tokens. Excludes [CLS] and [SEP] tokens.
+        Args:
+            tokenized: Union[BatchEncoding, Iterable[BatchEncoding]]
+        Returns:
+            Int total of all tokens contained in tokenized.
+            Excludes [CLS] and [SEP] tokens.
+        """
         error.type_check(
             "<NLP82314993E>",
             BatchEncoding,
@@ -679,10 +686,10 @@ class SentenceTransformerWithTruncate(SentenceTransformer):
         )
 
         if isinstance(tokenized, BatchEncoding):
-            return len(tokenized.tokens())
+            return len(tokenized.tokens()) - 2
 
         if isinstance(tokenized, Iterable):
-            return sum([len(t.tokens()) for t in tokenized])
+            return sum((len(t.tokens()) - 2 for t in tokenized))
 
     def _truncate_input_tokens(
         self, truncate_input_tokens: int, texts: List[str]
@@ -715,10 +722,9 @@ class SentenceTransformerWithTruncate(SentenceTransformer):
             okay_to_truncate = False
             max_length = max_tokens
 
-        if isinstance(texts[0], str):
-            to_tokenize = [texts]
-        else:
-            assert 0
+        to_tokenize = [texts]
+        assert len(texts) > 0, "Cannot truncate nothing"
+        assert isinstance(texts[0], str), "Only str can be truncated"
 
         to_tokenize = [[str(s).strip() for s in col] for col in to_tokenize]
         tokenized = self.tokenizer(
@@ -779,7 +785,7 @@ class SentenceTransformerWithTruncate(SentenceTransformer):
 
     def encode(
         self,
-        sentences: Union[str, List[str]],
+        sentences: Union[str, Collection[str]],
         batch_size: int = 32,
         device: Optional[str] = None,
         convert_to_numpy: bool = True,
@@ -813,13 +819,14 @@ class SentenceTransformerWithTruncate(SentenceTransformer):
             convert_to_numpy = False
 
         input_was_string = False
-        if isinstance(sentences, str) or not isinstance(
+        list_of_sentences = sentences
+        if isinstance(list_of_sentences, str) or not isinstance(
             sentences, Sized
         ):  # Cast an individual sentence to a list with length 1
             list_of_sentences = [sentences]
             input_was_string = True
-        elif isinstance(sentences, list):
-            list_of_sentences = sentences
+
+        error.type_check_all("<NLP82314994E>", str, sentences=list_of_sentences)
 
         if device is None:
             device = self._target_device
@@ -836,7 +843,7 @@ class SentenceTransformerWithTruncate(SentenceTransformer):
 
         input_token_count = 0
 
-        for start_index in range(0, len(sentences), batch_size):
+        for start_index in range(0, len(list_of_sentences), batch_size):
             sentences_batch = sentences_sorted[start_index : start_index + batch_size]
             features, token_count = self._truncate_input_tokens(
                 truncate_input_tokens, sentences_batch
