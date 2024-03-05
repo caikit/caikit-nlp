@@ -74,8 +74,8 @@ SENTENCES = [d.get("text", d.get("_text")) for d in DOCS]
 ## Tests ########################################################################
 
 
-@pytest.fixture(scope="module")
-def loaded_model(tmp_path_factory):
+@pytest.fixture(scope="module", name="loaded_model")
+def fixture_loaded_model(tmp_path_factory):
     models_dir = tmp_path_factory.mktemp("models")
     model_path = str(models_dir / "model_id")
     BOOTSTRAPPED_MODEL.save(model_path)
@@ -405,7 +405,7 @@ def test_run_sentence_similarities(loaded_model):
         ),
     ],
 )
-def test__select_device(use_ipex, device, expected, monkeypatch):
+def test__select_device(use_ipex, device, expected):
     assert EmbeddingModule._select_device(use_ipex, device) == expected
 
 
@@ -790,3 +790,30 @@ def test_env_val_to_int():
     assert 456 == utils.env_val_to_int("456", expected_default)
     assert 456 == utils.env_val_to_int(" 456 ", expected_default)
     assert 1 == utils.env_val_to_int(True, expected_default)
+
+
+@pytest.mark.parametrize(
+    ["texts", "truncate", "expected_count"],
+    [
+        (["12345"], -1, 5),  # single text
+        (["12 345", "6 789"], -1, 9),  # multiple texts
+        (
+            "But I must explain to you how all this mistaken idea",
+            10,
+            42,
+        ),  # single text truncated
+        (
+            ["But I must explain to", " you how all this mistaken idea"],
+            5,
+            42,
+        ),  # multiple texts truncated
+    ],
+)
+def test_sum_token_count(
+    texts, truncate, expected_count, loaded_model: EmbeddingModule
+):
+    _, token_count = loaded_model.model._truncate_input_tokens(
+        truncate_input_tokens=truncate, texts=texts
+    )
+
+    assert token_count == expected_count

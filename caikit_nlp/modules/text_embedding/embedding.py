@@ -13,7 +13,7 @@
 # limitations under the License.
 
 # Standard
-from collections.abc import Collection, Iterable, Sized
+from collections.abc import Collection, Sized
 from typing import Callable, List, NamedTuple, Optional, Tuple, TypeVar, Union
 import importlib
 import os
@@ -668,28 +668,34 @@ class EmbeddingModule(ModuleBase):
 
 class SentenceTransformerWithTruncate(SentenceTransformer):
     @staticmethod
-    def _sum_token_count(
-        tokenized: Union[BatchEncoding, Iterable[BatchEncoding]],
-    ) -> int:
-        """Returns the number of tokens. Excludes [CLS] and [SEP] tokens.
+    def _sum_token_count(tokenized: BatchEncoding) -> int:
+        """Returns the number of non-special tokens.
         Args:
-            tokenized: Union[BatchEncoding, Iterable[BatchEncoding]]
+            tokenized: BatchEncoding
         Returns:
             Int total of all tokens contained in tokenized.
-            Excludes [CLS] and [SEP] tokens.
+            Excludes special tokens such as [CLS], [SEP], [PAD], etc.
         """
         error.type_check(
             "<NLP82314993E>",
             BatchEncoding,
-            Iterable[BatchEncoding],
             tokenized=tokenized,
         )
+        error.value_check(
+            "<NLP82314995E>",
+            tokenized.encodings,
+            "Number of tokenized encodings is only known when a non-python tokenizer is used",
+        )
 
-        if isinstance(tokenized, BatchEncoding):
-            return len(tokenized.tokens()) - 2
+        token_count = 0
 
-        if isinstance(tokenized, Iterable):
-            return sum((len(t.tokens()) - 2 for t in tokenized))
+        assert tokenized.encodings
+        for batch in range(len(tokenized.encodings)):
+            token_count += sum(
+                (1 for t in tokenized.sequence_ids(batch_index=batch) if t is not None)
+            )
+
+        return token_count
 
     def _truncate_input_tokens(
         self, truncate_input_tokens: int, texts: List[str]
