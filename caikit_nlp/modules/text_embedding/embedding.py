@@ -100,6 +100,13 @@ class EmbeddingResultTuple(NamedTuple):
     input_token_count: int
 
 
+class TruncatedTokensTuple(NamedTuple):
+    """Output of SentenceTransformerWithTruncate._truncate_input_tokens()"""
+
+    tokenized: BatchEncoding
+    input_token_count: int
+
+
 @module(
     "eeb12558-b4fa-4f34-a9fd-3f5890e9cd3f",
     "EmbeddingModule",
@@ -369,11 +376,11 @@ class EmbeddingModule(ModuleBase):
         source_embedding, source_token_count = self._encode_with_retry(
             source_sentence, truncate_input_tokens=truncate_input_tokens
         )
-        embeddings, embeddings_token_count = self._encode_with_retry(
+        embeddings, sentences_token_count = self._encode_with_retry(
             sentences, truncate_input_tokens=truncate_input_tokens
         )
 
-        input_token_count = source_token_count + embeddings_token_count
+        input_token_count = source_token_count + sentences_token_count
         res = cos_sim(source_embedding, embeddings)
 
         return SentenceSimilarityResult(
@@ -409,11 +416,11 @@ class EmbeddingModule(ModuleBase):
         source_embedding, source_token_count = self._encode_with_retry(
             source_sentences, truncate_input_tokens=truncate_input_tokens
         )
-        embeddings, embeddings_token_count = self._encode_with_retry(
+        embeddings, sentences_token_count = self._encode_with_retry(
             sentences, truncate_input_tokens=truncate_input_tokens
         )
 
-        input_token_count = source_token_count + embeddings_token_count
+        input_token_count = source_token_count + sentences_token_count
         res = cos_sim(source_embedding, embeddings)
         float_list_list = res.tolist()
 
@@ -699,7 +706,7 @@ class SentenceTransformerWithTruncate(SentenceTransformer):
 
     def _truncate_input_tokens(
         self, truncate_input_tokens: int, texts: List[str]
-    ) -> Tuple[BatchEncoding, int]:
+    ) -> TruncatedTokensTuple:
         """Truncate input tokens
         Args:
             truncate_input_tokens: int
@@ -711,8 +718,8 @@ class SentenceTransformerWithTruncate(SentenceTransformer):
             texts: List[str]
                 Input texts to be checked and optionally truncated.
         Returns:
-            Dictionary of lists/arrays/tensors returned by the tokenizer with proper truncation
-            ('input_ids', 'attention_mask', etc.).
+            Tuple containing a dictionary of lists/arrays/tensors returned by the tokenizer, with proper
+            truncation ('input_ids', 'attention_mask', etc.), and the input_token_count int.
         """
 
         max_tokens = self.max_seq_length
@@ -728,10 +735,10 @@ class SentenceTransformerWithTruncate(SentenceTransformer):
             okay_to_truncate = False
             max_length = max_tokens
 
-        to_tokenize = [texts]
         assert len(texts) > 0, "Cannot truncate nothing"
         assert isinstance(texts[0], str), "Only str can be truncated"
 
+        to_tokenize = [texts]
         to_tokenize = [[str(s).strip() for s in col] for col in to_tokenize]
         tokenized = self.tokenizer(
             *to_tokenize,
@@ -787,11 +794,11 @@ class SentenceTransformerWithTruncate(SentenceTransformer):
                 )
         input_token_count = self._sum_token_count(tokenized)
 
-        return tokenized, input_token_count
+        return TruncatedTokensTuple(tokenized, input_token_count)
 
     def encode(
         self,
-        sentences: Union[str, Collection[str]],
+        sentences: Union[str, List[str]],
         batch_size: int = 32,
         device: Optional[str] = None,
         convert_to_numpy: bool = True,
@@ -816,7 +823,7 @@ class SentenceTransformerWithTruncate(SentenceTransformer):
                 Otherwise, we take this usable truncation limit to truncate the input tokens.
 
         :return:
-           By default, a numpy matrix is returned.
+           A tuple of the embedding, as a numpy matrix, and the input_token_count int.
         """
 
         self.eval()
@@ -883,4 +890,4 @@ class SentenceTransformerWithTruncate(SentenceTransformer):
         if input_was_string:
             all_embeddings = all_embeddings[0]
 
-        return all_embeddings, input_token_count
+        return EmbeddingResultTuple(all_embeddings, input_token_count)
