@@ -135,6 +135,15 @@ def test_bootstrap_run_with_threshold():
     )  # 4 (all) results over 0.0 expected
 
 
+def test_bootstrap_run_with_int_threshold():
+    """Check if we can bootstrap span classification models with overriden int threshold"""
+    token_classification_result = BOOTSTRAPPED_MODEL.run(DOCUMENT, threshold=0)
+    assert isinstance(token_classification_result, TokenClassificationResults)
+    assert (
+        len(token_classification_result.results) == 4
+    )  # 4 (all) results over 0 expected
+
+
 def test_bootstrap_run_with_optional_labels_to_output():
     """Check if we can run span classification models with labels_to_output"""
     model = FilteredSpanClassification.bootstrap(
