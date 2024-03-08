@@ -203,6 +203,14 @@ class StubTGISClient:
         fake_result.generated_token_count = 1
         fake_result.text = "moose"
         fake_result.input_token_count = 1
+        token = mock.Mock()
+        token.text = "moose"
+        token.logprob = 0.2
+        fake_result.tokens = [token]
+        input_tokens = mock.Mock()
+        input_tokens.text = "moose"
+        input_tokens.logprob = 0.2
+        fake_result.input_tokens = [input_tokens]
         fake_response.responses = [fake_result]
         return fake_response
 
@@ -217,6 +225,10 @@ class StubTGISClient:
         token.text = "moose"
         token.logprob = 0.2
         fake_stream.tokens = [token]
+        input_tokens = mock.Mock()
+        input_tokens.text = "moose"
+        input_tokens.logprob = 0.2
+        fake_stream.input_tokens = [input_tokens]
         fake_stream.text = "moose"
         for _ in range(3):
             yield fake_stream
