@@ -46,7 +46,7 @@ MANY_INPUTS = [
 ]
 
 QUERY = "What is foo bar?"
-QUERY_TOKEN_COUNT = 13 + 2  # [CLS] 13 normal [SEP]
+QUERY_TOKEN_COUNT = 13 + 2  # [CLS] Whatisfoobar? [SEP]
 
 QUERIES: List[str] = [
     "Who is foo?",
