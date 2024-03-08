@@ -842,7 +842,7 @@ class SentenceTransformerWithTruncate(SentenceTransformer):
         error.type_check_all("<NLP82314994E>", str, sentences=list_of_sentences)
 
         if device is None:
-            device = self._target_device
+            device = self.device
 
         self.to(device)
 
