@@ -707,7 +707,7 @@ def sum_token_count(
     """Returns the number of non-special tokens.
     Args:
         tokenized: BatchEncoding
-        only_truncated: bool
+        truncate_only: bool
     Returns:
         Int total of all tokens contained in tokenized.
     """
