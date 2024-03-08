@@ -21,7 +21,6 @@ import os
 import time
 
 # Third Party
-from regex import F
 from torch.backends import mps
 from transformers import BatchEncoding
 import numpy as np
