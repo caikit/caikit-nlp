@@ -817,3 +817,33 @@ def test_sum_token_count(
     )
 
     assert token_count == expected_count
+
+
+def test_encoding_order(loaded_model: EmbeddingModule):
+    """Confirm that encoding doesn't modify the original sort order"""
+    separate_embeddings = [loaded_model.run_embedding(text=i) for i in MANY_INPUTS]
+    combined_embeddings = loaded_model.run_embeddings(texts=MANY_INPUTS)
+
+    separate_vectors = [
+        e.to_dict()["result"]["data"]["values"] for e in separate_embeddings
+    ]
+    combined_vectors = [
+        e["data"]["values"] for e in combined_embeddings.to_dict()["results"]["vectors"]
+    ]
+
+    assert len(separate_vectors) == len(
+        combined_vectors
+    ), "expected the same number separate and combined embeddings"
+
+    # test order by comparing value of individual embeddings in sequence
+    for i, e in enumerate(separate_vectors):
+        assert np.allclose(e, combined_vectors[i])
+
+    # test expected failure case by reordering
+    shifted_separate_vectors = separate_vectors[1:] + [separate_vectors[0]]
+
+    for i, e in enumerate(shifted_separate_vectors):
+        assert e != separate_vectors[i], "expected order to be have been altered"
+        assert not np.allclose(
+            e, combined_vectors[i]
+        ), "expected altered order to not match combined vectors"

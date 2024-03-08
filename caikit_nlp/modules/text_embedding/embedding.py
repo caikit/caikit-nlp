@@ -847,6 +847,9 @@ class SentenceTransformerWithTruncate(SentenceTransformer):
         self.to(device)
 
         all_embeddings = []
+
+        # Sort sentences according to length, from longest to shortest
+        # OOM errors then occurs at start of encoding
         length_sorted_idx = np.argsort(
             [-self._text_length(sen) for sen in list_of_sentences]
         )
@@ -880,6 +883,7 @@ class SentenceTransformerWithTruncate(SentenceTransformer):
                         embeddings = embeddings.detach().cpu()
                     all_embeddings.extend(embeddings)
 
+        # Restore original order
         all_embeddings = [all_embeddings[idx] for idx in np.argsort(length_sorted_idx)]
 
         if convert_to_tensor:
