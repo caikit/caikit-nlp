@@ -13,13 +13,15 @@
 # limitations under the License.
 
 # Standard
-from collections.abc import Collection, Sized
-from typing import Callable, List, NamedTuple, Optional, Tuple, TypeVar, Union
+from collections.abc import Sized
+from enum import Enum, auto
+from typing import Callable, Dict, List, NamedTuple, Optional, TypeVar, Union
 import importlib
 import os
 import time
 
 # Third Party
+from regex import F
 from torch.backends import mps
 from transformers import BatchEncoding
 import numpy as np
@@ -673,37 +675,84 @@ class EmbeddingModule(ModuleBase):
         ModuleConfig(saver.config).save(model_config_path)
 
 
-class SentenceTransformerWithTruncate(SentenceTransformer):
-    @staticmethod
-    def _sum_token_count(tokenized: BatchEncoding) -> int:
-        """Returns the number of non-special tokens.
-        Args:
-            tokenized: BatchEncoding
-        Returns:
-            Int total of all tokens contained in tokenized.
-            Excludes special tokens such as [CLS], [SEP], [PAD], etc.
-        """
-        error.type_check(
-            "<NLP82314993E>",
-            BatchEncoding,
-            tokenized=tokenized,
-        )
-        error.value_check(
-            "<NLP82314995E>",
-            tokenized.encodings,
-            "Number of tokenized encodings is only known when a non-python tokenizer is used",
-        )
+def get_sample_start_indexes(tokenized: BatchEncoding) -> List[int]:
+    """Returns a list containing the index for the first encoding of each sample
+    contained in tokenized."""
 
-        token_count = 0
+    # When truncating occurs a sample is split across multiple encodings
+    # ie. len(tokenized.encodings) > the number of text samples input for tokenization
 
-        assert tokenized.encodings
-        for batch in range(len(tokenized.encodings)):
-            token_count += sum(
-                (1 for t in tokenized.sequence_ids(batch_index=batch) if t is not None)
+    # Knowing the encoding index of where each sample's first encoding is located allows us to
+    # access the encodings for individual samples
+
+    # note: tokenized["overflow_to_sample_mapping"] is a torch.Tensor
+
+    samples_start_idx: Dict[int, int] = {}
+    for i, sample_idx in enumerate(tokenized["overflow_to_sample_mapping"]):
+        if sample_idx not in samples_start_idx:
+            samples_start_idx[sample_idx] = i
+
+    return list(samples_start_idx.values())
+
+
+class TruncateCountBehavior(Enum):
+    ONLY = auto()
+    ALL = auto()
+    IGNORE = auto()
+
+
+def sum_token_count(
+    tokenized: BatchEncoding,
+    truncate_only: bool,
+) -> int:
+    """Returns the number of non-special tokens.
+    Args:
+        tokenized: BatchEncoding
+        only_truncated: bool
+    Returns:
+        Int total of all tokens contained in tokenized.
+    """
+    # Encoding objects have various attributes of note:
+    # - tokens: list of tokens (sub-parts of the input strings after word/subword
+    #       splitting and before conversion to integer indices)
+    # - attention_mask: List of indices specifying which tokens should be attended to
+    #       by the model. Note that [PAD] = 0, while [CLS] / [SEP] = 1
+    # - special_tokens_mask: List of 0s and 1s, with 1 specifying added special tokens
+    #       and 0 specifying regular sequence tokens
+
+    error.type_check(
+        "<NLP82314993E>",
+        BatchEncoding,
+        tokenized=tokenized,
+    )
+    error.value_check(
+        "<NLP82314995E>",
+        tokenized.encodings,
+        "Number of tokenized encodings is only known when a non-python tokenizer is used",
+    )
+
+    token_count = 0
+
+    if truncate_only:
+        # Only sum the length for the 1st encoding of each sample
+        samples_start_idx = get_sample_start_indexes(tokenized)
+
+        token_count = sum(
+            (
+                x
+                for idx in samples_start_idx
+                for x in tokenized.encodings[idx].attention_mask
             )
+        )
+    else:
+        # Sum the length of all encodings for all samples
+        for encoding in tokenized.encodings:
+            token_count += sum(encoding.attention_mask)
 
-        return token_count
+    return token_count
 
+
+class SentenceTransformerWithTruncate(SentenceTransformer):
     def _truncate_input_tokens(
         self, truncate_input_tokens: int, texts: List[str]
     ) -> TruncatedTokensTuple:
@@ -718,8 +767,8 @@ class SentenceTransformerWithTruncate(SentenceTransformer):
             texts: List[str]
                 Input texts to be checked and optionally truncated.
         Returns:
-            Tuple containing a dictionary of lists/arrays/tensors returned by the tokenizer, with proper
-            truncation ('input_ids', 'attention_mask', etc.), and the input_token_count int.
+            Tuple containing a dictionary of lists/arrays/tensors returned by the tokenizer, with
+            proper truncation ('input_ids', 'attention_mask', etc.), and the input_token_count int.
         """
 
         max_tokens = self.max_seq_length
@@ -753,46 +802,34 @@ class SentenceTransformerWithTruncate(SentenceTransformer):
             max_length=max_length,
         )
 
-        texts_map = tokenized["overflow_to_sample_mapping"]
+        # When truncation occurs multiple encodings are created for a single sample text
+        was_truncated = len(tokenized.encodings) > len(to_tokenize[0])
 
-        for text_number, text in enumerate(texts):
-            # positions: the positions (in lengths and offsets arrays) that belong to this text
-            positions = [
-                position
-                for position, sample_number in enumerate(texts_map)
-                if sample_number == text_number
-            ]
-            lengths = [tokenized["length"][pos] for pos in positions]
+        if not okay_to_truncate and was_truncated:
+            # re-tokenize without truncation to eliminate the duplication of certain
+            # special tokens (eg. [CLS] and [SEP]) with each overflow encoding.
+            tokenized = self.tokenizer(
+                *to_tokenize,
+                return_attention_mask=True,
+                return_token_type_ids=False,
+                return_overflowing_tokens=True,
+                return_offsets_mapping=True,
+                return_length=True,
+                return_tensors="pt",
+                truncation=False,
+                padding=True,
+            )
 
-            was_truncated = len(lengths) > 1  # multiple lengths when truncated
+            tokens = sum_token_count(tokenized, truncate_only=False)
+            error.log_raise(
+                "<NLP08391926E>",
+                ValueError(
+                    f"Token sequence length is longer than the specified "
+                    f"maximum sequence length for this model ({tokens} > {max_tokens})."
+                ),
+            )
 
-            if not okay_to_truncate and was_truncated:
-                # On truncation errors, we're asked to provide the actual tokens vs limit in the
-                # error message (like some models typically do). In order to calculate the tokens
-                # we will re-tokenize without padding to get that length for the error message.
-                re_tokenized = self.tokenizer(
-                    text,
-                    return_attention_mask=False,
-                    return_token_type_ids=False,
-                    return_overflowing_tokens=True,
-                    return_offsets_mapping=False,
-                    return_length=True,
-                    truncation=True,
-                    max_length=max_length,
-                )
-                re_lengths = [re_tokenized["length"][pos] for pos in positions]
-                # Raise error. We don't allow silent truncation in this case.
-                tokens = (
-                    sum(re_lengths) - 2
-                )  # add up total tokens for error message (-2 begin/end)
-                error.log_raise(
-                    "<NLP08391926E>",
-                    ValueError(
-                        f"Token sequence length is longer than the specified "
-                        f"maximum sequence length for this model ({tokens} > {max_tokens})."
-                    ),
-                )
-        input_token_count = self._sum_token_count(tokenized)
+        input_token_count = sum_token_count(tokenized, truncate_only=True)
 
         return TruncatedTokensTuple(tokenized, input_token_count)
 

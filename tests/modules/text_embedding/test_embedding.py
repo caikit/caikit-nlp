@@ -24,6 +24,10 @@ from caikit.interfaces.nlp.data_model import (
 
 # Local
 from caikit_nlp.modules.text_embedding import EmbeddingModule, utils
+from caikit_nlp.modules.text_embedding.embedding import (
+    get_sample_start_indexes,
+    sum_token_count,
+)
 from tests.fixtures import SEQ_CLASS_MODEL
 
 ## Setup ########################################################################
@@ -33,7 +37,12 @@ from tests.fixtures import SEQ_CLASS_MODEL
 BOOTSTRAPPED_MODEL = EmbeddingModule.bootstrap(SEQ_CLASS_MODEL)
 
 INPUT = "The quick brown fox jumps over the lazy dog."
-INPUT_TOKEN_COUNT = 36  # Test tokenizer counts each non-whitespace character
+
+MANY_INPUTS = [
+    "The quick brown fox jumps over the lazy dog.",
+    "But I must explain to you how all this mistaken idea.",
+    "No one rejects or dislikes.",
+]
 
 QUERY = "What is foo bar?"
 
@@ -96,7 +105,6 @@ def _assert_is_expected_embedding_result(actual):
     assert isinstance(actual, EmbeddingResult)
     vector = actual.result
     _assert_is_expected_vector(vector)
-    assert actual.input_token_count == INPUT_TOKEN_COUNT
 
 
 def _assert_is_expected_embeddings_results(actual):
@@ -793,27 +801,50 @@ def test_env_val_to_int():
 
 
 @pytest.mark.parametrize(
-    ["texts", "truncate", "expected_count"],
+    ["texts", "expected_count"],
     [
-        (["12345"], -1, 5),  # single text
-        (["12 345", "6 789"], -1, 9),  # multiple texts
-        (
-            "But I must explain to you how all this mistaken idea",
-            10,
-            42,
-        ),  # single text truncated
-        (
-            ["But I must explain to", " you how all this mistaken idea"],
-            5,
-            42,
-        ),  # multiple texts truncated
+        # Only tokens requiring model attention is counted.
+        # [PAD] doesn't attract model attention, but [CLS] and [SEP] does
+        # [CLS] 5 normal tokens [SEP]
+        (["12345"], 5 + 2),
+        # [CLS] 5 normal [SEP], [CLS] 4 normal [SEP] [PAD]
+        (["12 345", "6 789"], 9 + 4),
     ],
 )
-def test_sum_token_count(
-    texts, truncate, expected_count, loaded_model: EmbeddingModule
-):
-    _, token_count = loaded_model.model._truncate_input_tokens(
-        truncate_input_tokens=truncate, texts=texts
+def test_sum_token_count_no_truncation(texts, expected_count, loaded_model):
+    tokenized, _ = loaded_model.model._truncate_input_tokens(
+        truncate_input_tokens=-1,  # don't truncate. Model's truncation can still apply.
+        texts=texts,
+    )
+    token_count = sum_token_count(
+        tokenized,
+        truncate_only=False,
+    )
+
+    assert token_count == expected_count
+
+
+@pytest.mark.parametrize(
+    ["texts", "truncate", "expected_count"],
+    [
+        # Only tokens requiring model attention is counted.
+        # [PAD] doesn't attract model attention, but [CLS] and [SEP] does
+        # [CLS] 5 normal [SEP]
+        (["12345"], 10, 7),
+        # [CLS] 3 normal [SEP] + [CLS] 2 normal [SEP] [PAD]
+        (["12345"], 5, 5 + 4),
+        # [CLS] 3 normal [SEP] + [CLS] 2 normal [SEP] [PAD], [CLS] 3 normal [SEP] + [CLS] 1 normal [SEP] [PAD] [PAD]
+        (["12 345", "6 789"], 5, 9 + 8),
+    ],
+)
+def test_sum_token_count_with_truncation(texts, truncate, expected_count, loaded_model):
+    tokenized, _ = loaded_model.model._truncate_input_tokens(
+        truncate_input_tokens=truncate,
+        texts=texts,
+    )
+    token_count = sum_token_count(
+        tokenized,
+        truncate_only=True,
     )
 
     assert token_count == expected_count
@@ -837,13 +868,27 @@ def test_encoding_order(loaded_model: EmbeddingModule):
 
     # test order by comparing value of individual embeddings in sequence
     for i, e in enumerate(separate_vectors):
-        assert np.allclose(e, combined_vectors[i])
+        assert approx(e) == combined_vectors[i]
 
     # test expected failure case by reordering
     shifted_separate_vectors = separate_vectors[1:] + [separate_vectors[0]]
 
     for i, e in enumerate(shifted_separate_vectors):
         assert e != separate_vectors[i], "expected order to be have been altered"
-        assert not np.allclose(
-            e, combined_vectors[i]
+        assert (
+            not approx(e) == combined_vectors[i]
         ), "expected altered order to not match combined vectors"
+
+
+@pytest.mark.parametrize(
+    ("mapping", "expected"),
+    [
+        ([0, 0, 0, 0, 0], [0]),
+        ([0, 1, 2, 3, 4], [0, 1, 2, 3, 4]),
+        ([0, 0, 1, 1, 1, 2], [0, 2, 5]),
+        ([], []),
+    ],
+)
+def test_get_sample_start_indexes(mapping, expected):
+    mock_tokenized = {"overflow_to_sample_mapping": mapping}
+    assert get_sample_start_indexes(mock_tokenized) == expected  # type: ignore
