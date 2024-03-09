@@ -10,6 +10,7 @@ from pytest import approx
 from torch.backends import mps
 import numpy as np
 import pytest
+import torch
 
 # First Party
 from caikit.core import ModuleConfig
@@ -852,12 +853,17 @@ def test_sum_token_count_no_truncation(texts, expected_count, loaded_model):
     [
         # Only tokens requiring model attention is counted.
         # [PAD] doesn't attract model attention, but [CLS] and [SEP] does
-        # [CLS] 5 normal [SEP]
+        #
+        # All encodings: [CLS] 12345 [SEP]
+        # No truncation
         (["12345"], 10, 7),
-        # [CLS] 3 normal [SEP] + [CLS] 2 normal [SEP] [PAD]
-        (["12345"], 5, 5 + 4),
-        # [CLS] 3 normal [SEP] + [CLS] 2 normal [SEP] [PAD], [CLS] 3 normal [SEP] + [CLS] 1 normal [SEP] [PAD] [PAD]
-        (["12 345", "6 789"], 5, 9 + 8),
+        # All encodings: [CLS] 123 [SEP] + [CLS] 45 [SEP] [PAD]
+        # Only truncated: [CLS] 123 [SEP]
+        (["12345"], 5, 3 + 2),
+        #
+        # All encodings: [CLS] 123 [SEP] + [CLS] 45 [SEP] [PAD], [CLS] 678 [SEP] + [CLS] 9 [SEP] [PAD] [PAD]
+        # Only truncated: [CLS] 123 [SEP] , [CLS] 678 [SEP]
+        (["12 345", "6 789"], 5, (3 + 2) + (3 + 2)),
     ],
 )
 def test_sum_token_count_with_truncation(texts, truncate, expected_count, loaded_model):
@@ -913,5 +919,7 @@ def test_encoding_order(loaded_model: EmbeddingModule):
     ],
 )
 def test_get_sample_start_indexes(mapping, expected):
-    mock_tokenized = {"overflow_to_sample_mapping": mapping}
+    mock_tokenized = {
+        "overflow_to_sample_mapping": torch.Tensor(mapping).type(torch.int8)
+    }
     assert get_sample_start_indexes(mock_tokenized) == expected  # type: ignore

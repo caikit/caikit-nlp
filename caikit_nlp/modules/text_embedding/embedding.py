@@ -686,12 +686,12 @@ def get_sample_start_indexes(tokenized: BatchEncoding) -> List[int]:
 
     # note: tokenized["overflow_to_sample_mapping"] is a torch.Tensor
 
-    samples_start_idx: Dict[int, int] = {}
-    for i, sample_idx in enumerate(tokenized["overflow_to_sample_mapping"]):
-        if sample_idx not in samples_start_idx:
-            samples_start_idx[sample_idx] = i
+    samples_start_indexes: Dict[int, int] = {}
+    for i, sample in enumerate(tokenized["overflow_to_sample_mapping"]):
+        if int(sample) not in samples_start_indexes:
+            samples_start_indexes[int(sample)] = i
 
-    return list(samples_start_idx.values())
+    return list(samples_start_indexes.values())
 
 
 class TruncateCountBehavior(Enum):
