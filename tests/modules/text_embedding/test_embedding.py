@@ -37,6 +37,11 @@ from tests.fixtures import SEQ_CLASS_MODEL
 # .bootstrap is tested separately in the first test
 BOOTSTRAPPED_MODEL = EmbeddingModule.bootstrap(SEQ_CLASS_MODEL)
 
+# Token counts:
+# All expected token counts were calculated with reference to the
+# `BertForSequenceClassification` model. Each model's tokenizer behaves differently
+# which can lead to the expected token counts being invalid.
+
 INPUT = "The quick brown fox jumps over the lazy dog."
 INPUT_TOKEN_COUNT = 36 + 2  # [CLS] Thequickbrownfoxjumpsoverthelazydog. [SEP]
 
@@ -825,6 +830,7 @@ def test_env_val_to_int():
 
 
 @pytest.mark.parametrize(
+    # `expected_count` are valid for the `BertForSequenceClassification` model.
     ["texts", "expected_count"],
     [
         # Only tokens requiring model attention is counted.
@@ -849,6 +855,7 @@ def test_sum_token_count_no_truncation(texts, expected_count, loaded_model):
 
 
 @pytest.mark.parametrize(
+    # `expected_count` are valid for the `BertForSequenceClassification` model.
     ["texts", "truncate", "expected_count"],
     [
         # Only tokens requiring model attention is counted.
