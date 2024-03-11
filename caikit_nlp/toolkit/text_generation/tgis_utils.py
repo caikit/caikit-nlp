@@ -41,13 +41,15 @@ GENERATE_FUNCTION_TGIS_ARGS = """
         Whether or not the source string should be contained in the generated output,
         e.g., as a prefix.
     input_tokens: str
-        parameter for the input_tokenss.  
+        Whether or not to include list of input tokens.  
     generated_tokens: str
-        parameter for the generated_tokens.  
+        Whether or not to include list of individual generated tokens.  
     token_logprobs: str
-        parameter for the token_logprobs.  
+        Whether or not to include logprob for each returned token.  
+        Applicable only if generated_tokens == true and/or input_tokens == true
     token_ranks: str
-        parameter for the token_ranks.                                
+        Whether or not to include rank of each returned token.     
+        Applicable only if generated_tokens == true and/or input_tokens == true                             
 """.format(
     GENERATE_FUNCTION_ARGS
 )
