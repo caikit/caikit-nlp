@@ -929,4 +929,4 @@ def test_get_sample_start_indexes(mapping, expected):
     mock_tokenized = {
         "overflow_to_sample_mapping": torch.Tensor(mapping).type(torch.int8)
     }
-    assert get_sample_start_indexes(mock_tokenized) == expected  # type: ignore
+    assert get_sample_start_indexes(mock_tokenized) == expected
