@@ -1,5 +1,5 @@
-"""Tests for text embedding module
-"""
+"""Tests for text embedding module"""
+
 # Standard
 from typing import List
 import os
@@ -10,6 +10,7 @@ from pytest import approx
 from torch.backends import mps
 import numpy as np
 import pytest
+import torch
 
 # First Party
 from caikit.core import ModuleConfig
@@ -24,6 +25,10 @@ from caikit.interfaces.nlp.data_model import (
 
 # Local
 from caikit_nlp.modules.text_embedding import EmbeddingModule, utils
+from caikit_nlp.modules.text_embedding.embedding import (
+    get_sample_start_indexes,
+    sum_token_count,
+)
 from tests.fixtures import SEQ_CLASS_MODEL
 
 ## Setup ########################################################################
@@ -32,14 +37,31 @@ from tests.fixtures import SEQ_CLASS_MODEL
 # .bootstrap is tested separately in the first test
 BOOTSTRAPPED_MODEL = EmbeddingModule.bootstrap(SEQ_CLASS_MODEL)
 
+# Token counts:
+# All expected token counts were calculated with reference to the
+# `BertForSequenceClassification` model. Each model's tokenizer behaves differently
+# which can lead to the expected token counts being invalid.
+
 INPUT = "The quick brown fox jumps over the lazy dog."
+INPUT_TOKEN_COUNT = 36 + 2  # [CLS] Thequickbrownfoxjumpsoverthelazydog. [SEP]
+
+MANY_INPUTS = [
+    "The quick brown fox jumps over the lazy dog.",
+    "But I must explain to you how all this mistaken idea.",
+    "No one rejects or dislikes.",
+]
 
 QUERY = "What is foo bar?"
+QUERY_TOKEN_COUNT = 13 + 2  # [CLS] Whatisfoobar? [SEP]
 
 QUERIES: List[str] = [
     "Who is foo?",
     "Where is the bar?",
 ]
+QUERIES_TOKEN_COUNT = (9 + 2) + (
+    14 + 2
+)  # [CLS] Whoisfoo? [SEP], [CLS] Whereisthebar? [SEP]
+
 
 # These are used to test that documents can handle different types in and out
 TYPE_KEYS = "str_test", "int_test", "float_test", "nested_dict_test"
@@ -67,14 +89,21 @@ DOCS = [
     },
 ]
 
+# The `text` and `_text` keys are extracted from DOCS as input to the tokenizer
+# [CLS] foo [SEP], [CLS] bar [SEP], [CLS] fooandbar [SEP], [CLS] Whereisthebar [SEP]
+DOCS_TOKEN_COUNT = (3 + 2) + (3 + 2) + (9 + 2) + (13 + 2)
+
 # Use text or _text from DOCS for our test sentences
 SENTENCES = [d.get("text", d.get("_text")) for d in DOCS]
+
+# [CLS] foo [SEP], [CLS] bar [SEP], [CLS] fooandbar [SEP], [CLS] Whereisthebar [SEP]
+SENTENCES_TOKEN_COUNT = (3 + 2) + (3 + 2) + (9 + 2) + (13 + 2)
 
 ## Tests ########################################################################
 
 
-@pytest.fixture(scope="module")
-def loaded_model(tmp_path_factory):
+@pytest.fixture(scope="module", name="loaded_model")
+def fixture_loaded_model(tmp_path_factory):
     models_dir = tmp_path_factory.mktemp("models")
     model_path = str(models_dir / "model_id")
     BOOTSTRAPPED_MODEL.save(model_path)
@@ -211,6 +240,7 @@ def test_run_embedding_type_check(loaded_model):
 def test_run_embedding(loaded_model):
     res = loaded_model.run_embedding(text=INPUT)
     _assert_is_expected_embedding_result(res)
+    assert res.input_token_count == INPUT_TOKEN_COUNT
 
 
 def test_run_embeddings_str_type(loaded_model):
@@ -224,6 +254,7 @@ def test_run_embeddings(loaded_model):
     res = loaded_model.run_embeddings(texts=[INPUT])
     assert isinstance(res.results.vectors, list)
     _assert_is_expected_embeddings_results(res.results)
+    assert res.input_token_count == INPUT_TOKEN_COUNT
 
 
 @pytest.mark.parametrize(
@@ -245,7 +276,8 @@ def test_run_rerank_query_type_error(query, docs, top_n, loaded_model):
 
 def test_run_rerank_query_no_type_error(loaded_model):
     """no type error with list of string queries and list of dict documents"""
-    loaded_model.run_rerank_query(query=QUERY, documents=DOCS, top_n=1)
+    res = loaded_model.run_rerank_query(query=QUERY, documents=DOCS, top_n=1)
+    assert res.input_token_count == QUERY_TOKEN_COUNT + DOCS_TOKEN_COUNT
 
 
 @pytest.mark.parametrize(
@@ -263,6 +295,7 @@ def test_run_rerank_query_top_n(top_n, expected, loaded_model):
     res = loaded_model.run_rerank_query(query=QUERY, documents=DOCS, top_n=top_n)
     assert isinstance(res, RerankResult)
     assert len(res.result.scores) == expected
+    assert res.input_token_count == QUERY_TOKEN_COUNT + DOCS_TOKEN_COUNT
 
 
 def test_run_rerank_query_no_query(loaded_model):
@@ -286,6 +319,7 @@ def test_run_rerank_query(loaded_model):
 
     types_found = _assert_valid_scores(scores)
     _assert_types_found(types_found)
+    assert res.input_token_count == QUERY_TOKEN_COUNT + DOCS_TOKEN_COUNT
 
 
 @pytest.mark.parametrize(
@@ -300,7 +334,8 @@ def test_run_rerank_queries_type_error(queries, docs, loaded_model):
 
 def test_run_rerank_queries_no_type_error(loaded_model):
     """no type error with list of string queries and list of dict documents"""
-    loaded_model.run_rerank_queries(queries=QUERIES, documents=DOCS, top_n=99)
+    res = loaded_model.run_rerank_queries(queries=QUERIES, documents=DOCS, top_n=99)
+    assert res.input_token_count == QUERIES_TOKEN_COUNT + DOCS_TOKEN_COUNT
 
 
 @pytest.mark.parametrize(
@@ -321,6 +356,7 @@ def test_run_rerank_queries_top_n(top_n, expected, loaded_model):
     assert len(res.results) == len(QUERIES)
     for result in res.results:
         assert len(result.scores) == expected
+    assert res.input_token_count == QUERIES_TOKEN_COUNT + DOCS_TOKEN_COUNT
 
 
 @pytest.mark.parametrize(
@@ -361,6 +397,7 @@ def test_run_rerank_queries(loaded_model):
 
     # Make sure our document fields of different types made it in/out ok
     _assert_types_found(types_found)
+    assert rerank_result.input_token_count == QUERIES_TOKEN_COUNT + DOCS_TOKEN_COUNT
 
 
 def test_run_sentence_similarity(loaded_model):
@@ -371,6 +408,7 @@ def test_run_sentence_similarity(loaded_model):
     assert len(scores) == len(SENTENCES)
     for score in scores:
         assert isinstance(score, float)
+    assert res.input_token_count == QUERY_TOKEN_COUNT + SENTENCES_TOKEN_COUNT
 
 
 def test_run_sentence_similarities(loaded_model):
@@ -384,6 +422,7 @@ def test_run_sentence_similarities(loaded_model):
         assert len(scores) == len(SENTENCES)
         for score in scores:
             assert isinstance(score, float)
+    assert res.input_token_count == QUERIES_TOKEN_COUNT + SENTENCES_TOKEN_COUNT
 
 
 @pytest.mark.parametrize(
@@ -403,7 +442,7 @@ def test_run_sentence_similarities(loaded_model):
         ),
     ],
 )
-def test__select_device(use_ipex, device, expected, monkeypatch):
+def test__select_device(use_ipex, device, expected):
     assert EmbeddingModule._select_device(use_ipex, device) == expected
 
 
@@ -788,3 +827,106 @@ def test_env_val_to_int():
     assert 456 == utils.env_val_to_int("456", expected_default)
     assert 456 == utils.env_val_to_int(" 456 ", expected_default)
     assert 1 == utils.env_val_to_int(True, expected_default)
+
+
+@pytest.mark.parametrize(
+    # `expected_count` are valid for the `BertForSequenceClassification` model.
+    ["texts", "expected_count"],
+    [
+        # Only tokens requiring model attention is counted.
+        # [PAD] doesn't attract model attention, but [CLS] and [SEP] does
+        # [CLS] 5 normal tokens [SEP]
+        (["12345"], 5 + 2),
+        # [CLS] 5 normal [SEP], [CLS] 4 normal [SEP] [PAD]
+        (["12 345", "6 789"], 9 + 4),
+    ],
+)
+def test_sum_token_count_no_truncation(texts, expected_count, loaded_model):
+    tokenized, _ = loaded_model.model._truncate_input_tokens(
+        truncate_input_tokens=-1,  # don't truncate. Model's truncation can still apply.
+        texts=texts,
+    )
+    token_count = sum_token_count(
+        tokenized,
+        truncate_only=False,
+    )
+
+    assert token_count == expected_count
+
+
+@pytest.mark.parametrize(
+    # `expected_count` are valid for the `BertForSequenceClassification` model.
+    ["texts", "truncate", "expected_count"],
+    [
+        # Only tokens requiring model attention is counted.
+        # [PAD] doesn't attract model attention, but [CLS] and [SEP] does
+        #
+        # All encodings: [CLS] 12345 [SEP]
+        # No truncation
+        (["12345"], 10, 7),
+        # All encodings: [CLS] 123 [SEP] + [CLS] 45 [SEP] [PAD]
+        # Only truncated: [CLS] 123 [SEP]
+        (["12345"], 5, 3 + 2),
+        #
+        # All encodings: [CLS] 123 [SEP] + [CLS] 45 [SEP] [PAD], [CLS] 678 [SEP] + [CLS] 9 [SEP] [PAD] [PAD]
+        # Only truncated: [CLS] 123 [SEP] , [CLS] 678 [SEP]
+        (["12 345", "6 789"], 5, (3 + 2) + (3 + 2)),
+    ],
+)
+def test_sum_token_count_with_truncation(texts, truncate, expected_count, loaded_model):
+    tokenized, _ = loaded_model.model._truncate_input_tokens(
+        truncate_input_tokens=truncate,
+        texts=texts,
+    )
+    token_count = sum_token_count(
+        tokenized,
+        truncate_only=True,
+    )
+
+    assert token_count == expected_count
+
+
+def test_encoding_order(loaded_model: EmbeddingModule):
+    """Confirm that encoding doesn't modify the original sort order"""
+    separate_embeddings = [loaded_model.run_embedding(text=i) for i in MANY_INPUTS]
+    combined_embeddings = loaded_model.run_embeddings(texts=MANY_INPUTS)
+
+    separate_vectors = [
+        e.to_dict()["result"]["data"]["values"] for e in separate_embeddings
+    ]
+    combined_vectors = [
+        e["data"]["values"] for e in combined_embeddings.to_dict()["results"]["vectors"]
+    ]
+
+    assert len(separate_vectors) == len(
+        combined_vectors
+    ), "expected the same number separate and combined embeddings"
+
+    # test order by comparing value of individual embeddings in sequence
+    for i, e in enumerate(separate_vectors):
+        assert approx(e) == combined_vectors[i]
+
+    # test expected failure case by reordering
+    shifted_separate_vectors = separate_vectors[1:] + [separate_vectors[0]]
+
+    for i, e in enumerate(shifted_separate_vectors):
+        assert e != separate_vectors[i], "expected order to be have been altered"
+        assert (
+            not approx(e) == combined_vectors[i]
+        ), "expected altered order to not match combined vectors"
+
+
+@pytest.mark.parametrize(
+    ("mapping", "expected"),
+    [
+        ([0, 0, 0, 0, 0], [0]),
+        ([0, 1, 2, 3, 4], [0, 1, 2, 3, 4]),
+        ([0, 0, 1, 1, 1, 2], [0, 2, 5]),
+        ([], []),
+    ],
+)
+def test_get_sample_start_indexes(mapping, expected):
+    mock_tokenized = {
+        "overflow_to_sample_mapping": torch.Tensor(mapping).type(torch.int8)
+    }
+    assert get_sample_start_indexes(mock_tokenized) == expected
