@@ -912,7 +912,8 @@ class SentenceTransformerWithTruncate(SentenceTransformer):
 
         :return:
            If return_token_count is False, the embedding is returned as a numpy matrix.
-           If return_token_count is True, a tuple is returned with both the embedding and the input token count.
+           If return_token_count is True, a tuple is returned with both the embedding and
+                the input token count.
         """
 
         # These args are for API compatability, but are currently ignored in our version of encode()
