@@ -48,6 +48,8 @@ embedding:
   retries: 0
   # Batch size for encode() if <= 0 or invalid, the sentence-transformers default is used
   batch_size: 0
+  # Should implicit truncation (with truncate_input_tokens=0) throw error for truncation (default) or disable this
+  implicit_truncation_errors: true
   # Attempt to optimize with PyTorch compile()
   pt2_compile: false
   # Use IPEX optimize. Works best when used with autocast (bfloat16) below.
