@@ -66,13 +66,11 @@ try:
     sentence_transformers = importlib.import_module("sentence_transformers")
     # Third Party
     from sentence_transformers import SentenceTransformer
+    from sentence_transformers.util import batch_to_device, cos_sim, dot_score
     from sentence_transformers.util import (
-        batch_to_device,
-        cos_sim,
-        dot_score,
-        normalize_embeddings,
-        semantic_search,
+        normalize_embeddings as normalize,  # avoid parameter shadowing
     )
+    from sentence_transformers.util import semantic_search
 except ModuleNotFoundError:
     # When it is not available, create a dummy that raises an error on attempted init()
     class SentenceTransformerNotAvailable:
@@ -89,6 +87,9 @@ IPEX = env_val_to_bool(val=embedding_cfg.get("ipex"))
 PT2_COMPILE = env_val_to_bool(val=embedding_cfg.get("pt2_compile"))
 RETRIES = env_val_to_int(val=embedding_cfg.get("retries"), default=0)
 BATCH_SIZE = env_val_to_int(val=embedding_cfg.get("batch_size"), default=0)
+NO_IMPLICIT_TRUNCATION = env_val_to_bool(
+    val=embedding_cfg.get("implicit_truncation_errors", True)
+)
 DEVICE = embedding_cfg.get("device", "")
 
 RT = TypeVar("RT")  # return type
@@ -271,7 +272,9 @@ class EmbeddingModule(ModuleBase):
             exception=first_exception,
         )
 
-    def _encode_with_retry(self, *args, **kwargs) -> EmbeddingResultTuple:
+    def _encode_with_retry(
+        self, *args, **kwargs
+    ) -> Union[EmbeddingResultTuple, List[torch.Tensor], np.ndarray, torch.Tensor]:
         """All encode calls should use this for consistent param adding and retry loop"""
 
         # Add the batch_size kwarg if not passed in and given a usable BATCH_SIZE
@@ -281,6 +284,23 @@ class EmbeddingModule(ModuleBase):
             if "batch_size" not in kwargs:
                 kwargs["batch_size"] = BATCH_SIZE
 
+        if isinstance(self.model, SentenceTransformerWithTruncate):
+            kwargs[
+                "implicit_truncation_errors"
+            ] = NO_IMPLICIT_TRUNCATION  # config/env overrides default
+            return self._with_retry(self.model.encode, *args, **kwargs)
+
+        # Else...
+        # It's possible to init with a model that doesn't have the added kwargs.
+        # E.g. a SentenceTransformer or other transformer model. Remove those kwargs!
+        # This is not the normal use case but at least don't pass invalid kwargs, to encode()
+        # and don't return the unexpected tuple (adding token count).
+        if "truncate_input_tokens" in kwargs:
+            del kwargs["truncate_input_tokens"]
+        if "return_token_count" in kwargs:
+            del kwargs["return_token_count"]
+        if "implicit_truncation_errors" in kwargs:
+            del kwargs["implicit_truncation_errors"]
         return self._with_retry(self.model.encode, *args, **kwargs)
 
     @EmbeddingTask.taskmethod()
@@ -306,7 +326,9 @@ class EmbeddingModule(ModuleBase):
         error.type_check("<NLP27491611E>", str, text=text)
 
         embeddings, input_token_count = self._encode_with_retry(
-            text, truncate_input_tokens=truncate_input_tokens
+            text,
+            truncate_input_tokens=truncate_input_tokens,
+            return_token_count=True,
         )
         return EmbeddingResult(
             result=Vector1D.from_vector(embeddings),
@@ -341,7 +363,9 @@ class EmbeddingModule(ModuleBase):
             texts = [texts]
 
         embeddings, input_token_count = self._encode_with_retry(
-            texts, truncate_input_tokens=truncate_input_tokens
+            texts,
+            truncate_input_tokens=truncate_input_tokens,
+            return_token_count=True,
         )
         vectors = [Vector1D.from_vector(e) for e in embeddings]
 
@@ -375,10 +399,14 @@ class EmbeddingModule(ModuleBase):
         """
 
         source_embedding, source_token_count = self._encode_with_retry(
-            source_sentence, truncate_input_tokens=truncate_input_tokens
+            source_sentence,
+            truncate_input_tokens=truncate_input_tokens,
+            return_token_count=True,
         )
         embeddings, sentences_token_count = self._encode_with_retry(
-            sentences, truncate_input_tokens=truncate_input_tokens
+            sentences,
+            truncate_input_tokens=truncate_input_tokens,
+            return_token_count=True,
         )
 
         input_token_count = source_token_count + sentences_token_count
@@ -415,10 +443,14 @@ class EmbeddingModule(ModuleBase):
         """
 
         source_embedding, source_token_count = self._encode_with_retry(
-            source_sentences, truncate_input_tokens=truncate_input_tokens
+            source_sentences,
+            truncate_input_tokens=truncate_input_tokens,
+            return_token_count=True,
         )
         embeddings, sentences_token_count = self._encode_with_retry(
-            sentences, truncate_input_tokens=truncate_input_tokens
+            sentences,
+            truncate_input_tokens=truncate_input_tokens,
+            return_token_count=True,
         )
 
         input_token_count = source_token_count + sentences_token_count
@@ -582,16 +614,18 @@ class EmbeddingModule(ModuleBase):
         doc_embeddings, doc_token_count = self._encode_with_retry(
             doc_texts,
             truncate_input_tokens=truncate_input_tokens,
+            return_token_count=True,
             convert_to_tensor=True,
         )
-        doc_embeddings = normalize_embeddings(doc_embeddings.to(self.model.device))
+        doc_embeddings = normalize(doc_embeddings.to(self.model.device))
 
         query_embeddings, query_token_count = self._encode_with_retry(
             queries,
             truncate_input_tokens=truncate_input_tokens,
+            return_token_count=True,
             convert_to_tensor=True,
         )
-        query_embeddings = normalize_embeddings(query_embeddings.to(self.model.device))
+        query_embeddings = normalize(query_embeddings.to(self.model.device))
 
         res = semantic_search(
             query_embeddings, doc_embeddings, top_k=top_n, score_function=dot_score
@@ -754,7 +788,10 @@ def sum_token_count(
 
 class SentenceTransformerWithTruncate(SentenceTransformer):
     def _truncate_input_tokens(
-        self, truncate_input_tokens: int, texts: List[str]
+        self,
+        truncate_input_tokens: int,
+        texts: List[str],
+        implicit_truncation_errors: bool = True,
     ) -> TruncatedTokensTuple:
         """Truncate input tokens
         Args:
@@ -766,6 +803,8 @@ class SentenceTransformerWithTruncate(SentenceTransformer):
                 Otherwise, we take this usable truncation limit to truncate the input tokens.
             texts: List[str]
                 Input texts to be checked and optionally truncated.
+            implicit_truncation_errors: bool
+                Configuration indicates whether implicit truncation should be rejected.
         Returns:
             Tuple containing a dictionary of lists/arrays/tensors returned by the tokenizer, with
             proper truncation ('input_ids', 'attention_mask', etc.), and the input_token_count int.
@@ -781,7 +820,7 @@ class SentenceTransformerWithTruncate(SentenceTransformer):
             okay_to_truncate = True
             max_length = truncate_input_tokens
         else:
-            okay_to_truncate = False
+            okay_to_truncate = not implicit_truncation_errors
             max_length = max_tokens
 
         assert len(texts) > 0, "Cannot truncate nothing"
@@ -837,31 +876,52 @@ class SentenceTransformerWithTruncate(SentenceTransformer):
         self,
         sentences: Union[str, List[str]],
         batch_size: int = 32,
-        device: Optional[str] = None,
+        show_progress_bar: bool = None,
+        output_value: str = "sentence_embedding",
         convert_to_numpy: bool = True,
         convert_to_tensor: bool = False,
+        device: str = None,
+        normalize_embeddings: bool = False,
         truncate_input_tokens: int = 0,
-    ) -> EmbeddingResultTuple:
+        return_token_count: bool = False,
+        implicit_truncation_errors: bool = True,
+    ) -> Union[EmbeddingResultTuple, List[torch.Tensor], np.ndarray, torch.Tensor]:
         """
         Computes sentence embeddings
 
         :param sentences: the sentences to embed
         :param batch_size: the batch size used for the computation
-        :param device: Which torch.device to use for the computation
+        :param show_progress_bar: Ignored here. Added for compatibility with super API.
+        :param output_value: Ignored here. Added for compatibility with super API.
         :param convert_to_numpy: If true, the output is a list of numpy vectors. Else, it is a list
                 of pytorch tensors.
         :param convert_to_tensor: If true, you get one large tensor as return. Overwrites any
                 setting from convert_to_numpy
+        :param device: Which torch.device to use for the computation
+        :param normalize_embeddings: Ignored here. Added for compatibility with super API.
         :param truncate_input_tokens: Truncation length for input tokens.
                 Truncation length for input tokens.
                 If less than zero, this truncation is left up to the tokenizer default (model max).
                 If zero or greater than the model's maximum, then this is used as a test
-                to see if truncation is needed. If needed is needed, an exception is thrown.
+                to see if truncation is needed. If truncation is needed, an exception is thrown,
+                unless implicit_truncation_errors=False (see below).
                 Otherwise, we take this usable truncation limit to truncate the input tokens.
+        :param return_token_count: If true, a tuple is returned to add the input token count.
+        :param implicit_truncation_errors: If true (default) implicit truncation throws an error.
+                If false, the model default behavior or used.
 
         :return:
-           A tuple of the embedding, as a numpy matrix, and the input_token_count int.
+           If return_token_count is False, the embedding is returned as a numpy matrix.
+           If return_token_count is True, a tuple is returned with both the embedding and
+                the input token count.
         """
+
+        # These args are for API compatability, but are currently ignored in our version of encode()
+        _ = (
+            show_progress_bar,
+            output_value,
+            normalize_embeddings,
+        )
 
         self.eval()
 
@@ -899,7 +959,9 @@ class SentenceTransformerWithTruncate(SentenceTransformer):
         for start_index in range(0, len(list_of_sentences), batch_size):
             sentences_batch = sentences_sorted[start_index : start_index + batch_size]
             features, token_count = self._truncate_input_tokens(
-                truncate_input_tokens, sentences_batch
+                truncate_input_tokens,
+                sentences_batch,
+                implicit_truncation_errors=implicit_truncation_errors,
             )
             input_token_count += token_count
 
@@ -931,4 +993,8 @@ class SentenceTransformerWithTruncate(SentenceTransformer):
         if input_was_string:
             all_embeddings = all_embeddings[0]
 
-        return EmbeddingResultTuple(all_embeddings, input_token_count)
+        return (
+            EmbeddingResultTuple(all_embeddings, input_token_count)
+            if return_token_count
+            else all_embeddings
+        )

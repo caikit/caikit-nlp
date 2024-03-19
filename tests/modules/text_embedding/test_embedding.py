@@ -1,7 +1,7 @@
 """Tests for text embedding module"""
 
 # Standard
-from typing import List
+from typing import List, Tuple
 import os
 import tempfile
 
@@ -170,8 +170,15 @@ def _assert_valid_scores(scores, type_tests={}):
     return type_tests
 
 
-def test_bootstrap_reuse():
-    assert isinstance(BOOTSTRAPPED_MODEL, EmbeddingModule), "bootstrap reuse error"
+def test_bootstrap_model(loaded_model):
+    assert isinstance(BOOTSTRAPPED_MODEL, EmbeddingModule), "bootstrap model type"
+    assert (
+        BOOTSTRAPPED_MODEL.model.__class__.__name__ == "SentenceTransformer"
+    ), "bootstrap model class name"
+    # worth noting that bootstrap does not wrap, but load does
+    assert (
+        loaded_model.model.__class__.__name__ == "SentenceTransformerWithTruncate"
+    ), "loaded model class name"
 
 
 def test_save_load_and_run():
@@ -488,6 +495,49 @@ def test__truncate_input_tokens_raises(truncate_input_tokens, loaded_model):
         loaded_model.model.encode(
             sentences=[too_long], truncate_input_tokens=truncate_input_tokens
         )
+    # Same behavior when implicit_truncation_errors is True (the default)
+    with pytest.raises(ValueError, match=f"({over} > {model_max})"):
+        loaded_model.model.encode(
+            sentences=[too_long],
+            truncate_input_tokens=truncate_input_tokens,
+            implicit_truncation_errors=True,
+        )
+    # Different behavior when implicit_truncation_errors is False -- no error raised!
+    loaded_model.model.encode(
+        sentences=[too_long],
+        truncate_input_tokens=truncate_input_tokens,
+        implicit_truncation_errors=False,
+    )
+
+
+def test__implicit_truncation(loaded_model):
+    """Test that implicit truncation happens (when allowed)"""
+    model_max = loaded_model.model.max_seq_length
+
+    too_long = "x " * (model_max - 1)  # This will go over a little
+    extra_long = (
+        too_long
+        + "more clever words that surely change the meaning of this text"
+        * (model_max - 1)
+    )
+
+    # Allowed truncation using default tokens (0) and config to disable the error.
+    res = loaded_model.model.encode(
+        sentences=[too_long], truncate_input_tokens=0, implicit_truncation_errors=False
+    )
+    # Allowed truncation using model max
+    res_extra_max = loaded_model.model.encode(
+        sentences=[extra_long], truncate_input_tokens=loaded_model.model.max_seq_length
+    )
+    # Allowed truncation using -1 to just let the model do its thing
+    res_extra_neg = loaded_model.model.encode(
+        sentences=[extra_long], truncate_input_tokens=-1
+    )
+
+    # Demonstrating that when implicit truncation is allowed, sentence-transformers is quietly truncating at model max
+    # The simple too_long string of x's, is equivalent to the string with significantly different extra text (truncated)
+    assert np.allclose(res, res_extra_max)
+    assert np.allclose(res, res_extra_neg)
 
 
 def test_not_too_many_tokens(loaded_model):
@@ -930,3 +980,25 @@ def test_get_sample_start_indexes(mapping, expected):
         "overflow_to_sample_mapping": torch.Tensor(mapping).type(torch.int8)
     }
     assert get_sample_start_indexes(mock_tokenized) == expected
+
+
+def test_encode_extensions(loaded_model):
+    # loaded model can return_token_count
+    ret = loaded_model._encode_with_retry("text here", return_token_count=True)
+    assert isinstance(ret, Tuple)
+    assert isinstance(ret[0], np.ndarray)
+    assert isinstance(ret[1], int)
+    ret = loaded_model._encode_with_retry("text here", return_token_count=False)
+    assert isinstance(ret, np.ndarray)
+
+    # Make sure use with un-wrapped SentenceTransformer model is unaffected by extended params or return tokens
+    ret = BOOTSTRAPPED_MODEL._encode_with_retry(
+        "text here",
+        return_token_count=True,
+        truncate_input_tokens=123,
+        implicit_truncation_errors=False,
+    )
+    assert isinstance(ret, np.ndarray)
+    BOOTSTRAPPED_MODEL._encode_with_retry(
+        "text here"
+    )  # and no KeyError trying to remove non-existing keys
