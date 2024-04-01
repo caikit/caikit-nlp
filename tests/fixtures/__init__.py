@@ -260,6 +260,10 @@ class StubTGISClient:
         assert result.generated_tokens == 1
         assert result.finish_reason == 5
         assert result.input_token_count == 1
+        assert result.tokens[0].text == "moose"
+        assert result.tokens[0].logprob == 0.2
+        assert result.input_tokens[0].text == "moose"
+        assert result.input_tokens[0].logprob == 0.2
 
     @staticmethod
     def validate_stream_generate_response(stream_result):
@@ -271,6 +275,8 @@ class StubTGISClient:
         assert first_result.generated_text == "moose"
         assert first_result.tokens[0].text == "moose"
         assert first_result.tokens[0].logprob == 0.2
+        assert first_result.input_tokens[0].text == "moose"
+        assert first_result.input_tokens[0].logprob == 0.2
         assert first_result.details.finish_reason == 5
         assert first_result.details.generated_tokens == 1
         assert first_result.details.seed == 10

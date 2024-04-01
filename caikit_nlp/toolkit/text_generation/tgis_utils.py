@@ -37,17 +37,17 @@ error = error_handler.get(log)
 
 GENERATE_FUNCTION_TGIS_ARGS = """
     {}
-    preserve_input_text: str
+    preserve_input_text: bool
         Whether or not the source string should be contained in the generated output,
         e.g., as a prefix.
-    input_tokens: str
+    input_tokens: bool
         Whether or not to include list of input tokens.  
-    generated_tokens: str
+    generated_tokens: bool
         Whether or not to include list of individual generated tokens.  
-    token_logprobs: str
+    token_logprobs: bool
         Whether or not to include logprob for each returned token.  
         Applicable only if generated_tokens == true and/or input_tokens == true
-    token_ranks: str
+    token_ranks: bool
         Whether or not to include rank of each returned token.     
         Applicable only if generated_tokens == true and/or input_tokens == true                             
 """.format(
