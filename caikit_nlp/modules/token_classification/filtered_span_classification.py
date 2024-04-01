@@ -18,6 +18,7 @@ At this time this module is only designed for inference"""
 
 # Standard
 from typing import Iterable, List, Optional, Union
+import itertools
 import os
 
 # First Party
@@ -213,13 +214,18 @@ class FilteredSpanClassification(ModuleBase):
         if threshold is None:
             threshold = self.default_threshold
 
-        # Types on the stream are checked later on iteration
-        if len(text_stream) == 0:
+        # Avoid length check here since it can be time consuming to iterate through stream
+        # Tee stream to 2 - one to check emptiness, one for full iteration + analysis
+        text_streams = itertools.tee(text_stream, 2)
+        try:
+            next(text_streams[0])
+        except StopIteration:
+            # Types on the stream are checked later on iteration
             # Allow empty text case to fall through - some tokenizers or
             # classifiers may error on this
             yield TokenClassificationStreamResult(results=[], processed_index=0)
 
-        for span_output in self._stream_span_output(text_stream):
+        for span_output in self._stream_span_output(text_streams[1]):
             classification_result = self.classifier.run(span_output.text)
             results_to_end_of_span = False
             for classification in classification_result.results:
