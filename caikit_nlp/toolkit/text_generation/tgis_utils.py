@@ -46,10 +46,10 @@ GENERATE_FUNCTION_TGIS_ARGS = """
         Whether or not to include list of individual generated tokens.  
     token_logprobs: bool
         Whether or not to include logprob for each returned token.  
-        Applicable only if generated_tokens == true and / or input_tokens == true
+        Applicable only if generated_tokens == true and/or input_tokens == true
     token_ranks: bool
         Whether or not to include rank of each returned token.     
-        Applicable only if generated_tokens == true and / or input_tokens == true                             
+        Applicable only if generated_tokens == true and/or input_tokens == true                             
 """.format(
     GENERATE_FUNCTION_ARGS
 )
