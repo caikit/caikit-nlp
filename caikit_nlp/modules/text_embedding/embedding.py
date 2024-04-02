@@ -13,17 +13,21 @@
 # limitations under the License.
 
 # Standard
-from copy import deepcopy
-from typing import List, Optional
+from collections.abc import Sized
+from enum import Enum, auto
+from typing import Callable, Dict, List, NamedTuple, Optional, TypeVar, Union
 import importlib
 import os
 import time
 
 # Third Party
 from torch.backends import mps
+from transformers import BatchEncoding
+import numpy as np
 import torch
 
 # First Party
+from caikit import get_config
 from caikit.core import ModuleBase, ModuleConfig, ModuleSaver, module
 from caikit.core.data_model.json_dict import JsonDict
 from caikit.core.exceptions import error_handler
@@ -49,8 +53,12 @@ from caikit.interfaces.nlp.tasks import (
 )
 import alog
 
+# Local
+from caikit_nlp.modules.text_embedding.utils import env_val_to_bool, env_val_to_int
+
 logger = alog.use_channel("TXT_EMB")
 error = error_handler.get(logger)
+
 
 # To avoid dependency problems, make sentence-transformers an optional import and
 # defer any ModuleNotFoundError until someone actually tries to init a model with this module.
@@ -58,12 +66,11 @@ try:
     sentence_transformers = importlib.import_module("sentence_transformers")
     # Third Party
     from sentence_transformers import SentenceTransformer
+    from sentence_transformers.util import batch_to_device, cos_sim, dot_score
     from sentence_transformers.util import (
-        cos_sim,
-        dot_score,
-        normalize_embeddings,
-        semantic_search,
+        normalize_embeddings as normalize,  # avoid parameter shadowing
     )
+    from sentence_transformers.util import semantic_search
 except ModuleNotFoundError:
     # When it is not available, create a dummy that raises an error on attempted init()
     class SentenceTransformerNotAvailable:
@@ -73,22 +80,33 @@ except ModuleNotFoundError:
 
     SentenceTransformer = SentenceTransformerNotAvailable
 
+embedding_cfg = get_config().get("embedding", {})
 
-# For testing env vars for values that mean false
-FALSY = ("no", "n", "false", "0", "f", "off")
+AUTOCAST = env_val_to_bool(val=embedding_cfg.get("autocast"))
+IPEX = env_val_to_bool(val=embedding_cfg.get("ipex"))
+PT2_COMPILE = env_val_to_bool(val=embedding_cfg.get("pt2_compile"))
+RETRIES = env_val_to_int(val=embedding_cfg.get("retries"), default=0)
+BATCH_SIZE = env_val_to_int(val=embedding_cfg.get("batch_size"), default=0)
+NO_IMPLICIT_TRUNCATION = env_val_to_bool(
+    val=embedding_cfg.get("implicit_truncation_errors", True)
+)
+DEVICE = embedding_cfg.get("device", "")
+
+RT = TypeVar("RT")  # return type
 
 
-def env_var_to_int(name, default):
-    """Returns the integer value of name env var or default value if None or invalid integer"""
-    s = os.getenv(name, default)
-    try:
-        return int(s)
-    except (TypeError, ValueError):
-        return default
+class EmbeddingResultTuple(NamedTuple):
+    """Output of SentenceTransformerWithTruncate.encode()"""
+
+    embedding: np.ndarray
+    input_token_count: int
 
 
-# Batch size for encode() if <= 0 or invalid, the sentence-transformers default is used
-BATCH_SIZE = env_var_to_int("BATCH_SIZE", default=0)
+class TruncatedTokensTuple(NamedTuple):
+    """Output of SentenceTransformerWithTruncate._truncate_input_tokens()"""
+
+    tokenized: BatchEncoding
+    input_token_count: int
 
 
 @module(
@@ -105,9 +123,8 @@ BATCH_SIZE = env_var_to_int("BATCH_SIZE", default=0)
     ],
 )
 class EmbeddingModule(ModuleBase):
-
     # Retry count if enabled to try again (was for thread contention errors)
-    RETRY_COUNT = max(env_var_to_int("RETRY_COUNT", default=0), 0)
+    RETRY_COUNT = max(RETRIES, 0)  # Ensure non-negative, before using in loop!
 
     _ARTIFACTS_PATH_KEY = "artifacts_path"
     _ARTIFACTS_PATH_DEFAULT = "artifacts"
@@ -118,12 +135,6 @@ class EmbeddingModule(ModuleBase):
     ):
         super().__init__()
         self.model = model
-
-        # Separate copy of tokenizer just for _truncate_input_tokens()
-        # This avoids RuntimeError('Already borrowed') which is way too frequent
-        # otherwise when using Python threads and tokenize for truncation followed
-        # by sentence-transformers tokenize/encode.
-        self._tokenizer = deepcopy(self.model.tokenizer)
 
     @classmethod
     def load(cls, model_path: str, *args, **kwargs) -> "EmbeddingModule":
@@ -150,13 +161,15 @@ class EmbeddingModule(ModuleBase):
         artifacts_path = os.path.abspath(os.path.join(model_path, artifacts_path))
         error.dir_check("<NLP34197772E>", artifacts_path)
 
-        ipex = cls._get_ipex()
-        device = cls._select_device(ipex)
-        model = SentenceTransformer(model_name_or_path=artifacts_path, device=device)
+        ipex = cls._get_ipex(IPEX)
+        device = cls._select_device(ipex, DEVICE)
+        model = SentenceTransformerWithTruncate(
+            model_name_or_path=artifacts_path, device=device
+        )
         model.eval()  # required for IPEX at least
         if device is not None:
             model.to(torch.device(device))
-        model = EmbeddingModule._optimize(model, ipex, device)
+        model = EmbeddingModule._optimize(model, ipex, device, AUTOCAST, PT2_COMPILE)
 
         # Validate model with any encode test (simple and hardcoded for now).
         # This gets some of the first-time inference cost out of the way.
@@ -165,8 +178,8 @@ class EmbeddingModule(ModuleBase):
 
         return cls(model)
 
-    @staticmethod
-    def _get_ipex():
+    @classmethod
+    def _get_ipex(cls, ipex_flag):
         """Get IPEX optimization library if enabled and available, else return False
 
         Returns ipex library or False
@@ -174,32 +187,28 @@ class EmbeddingModule(ModuleBase):
         ret = False
 
         # Enabled by environment variable
-        # When IPEX_OPTIMIZE is not false, attempt to import the library and use it.
-        if os.getenv("IPEX_OPTIMIZE", "false").lower() not in FALSY:
+        # When IPEX is not false, attempt to import the library and use it.
+        if ipex_flag:
             try:
                 ret = importlib.import_module("intel_extension_for_pytorch")
             except Exception as ie:  # pylint: disable=broad-exception-caught
                 # We don't require the module so catch, log, proceed to return False
                 msg = (
-                    f"IPEX_OPTIMIZE enabled in env, but skipping ipex.optimize() because "
+                    f"IPEX enabled in env, but skipping ipex.optimize() because "
                     f"import intel_extension_for_pytorch failed with exception: {ie}"
                 )
-                logger.warning(msg, exc_info=1)
+                logger.warning(msg, exc_info=True)
 
         return ret
 
     @staticmethod
-    def _select_device(use_ipex):
+    def _select_device(use_ipex, device):
         """Use environment variables and availability to determine the device to use"""
         if use_ipex:
             # If enabled, use "xpu" (IPEX on GPU instead of IPEX on CPU)
-            if os.getenv("USE_XPU", "false").lower() not in FALSY:
+            if device == "xpu":
                 return "xpu"
-        elif (
-            os.getenv("USE_MPS", "false").lower() not in FALSY
-            and mps.is_built()
-            and mps.is_available()
-        ):
+        elif device == "mps" and mps.is_built() and mps.is_available():
             # Never use on ipex, but otherwise use mps if enabled and available
             return "mps"
 
@@ -220,26 +229,30 @@ class EmbeddingModule(ModuleBase):
         return "inductor"  # default backend
 
     @staticmethod
-    def _optimize(model, ipex, device):
-
+    def _optimize(model, ipex, device, autocast, pt2_compile):
         if ipex:
-            model = ipex.optimize(model)
+            if autocast:  # IPEX performs best with autocast using bfloat16
+                model = ipex.optimize(
+                    model, dtype=torch.bfloat16, weights_prepack=False
+                )
+            else:
+                model = ipex.optimize(model, weights_prepack=False)
 
         # torch.compile won't work everywhere, but when set we'll try it
-        if os.getenv("PT2_COMPILE", "false").lower() not in FALSY:
+        if pt2_compile:
             backend = EmbeddingModule._get_backend(ipex, device)
             try:
                 model = torch.compile(model, backend=backend, mode="max-autotune")
             except Exception as e:  # pylint: disable=broad-exception-caught
                 # Not always supported (e.g. in a python version) so catch, log, proceed.
                 warn_msg = (
-                    f"PT2_COMPILE enabled in env, but continuing without torch.compile() "
+                    f"PT2_COMPILE enabled, but continuing without torch.compile() "
                     f"because it failed with exception: {e}"
                 )
                 logger.warning(warn_msg, exc_info=True)
         return model
 
-    def _with_retry(self, fn, *args, **kwargs):
+    def _with_retry(self, fn: Callable[..., RT], *args, **kwargs) -> RT:
         first_exception = None
         for count in range(1 + self.RETRY_COUNT):  # try once plus retries (if needed)
             try:
@@ -259,7 +272,9 @@ class EmbeddingModule(ModuleBase):
             exception=first_exception,
         )
 
-    def _encode_with_retry(self, *args, **kwargs):
+    def _encode_with_retry(
+        self, *args, **kwargs
+    ) -> Union[EmbeddingResultTuple, List[torch.Tensor], np.ndarray, torch.Tensor]:
         """All encode calls should use this for consistent param adding and retry loop"""
 
         # Add the batch_size kwarg if not passed in and given a usable BATCH_SIZE
@@ -269,116 +284,24 @@ class EmbeddingModule(ModuleBase):
             if "batch_size" not in kwargs:
                 kwargs["batch_size"] = BATCH_SIZE
 
+        if isinstance(self.model, SentenceTransformerWithTruncate):
+            kwargs[
+                "implicit_truncation_errors"
+            ] = NO_IMPLICIT_TRUNCATION  # config/env overrides default
+            return self._with_retry(self.model.encode, *args, **kwargs)
+
+        # Else...
+        # It's possible to init with a model that doesn't have the added kwargs.
+        # E.g. a SentenceTransformer or other transformer model. Remove those kwargs!
+        # This is not the normal use case but at least don't pass invalid kwargs, to encode()
+        # and don't return the unexpected tuple (adding token count).
+        if "truncate_input_tokens" in kwargs:
+            del kwargs["truncate_input_tokens"]
+        if "return_token_count" in kwargs:
+            del kwargs["return_token_count"]
+        if "implicit_truncation_errors" in kwargs:
+            del kwargs["implicit_truncation_errors"]
         return self._with_retry(self.model.encode, *args, **kwargs)
-
-    def _truncate_input_tokens(
-        self, truncate_input_tokens, texts: List[str]
-    ) -> List[str]:
-        """Truncate input tokens
-        Args:
-            truncate_input_tokens: int
-                Truncation length for input tokens.
-                If less than zero, this is disabled (returns texts without processing).
-                If zero or greater than the model's maximum, then this is a test
-                to see if truncation is needed. If needed, an exception is thrown.
-                Otherwise, we take this usable truncation limit to truncate the tokens and then
-                decode them to return truncated strings that can be used with this model.
-            texts: List[str]
-                Input texts to be checked and optionally truncated.
-        Returns:
-            List[str]: the texts after checking and/or truncating
-        """
-
-        # NOTE: When inference is called immediately after load (typical case with lazy loading),
-        # using the tokenizer right away here results in a warning like:
-        #     huggingface/tokenizers: The current process just got forked, after parallelism
-        #     has already been used. Disabling parallelism to avoid deadlocks...
-        #     To disable this warning, you can either:
-        #     - Avoid using `tokenizers` before the fork if possible
-        #     - Explicitly set the environment variable TOKENIZERS_PARALLELISM=(true | false)
-        # A warmup encode() call in load() will take care of this (the first option above).
-        # This here comment is in case we need to set TOKENIZERS_PARALLELISM in the future.
-
-        if truncate_input_tokens < 0:
-            return texts
-
-        max_tokens = self.model.max_seq_length
-
-        # Do truncation if given a usable truncation value, else test for need to truncation
-        if 0 < truncate_input_tokens <= max_tokens:
-            okay_to_truncate = True
-            max_length = truncate_input_tokens
-            ret = []  # will return truncated texts
-        else:
-            okay_to_truncate = False
-            max_length = max_tokens
-            ret = texts  # will not alter texts when truncation is not allowed
-
-        tokenized = self._with_retry(
-            self._tokenizer,
-            texts,
-            return_attention_mask=False,
-            return_token_type_ids=False,
-            return_overflowing_tokens=True,
-            return_offsets_mapping=True,
-            return_length=True,
-            truncation=True,
-            max_length=max_length,
-        )
-
-        texts_map = tokenized["overflow_to_sample_mapping"]
-
-        for text_number, text in enumerate(texts):
-            # positions: the positions (in lengths and offsets arrays) that belong to this text
-            positions = [
-                position
-                for position, sample_number in enumerate(texts_map)
-                if sample_number == text_number
-            ]
-            lengths = [tokenized["length"][pos] for pos in positions]
-
-            was_truncated = len(lengths) > 1  # multiple lengths when truncated
-
-            if not okay_to_truncate and was_truncated:
-                # Raise error. We don't allow silent truncation in this case.
-                tokens = sum(lengths)  # add up total tokens for error message
-                error.log_raise(
-                    "<NLP08391926E>",
-                    ValueError(
-                        f"Token sequence length is longer than the specified "
-                        f"maximum sequence length for this model ({tokens} > {max_tokens})."
-                    ),
-                )
-
-            elif okay_to_truncate and not was_truncated:
-                ret.append(text)  # collect original text to return
-
-            elif okay_to_truncate and was_truncated:
-                # Truncate the text that maps to the truncated tokens.
-                # The offset_mapping describes the text position for each token.
-                # Added tokens were not in the text, so they show up as (0, 0).
-
-                # Get the text offsets for the tokens that are to be kept after truncation.
-                # Take the first set of offsets that mapped to this text's positions.
-                # This first set represents what will be kept after truncation.
-                # Each offset tells us which chars in the original text map to this token.
-                offsets = next(tokenized["offset_mapping"][pos] for pos in positions)
-
-                # Find the first offset that is not empty (0, 0) to avoid added tokens
-                start = next(offset for offset in offsets if offset != (0, 0))
-
-                # Find the last offset that is not empty (0, 0) to avoid added tokens
-                end = next(
-                    offset for offset in reversed(list(offsets)) if offset != (0, 0)
-                )
-
-                # Use the start-beginning end-ending to slice the text based on token truncation
-                # i.e. if start=(0,5) and end=(72,78) then we want slice [0:78]
-                truncated_text = text[start[0] : end[1]]
-
-                ret.append(truncated_text)  # return the truncated text for this one
-
-        return ret
 
     @EmbeddingTask.taskmethod()
     def run_embedding(
@@ -402,10 +325,15 @@ class EmbeddingModule(ModuleBase):
         """
         error.type_check("<NLP27491611E>", str, text=text)
 
-        text = self._truncate_input_tokens(truncate_input_tokens, [text])[0]
+        embeddings, input_token_count = self._encode_with_retry(
+            text,
+            truncate_input_tokens=truncate_input_tokens,
+            return_token_count=True,
+        )
         return EmbeddingResult(
-            result=Vector1D.from_vector(self._encode_with_retry(text)),
+            result=Vector1D.from_vector(embeddings),
             producer_id=self.PRODUCER_ID,
+            input_token_count=input_token_count,
         )
 
     @EmbeddingTasks.taskmethod()
@@ -434,12 +362,17 @@ class EmbeddingModule(ModuleBase):
         ):  # encode allows str, but the result would lack a dimension
             texts = [texts]
 
-        texts = self._truncate_input_tokens(truncate_input_tokens, texts)
-
-        embeddings = self._encode_with_retry(texts)
+        embeddings, input_token_count = self._encode_with_retry(
+            texts,
+            truncate_input_tokens=truncate_input_tokens,
+            return_token_count=True,
+        )
         vectors = [Vector1D.from_vector(e) for e in embeddings]
+
         return EmbeddingResults(
-            results=ListOfVector1D(vectors=vectors), producer_id=self.PRODUCER_ID
+            results=ListOfVector1D(vectors=vectors),
+            producer_id=self.PRODUCER_ID,
+            input_token_count=input_token_count,
         )
 
     @SentenceSimilarityTask.taskmethod()
@@ -465,18 +398,24 @@ class EmbeddingModule(ModuleBase):
             SentenceSimilarityResult: Similarity scores for each sentence.
         """
 
-        source_sentence = self._truncate_input_tokens(
-            truncate_input_tokens, [source_sentence]
-        )[0]
-        sentences = self._truncate_input_tokens(truncate_input_tokens, sentences)
+        source_embedding, source_token_count = self._encode_with_retry(
+            source_sentence,
+            truncate_input_tokens=truncate_input_tokens,
+            return_token_count=True,
+        )
+        embeddings, sentences_token_count = self._encode_with_retry(
+            sentences,
+            truncate_input_tokens=truncate_input_tokens,
+            return_token_count=True,
+        )
 
-        source_embedding = self._encode_with_retry(source_sentence)
-        embeddings = self._encode_with_retry(sentences)
-
+        input_token_count = source_token_count + sentences_token_count
         res = cos_sim(source_embedding, embeddings)
+
         return SentenceSimilarityResult(
             result=SentenceSimilarityScores(scores=res.tolist()[0]),
             producer_id=self.PRODUCER_ID,
+            input_token_count=input_token_count,
         )
 
     @SentenceSimilarityTasks.taskmethod()
@@ -503,19 +442,25 @@ class EmbeddingModule(ModuleBase):
                 Each one contains the source-sentence's score for each sentence in order.
         """
 
-        source_sentences = self._truncate_input_tokens(
-            truncate_input_tokens, source_sentences
+        source_embedding, source_token_count = self._encode_with_retry(
+            source_sentences,
+            truncate_input_tokens=truncate_input_tokens,
+            return_token_count=True,
         )
-        sentences = self._truncate_input_tokens(truncate_input_tokens, sentences)
+        embeddings, sentences_token_count = self._encode_with_retry(
+            sentences,
+            truncate_input_tokens=truncate_input_tokens,
+            return_token_count=True,
+        )
 
-        source_embedding = self._encode_with_retry(source_sentences)
-        embeddings = self._encode_with_retry(sentences)
-
+        input_token_count = source_token_count + sentences_token_count
         res = cos_sim(source_embedding, embeddings)
         float_list_list = res.tolist()
+
         return SentenceSimilarityResults(
             results=[SentenceSimilarityScores(fl) for fl in float_list_list],
             producer_id=self.PRODUCER_ID,
+            input_token_count=input_token_count,
         )
 
     @RerankTask.taskmethod()
@@ -579,17 +524,22 @@ class EmbeddingModule(ModuleBase):
             return_documents=return_documents,
             return_queries=return_query,
             return_text=return_text,
-        ).results
+        )
 
-        if results:
-            return RerankResult(result=results[0], producer_id=self.PRODUCER_ID)
+        if results.results:
+            return RerankResult(
+                result=results.results[0],
+                producer_id=self.PRODUCER_ID,
+                input_token_count=results.input_token_count,
+            )
 
         RerankResult(
-            producer_id=self.PRODUCER_ID,
             result=RerankScore(
                 scores=[],
                 query=query if return_query else None,
             ),
+            producer_id=self.PRODUCER_ID,
+            input_token_count=results.input_token_count,
         )
 
     @RerankTasks.taskmethod()
@@ -661,20 +611,21 @@ class EmbeddingModule(ModuleBase):
 
         doc_texts = [get_text(doc) for doc in documents]
 
-        doc_texts = self._truncate_input_tokens(truncate_input_tokens, doc_texts)
-        queries = self._truncate_input_tokens(truncate_input_tokens, queries)
-
-        doc_embeddings = normalize_embeddings(
-            self._encode_with_retry(doc_texts, convert_to_tensor=True).to(
-                self.model.device
-            )
+        doc_embeddings, doc_token_count = self._encode_with_retry(
+            doc_texts,
+            truncate_input_tokens=truncate_input_tokens,
+            return_token_count=True,
+            convert_to_tensor=True,
         )
+        doc_embeddings = normalize(doc_embeddings.to(self.model.device))
 
-        query_embeddings = normalize_embeddings(
-            self._encode_with_retry(queries, convert_to_tensor=True).to(
-                self.model.device
-            )
+        query_embeddings, query_token_count = self._encode_with_retry(
+            queries,
+            truncate_input_tokens=truncate_input_tokens,
+            return_token_count=True,
+            convert_to_tensor=True,
         )
+        query_embeddings = normalize(query_embeddings.to(self.model.device))
 
         res = semantic_search(
             query_embeddings, doc_embeddings, top_k=top_n, score_function=dot_score
@@ -702,8 +653,13 @@ class EmbeddingModule(ModuleBase):
             )
             for q, r in enumerate(res)
         ]
+        input_token_count = doc_token_count + query_token_count
 
-        return RerankResults(results=results, producer_id=self.PRODUCER_ID)
+        return RerankResults(
+            results=results,
+            producer_id=self.PRODUCER_ID,
+            input_token_count=input_token_count,
+        )
 
     @classmethod
     def bootstrap(cls, model_name_or_path: str) -> "EmbeddingModule":
@@ -750,3 +706,295 @@ class EmbeddingModule(ModuleBase):
 
         # Save the config
         ModuleConfig(saver.config).save(model_config_path)
+
+
+def get_sample_start_indexes(tokenized: BatchEncoding) -> List[int]:
+    """Returns a list containing the index for the first encoding of each sample
+    contained in tokenized."""
+
+    # When truncating occurs a sample is split across multiple encodings
+    # ie. len(tokenized.encodings) > the number of text samples input for tokenization
+
+    # Knowing the encoding index of where each sample's first encoding is located allows us to
+    # access the encodings for individual samples
+
+    # note: tokenized["overflow_to_sample_mapping"] is a torch.Tensor
+
+    samples_start_indexes: Dict[int, int] = {}
+    for i, tensor_sample in enumerate(tokenized["overflow_to_sample_mapping"]):
+        int_sample = int(tensor_sample)
+        if int_sample not in samples_start_indexes:
+            samples_start_indexes[int_sample] = i
+
+    return list(samples_start_indexes.values())
+
+
+class TruncateCountBehavior(Enum):
+    ONLY = auto()
+    ALL = auto()
+    IGNORE = auto()
+
+
+def sum_token_count(
+    tokenized: BatchEncoding,
+    truncate_only: bool,
+) -> int:
+    """Returns the number of non-special tokens.
+    Args:
+        tokenized: BatchEncoding
+        truncate_only: bool
+    Returns:
+        Int total of all tokens contained in tokenized.
+    """
+    # Encoding objects have various attributes of note:
+    # - tokens: list of tokens (sub-parts of the input strings after word/subword
+    #       splitting and before conversion to integer indices)
+    # - attention_mask: List of indices specifying which tokens should be attended to
+    #       by the model. Note that [PAD] = 0, while [CLS] / [SEP] = 1
+    # - special_tokens_mask: List of 0s and 1s, with 1 specifying added special tokens
+    #       and 0 specifying regular sequence tokens
+
+    error.type_check(
+        "<NLP82314993E>",
+        BatchEncoding,
+        tokenized=tokenized,
+    )
+    error.value_check(
+        "<NLP82314995E>",
+        tokenized.encodings,
+        "Number of tokenized encodings is only known when a non-python tokenizer is used",
+    )
+
+    token_count = 0
+
+    if truncate_only:
+        # Only sum the length for the 1st encoding of each sample
+        samples_start_idx = get_sample_start_indexes(tokenized)
+
+        token_count = sum(
+            (
+                x
+                for idx in samples_start_idx
+                for x in tokenized.encodings[idx].attention_mask
+            )
+        )
+    else:
+        # Sum the length of all encodings for all samples
+        for encoding in tokenized.encodings:
+            token_count += sum(encoding.attention_mask)
+
+    return token_count
+
+
+class SentenceTransformerWithTruncate(SentenceTransformer):
+    def _truncate_input_tokens(
+        self,
+        truncate_input_tokens: int,
+        texts: List[str],
+        implicit_truncation_errors: bool = True,
+    ) -> TruncatedTokensTuple:
+        """Truncate input tokens
+        Args:
+            truncate_input_tokens: int
+                Truncation length for input tokens.
+                If less than zero, this truncation is left up to the tokenizer default (model max).
+                If zero or greater than the model's maximum, then this is used as a test
+                to see if truncation is needed. If needed is needed, an exception is thrown.
+                Otherwise, we take this usable truncation limit to truncate the input tokens.
+            texts: List[str]
+                Input texts to be checked and optionally truncated.
+            implicit_truncation_errors: bool
+                Configuration indicates whether implicit truncation should be rejected.
+        Returns:
+            Tuple containing a dictionary of lists/arrays/tensors returned by the tokenizer, with
+            proper truncation ('input_ids', 'attention_mask', etc.), and the input_token_count int.
+        """
+
+        max_tokens = self.max_seq_length
+
+        # Do truncation if given a usable truncation value, else test for need to truncation
+        if truncate_input_tokens < 0:
+            okay_to_truncate = True
+            max_length = max_tokens
+        elif 0 < truncate_input_tokens <= max_tokens:
+            okay_to_truncate = True
+            max_length = truncate_input_tokens
+        else:
+            okay_to_truncate = not implicit_truncation_errors
+            max_length = max_tokens
+
+        assert len(texts) > 0, "Cannot truncate nothing"
+        assert isinstance(texts[0], str), "Only str can be truncated"
+
+        to_tokenize = [texts]
+        to_tokenize = [[str(s).strip() for s in col] for col in to_tokenize]
+        tokenized = self.tokenizer(
+            *to_tokenize,
+            return_attention_mask=True,
+            return_token_type_ids=False,
+            return_overflowing_tokens=True,
+            return_offsets_mapping=True,
+            return_length=True,
+            return_tensors="pt",
+            truncation=True,
+            padding=True,
+            max_length=max_length,
+        )
+
+        # When truncation occurs multiple encodings are created for a single sample text
+        was_truncated = len(tokenized.encodings) > len(to_tokenize[0])
+
+        if not okay_to_truncate and was_truncated:
+            # re-tokenize without truncation to eliminate the duplication of certain
+            # special tokens (eg. [CLS] and [SEP]) with each overflow encoding.
+            tokenized = self.tokenizer(
+                *to_tokenize,
+                return_attention_mask=True,
+                return_token_type_ids=False,
+                return_overflowing_tokens=True,
+                return_offsets_mapping=True,
+                return_length=True,
+                return_tensors="pt",
+                truncation=False,
+                padding=True,
+            )
+
+            tokens = sum_token_count(tokenized, truncate_only=False)
+            error.log_raise(
+                "<NLP08391926E>",
+                ValueError(
+                    f"Token sequence length is longer than the specified "
+                    f"maximum sequence length for this model ({tokens} > {max_tokens})."
+                ),
+            )
+
+        input_token_count = sum_token_count(tokenized, truncate_only=True)
+
+        return TruncatedTokensTuple(tokenized, input_token_count)
+
+    def encode(
+        self,
+        sentences: Union[str, List[str]],
+        batch_size: int = 32,
+        show_progress_bar: bool = None,
+        output_value: str = "sentence_embedding",
+        convert_to_numpy: bool = True,
+        convert_to_tensor: bool = False,
+        device: str = None,
+        normalize_embeddings: bool = False,
+        truncate_input_tokens: int = 0,
+        return_token_count: bool = False,
+        implicit_truncation_errors: bool = True,
+    ) -> Union[EmbeddingResultTuple, List[torch.Tensor], np.ndarray, torch.Tensor]:
+        """
+        Computes sentence embeddings
+
+        :param sentences: the sentences to embed
+        :param batch_size: the batch size used for the computation
+        :param show_progress_bar: Ignored here. Added for compatibility with super API.
+        :param output_value: Ignored here. Added for compatibility with super API.
+        :param convert_to_numpy: If true, the output is a list of numpy vectors. Else, it is a list
+                of pytorch tensors.
+        :param convert_to_tensor: If true, you get one large tensor as return. Overwrites any
+                setting from convert_to_numpy
+        :param device: Which torch.device to use for the computation
+        :param normalize_embeddings: Ignored here. Added for compatibility with super API.
+        :param truncate_input_tokens: Truncation length for input tokens.
+                Truncation length for input tokens.
+                If less than zero, this truncation is left up to the tokenizer default (model max).
+                If zero or greater than the model's maximum, then this is used as a test
+                to see if truncation is needed. If truncation is needed, an exception is thrown,
+                unless implicit_truncation_errors=False (see below).
+                Otherwise, we take this usable truncation limit to truncate the input tokens.
+        :param return_token_count: If true, a tuple is returned to add the input token count.
+        :param implicit_truncation_errors: If true (default) implicit truncation throws an error.
+                If false, the model default behavior or used.
+
+        :return:
+           If return_token_count is False, the embedding is returned as a numpy matrix.
+           If return_token_count is True, a tuple is returned with both the embedding and
+                the input token count.
+        """
+
+        # These args are for API compatability, but are currently ignored in our version of encode()
+        _ = (
+            show_progress_bar,
+            output_value,
+            normalize_embeddings,
+        )
+
+        self.eval()
+
+        if convert_to_tensor:
+            convert_to_numpy = False
+
+        input_was_string = False
+        list_of_sentences = sentences
+        if isinstance(list_of_sentences, str) or not isinstance(
+            sentences, Sized
+        ):  # Cast an individual sentence to a list with length 1
+            list_of_sentences = [sentences]
+            input_was_string = True
+
+        error.type_check_all("<NLP82314994E>", str, sentences=list_of_sentences)
+
+        if device is None:
+            device = self.device
+
+        self.to(device)
+
+        all_embeddings = []
+
+        # Sort sentences according to length, from longest to shortest
+        # OOM errors then occurs at start of encoding
+        length_sorted_idx = np.argsort(
+            [-self._text_length(sen) for sen in list_of_sentences]
+        )
+        sentences_sorted: list[str] = [
+            list_of_sentences[idx] for idx in length_sorted_idx
+        ]
+
+        input_token_count = 0
+
+        for start_index in range(0, len(list_of_sentences), batch_size):
+            sentences_batch = sentences_sorted[start_index : start_index + batch_size]
+            features, token_count = self._truncate_input_tokens(
+                truncate_input_tokens,
+                sentences_batch,
+                implicit_truncation_errors=implicit_truncation_errors,
+            )
+            input_token_count += token_count
+
+            features = batch_to_device(features, device)
+
+            if AUTOCAST:
+                with torch.no_grad(), torch.cpu.amp.autocast():
+                    out_features = self.forward(features)
+                    embeddings = out_features["sentence_embedding"]
+                    if convert_to_numpy:
+                        embeddings = embeddings.detach().cpu()
+                    all_embeddings.extend(embeddings)
+            else:
+                with torch.no_grad():
+                    out_features = self.forward(features)
+                    embeddings = out_features["sentence_embedding"]
+                    if convert_to_numpy:
+                        embeddings = embeddings.detach().cpu()
+                    all_embeddings.extend(embeddings)
+
+        # Restore original order
+        all_embeddings = [all_embeddings[idx] for idx in np.argsort(length_sorted_idx)]
+
+        if convert_to_tensor:
+            all_embeddings = torch.stack(all_embeddings)
+        elif convert_to_numpy:
+            all_embeddings = np.asarray([emb.numpy() for emb in all_embeddings])
+
+        if input_was_string:
+            all_embeddings = all_embeddings[0]
+
+        return (
+            EmbeddingResultTuple(all_embeddings, input_token_count)
+            if return_token_count
+            else all_embeddings
+        )

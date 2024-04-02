@@ -36,5 +36,23 @@ training_data_limit:
   6655831b-960a-4dc5-8df4-867026e2cd41:
     add_model_name_here: 10000
 
+# Config used only in EmbeddingModule. Set here or use env vars like EMBEDDING_RETRIES=32
+embedding:
+  # Number of times to retry on error. Most deployments should use 0 retries.
+  retries: 0
+  # Batch size for encode() if <= 0 or invalid, the sentence-transformers default is used
+  batch_size: 0
+  # Should implicit truncation (with truncate_input_tokens=0) throw error for truncation (default) or disable this
+  implicit_truncation_errors: true
+  # Attempt to optimize with PyTorch compile()
+  pt2_compile: false
+  # Use IPEX optimize. Works best when used with autocast (bfloat16) below.
+  ipex: false
+  # Use autocast in encode with its default dtype (bfloat16)
+  autocast: false
+  # For testing, set device to "mps" on MacOS or "xpu" for IPEX GPU.
+  # Otherwise, the default does automatic checks for cuda GPU (else cpu).
+  device: ""
+
 runtime:
   library: caikit_nlp

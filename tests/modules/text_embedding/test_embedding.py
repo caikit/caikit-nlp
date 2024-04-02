@@ -1,7 +1,7 @@
-"""Tests for text embedding module
-"""
+"""Tests for text embedding module"""
+
 # Standard
-from typing import List
+from typing import List, Tuple
 import os
 import tempfile
 
@@ -10,6 +10,7 @@ from pytest import approx
 from torch.backends import mps
 import numpy as np
 import pytest
+import torch
 
 # First Party
 from caikit.core import ModuleConfig
@@ -23,7 +24,11 @@ from caikit.interfaces.nlp.data_model import (
 )
 
 # Local
-from caikit_nlp.modules.text_embedding import EmbeddingModule
+from caikit_nlp.modules.text_embedding import EmbeddingModule, utils
+from caikit_nlp.modules.text_embedding.embedding import (
+    get_sample_start_indexes,
+    sum_token_count,
+)
 from tests.fixtures import SEQ_CLASS_MODEL
 
 ## Setup ########################################################################
@@ -32,14 +37,31 @@ from tests.fixtures import SEQ_CLASS_MODEL
 # .bootstrap is tested separately in the first test
 BOOTSTRAPPED_MODEL = EmbeddingModule.bootstrap(SEQ_CLASS_MODEL)
 
+# Token counts:
+# All expected token counts were calculated with reference to the
+# `BertForSequenceClassification` model. Each model's tokenizer behaves differently
+# which can lead to the expected token counts being invalid.
+
 INPUT = "The quick brown fox jumps over the lazy dog."
+INPUT_TOKEN_COUNT = 36 + 2  # [CLS] Thequickbrownfoxjumpsoverthelazydog. [SEP]
+
+MANY_INPUTS = [
+    "The quick brown fox jumps over the lazy dog.",
+    "But I must explain to you how all this mistaken idea.",
+    "No one rejects or dislikes.",
+]
 
 QUERY = "What is foo bar?"
+QUERY_TOKEN_COUNT = 13 + 2  # [CLS] Whatisfoobar? [SEP]
 
 QUERIES: List[str] = [
     "Who is foo?",
     "Where is the bar?",
 ]
+QUERIES_TOKEN_COUNT = (9 + 2) + (
+    14 + 2
+)  # [CLS] Whoisfoo? [SEP], [CLS] Whereisthebar? [SEP]
+
 
 # These are used to test that documents can handle different types in and out
 TYPE_KEYS = "str_test", "int_test", "float_test", "nested_dict_test"
@@ -67,14 +89,21 @@ DOCS = [
     },
 ]
 
+# The `text` and `_text` keys are extracted from DOCS as input to the tokenizer
+# [CLS] foo [SEP], [CLS] bar [SEP], [CLS] fooandbar [SEP], [CLS] Whereisthebar [SEP]
+DOCS_TOKEN_COUNT = (3 + 2) + (3 + 2) + (9 + 2) + (13 + 2)
+
 # Use text or _text from DOCS for our test sentences
 SENTENCES = [d.get("text", d.get("_text")) for d in DOCS]
+
+# [CLS] foo [SEP], [CLS] bar [SEP], [CLS] fooandbar [SEP], [CLS] Whereisthebar [SEP]
+SENTENCES_TOKEN_COUNT = (3 + 2) + (3 + 2) + (9 + 2) + (13 + 2)
 
 ## Tests ########################################################################
 
 
-@pytest.fixture(scope="module")
-def loaded_model(tmp_path_factory):
+@pytest.fixture(scope="module", name="loaded_model")
+def fixture_loaded_model(tmp_path_factory):
     models_dir = tmp_path_factory.mktemp("models")
     model_path = str(models_dir / "model_id")
     BOOTSTRAPPED_MODEL.save(model_path)
@@ -141,8 +170,15 @@ def _assert_valid_scores(scores, type_tests={}):
     return type_tests
 
 
-def test_bootstrap_reuse():
-    assert isinstance(BOOTSTRAPPED_MODEL, EmbeddingModule), "bootstrap reuse error"
+def test_bootstrap_model(loaded_model):
+    assert isinstance(BOOTSTRAPPED_MODEL, EmbeddingModule), "bootstrap model type"
+    assert (
+        BOOTSTRAPPED_MODEL.model.__class__.__name__ == "SentenceTransformer"
+    ), "bootstrap model class name"
+    # worth noting that bootstrap does not wrap, but load does
+    assert (
+        loaded_model.model.__class__.__name__ == "SentenceTransformerWithTruncate"
+    ), "loaded model class name"
 
 
 def test_save_load_and_run():
@@ -211,6 +247,7 @@ def test_run_embedding_type_check(loaded_model):
 def test_run_embedding(loaded_model):
     res = loaded_model.run_embedding(text=INPUT)
     _assert_is_expected_embedding_result(res)
+    assert res.input_token_count == INPUT_TOKEN_COUNT
 
 
 def test_run_embeddings_str_type(loaded_model):
@@ -224,6 +261,7 @@ def test_run_embeddings(loaded_model):
     res = loaded_model.run_embeddings(texts=[INPUT])
     assert isinstance(res.results.vectors, list)
     _assert_is_expected_embeddings_results(res.results)
+    assert res.input_token_count == INPUT_TOKEN_COUNT
 
 
 @pytest.mark.parametrize(
@@ -245,7 +283,8 @@ def test_run_rerank_query_type_error(query, docs, top_n, loaded_model):
 
 def test_run_rerank_query_no_type_error(loaded_model):
     """no type error with list of string queries and list of dict documents"""
-    loaded_model.run_rerank_query(query=QUERY, documents=DOCS, top_n=1)
+    res = loaded_model.run_rerank_query(query=QUERY, documents=DOCS, top_n=1)
+    assert res.input_token_count == QUERY_TOKEN_COUNT + DOCS_TOKEN_COUNT
 
 
 @pytest.mark.parametrize(
@@ -263,6 +302,7 @@ def test_run_rerank_query_top_n(top_n, expected, loaded_model):
     res = loaded_model.run_rerank_query(query=QUERY, documents=DOCS, top_n=top_n)
     assert isinstance(res, RerankResult)
     assert len(res.result.scores) == expected
+    assert res.input_token_count == QUERY_TOKEN_COUNT + DOCS_TOKEN_COUNT
 
 
 def test_run_rerank_query_no_query(loaded_model):
@@ -286,6 +326,7 @@ def test_run_rerank_query(loaded_model):
 
     types_found = _assert_valid_scores(scores)
     _assert_types_found(types_found)
+    assert res.input_token_count == QUERY_TOKEN_COUNT + DOCS_TOKEN_COUNT
 
 
 @pytest.mark.parametrize(
@@ -300,7 +341,8 @@ def test_run_rerank_queries_type_error(queries, docs, loaded_model):
 
 def test_run_rerank_queries_no_type_error(loaded_model):
     """no type error with list of string queries and list of dict documents"""
-    loaded_model.run_rerank_queries(queries=QUERIES, documents=DOCS, top_n=99)
+    res = loaded_model.run_rerank_queries(queries=QUERIES, documents=DOCS, top_n=99)
+    assert res.input_token_count == QUERIES_TOKEN_COUNT + DOCS_TOKEN_COUNT
 
 
 @pytest.mark.parametrize(
@@ -321,6 +363,7 @@ def test_run_rerank_queries_top_n(top_n, expected, loaded_model):
     assert len(res.results) == len(QUERIES)
     for result in res.results:
         assert len(result.scores) == expected
+    assert res.input_token_count == QUERIES_TOKEN_COUNT + DOCS_TOKEN_COUNT
 
 
 @pytest.mark.parametrize(
@@ -361,6 +404,7 @@ def test_run_rerank_queries(loaded_model):
 
     # Make sure our document fields of different types made it in/out ok
     _assert_types_found(types_found)
+    assert rerank_result.input_token_count == QUERIES_TOKEN_COUNT + DOCS_TOKEN_COUNT
 
 
 def test_run_sentence_similarity(loaded_model):
@@ -371,6 +415,7 @@ def test_run_sentence_similarity(loaded_model):
     assert len(scores) == len(SENTENCES)
     for score in scores:
         assert isinstance(score, float)
+    assert res.input_token_count == QUERY_TOKEN_COUNT + SENTENCES_TOKEN_COUNT
 
 
 def test_run_sentence_similarities(loaded_model):
@@ -384,35 +429,28 @@ def test_run_sentence_similarities(loaded_model):
         assert len(scores) == len(SENTENCES)
         for score in scores:
             assert isinstance(score, float)
+    assert res.input_token_count == QUERIES_TOKEN_COUNT + SENTENCES_TOKEN_COUNT
 
 
 @pytest.mark.parametrize(
-    "use_ipex, use_xpu, use_mps, expected",
+    "use_ipex, device, expected",
     [
-        (True, "true", "true", "xpu"),
-        (True, "true", "false", "xpu"),
-        (True, "false", "true", None),
-        (True, "false", "false", None),
-        (False, "false", "false", None),
-        (False, "true", "false", None),
+        (True, "", None),
+        (False, "", None),
+        (True, None, None),
+        (False, None, None),
+        (False, "xpu", None),
+        (True, "xpu", "xpu"),
+        (True, "mps", None),
         (
             False,
-            "false",
-            "true",
-            "mps" if mps.is_built() and mps.is_available() else None,
-        ),
-        (
-            False,
-            "true",
-            "true",
+            "mps",
             "mps" if mps.is_built() and mps.is_available() else None,
         ),
     ],
 )
-def test__select_device(use_ipex, use_xpu, use_mps, expected, monkeypatch):
-    monkeypatch.setenv("USE_XPU", use_xpu)
-    monkeypatch.setenv("USE_MPS", use_mps)
-    assert EmbeddingModule._select_device(use_ipex) == expected
+def test__select_device(use_ipex, device, expected):
+    assert EmbeddingModule._select_device(use_ipex, device) == expected
 
 
 @pytest.mark.parametrize(
@@ -433,41 +471,18 @@ def test__get_backend(use_ipex, use_device, expected):
     "use_ipex",
     [None, "true", "True", "False", "false"],
 )
-def test__get_ipex(use_ipex, monkeypatch):
+def test__get_ipex(use_ipex):
     """Test that _get_ipex returns False instead of raising an exception.
 
     Assumes that when running tests, we won't have IPEX installed.
     """
-    monkeypatch.setenv("IPEX_OPTIMIZE", use_ipex)
-    assert not EmbeddingModule._get_ipex()
+    assert not EmbeddingModule._get_ipex(use_ipex)
 
 
-def test__optimize(monkeypatch):
+def test__optimize():
     """Test that _optimize does nothing when disabled"""
     fake = "fake model"  # Will be returned as-is
-    monkeypatch.setenv("PT2_COMPILE", "False")
-    assert fake == EmbeddingModule._optimize(fake, False, "bogus")
-
-
-@pytest.mark.parametrize("truncate_input_tokens", [-1, 99, 10, 333])
-def test__truncate_input_tokens(truncate_input_tokens, loaded_model):
-
-    if truncate_input_tokens < 0:
-        num_xs = 500  # fill-er up
-    else:
-        num_xs = truncate_input_tokens - 4  # subtract room for (y  y), but not z
-
-    too_long = "x  " * num_xs + "y  y  z  "  # z will go over
-    actual = loaded_model._truncate_input_tokens(
-        truncate_input_tokens=truncate_input_tokens, texts=[too_long, too_long]
-    )
-
-    assert actual[0] == actual[1]  # they are still the same
-
-    if truncate_input_tokens < 0:
-        assert actual[0] == too_long, "expected no truncation"
-    else:
-        assert actual[0] + "  z  " == too_long, "expected truncation"
+    assert fake == EmbeddingModule._optimize(fake, False, "bogus", False, False)
 
 
 @pytest.mark.parametrize("truncate_input_tokens", [0, 513])
@@ -475,10 +490,54 @@ def test__truncate_input_tokens_raises(truncate_input_tokens, loaded_model):
     model_max = loaded_model.model.max_seq_length
 
     too_long = "x " * (model_max - 1)  # This will go over
-    with pytest.raises(ValueError):
-        loaded_model._truncate_input_tokens(
-            truncate_input_tokens=truncate_input_tokens, texts=[too_long]
+    over = model_max + 1
+    with pytest.raises(ValueError, match=f"({over} > {model_max})"):
+        loaded_model.model.encode(
+            sentences=[too_long], truncate_input_tokens=truncate_input_tokens
         )
+    # Same behavior when implicit_truncation_errors is True (the default)
+    with pytest.raises(ValueError, match=f"({over} > {model_max})"):
+        loaded_model.model.encode(
+            sentences=[too_long],
+            truncate_input_tokens=truncate_input_tokens,
+            implicit_truncation_errors=True,
+        )
+    # Different behavior when implicit_truncation_errors is False -- no error raised!
+    loaded_model.model.encode(
+        sentences=[too_long],
+        truncate_input_tokens=truncate_input_tokens,
+        implicit_truncation_errors=False,
+    )
+
+
+def test__implicit_truncation(loaded_model):
+    """Test that implicit truncation happens (when allowed)"""
+    model_max = loaded_model.model.max_seq_length
+
+    too_long = "x " * (model_max - 1)  # This will go over a little
+    extra_long = (
+        too_long
+        + "more clever words that surely change the meaning of this text"
+        * (model_max - 1)
+    )
+
+    # Allowed truncation using default tokens (0) and config to disable the error.
+    res = loaded_model.model.encode(
+        sentences=[too_long], truncate_input_tokens=0, implicit_truncation_errors=False
+    )
+    # Allowed truncation using model max
+    res_extra_max = loaded_model.model.encode(
+        sentences=[extra_long], truncate_input_tokens=loaded_model.model.max_seq_length
+    )
+    # Allowed truncation using -1 to just let the model do its thing
+    res_extra_neg = loaded_model.model.encode(
+        sentences=[extra_long], truncate_input_tokens=-1
+    )
+
+    # Demonstrating that when implicit truncation is allowed, sentence-transformers is quietly truncating at model max
+    # The simple too_long string of x's, is equivalent to the string with significantly different extra text (truncated)
+    assert np.allclose(res, res_extra_max)
+    assert np.allclose(res, res_extra_neg)
 
 
 def test_not_too_many_tokens(loaded_model):
@@ -505,40 +564,41 @@ def test_too_many_tokens_default(loaded_model):
     """These endpoints raise an error when truncation would happen."""
 
     model_max = loaded_model.model.max_seq_length
+    over = model_max + 1
 
     ok = "x " * (model_max - 2)  # Subtract 2 for begin/end tokens
     too_long = "x " * (model_max - 1)  # This will go over
 
     # embedding(s)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=f"({over} > {model_max})"):
         loaded_model.run_embedding(text=too_long)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=f"({over} > {model_max})"):
         loaded_model.run_embeddings(texts=[too_long])
 
     # sentence similarity(ies) test both source_sentence and sentences
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=f"({over} > {model_max})"):
         loaded_model.run_sentence_similarity(source_sentence=too_long, sentences=[ok])
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=f"({over} > {model_max})"):
         loaded_model.run_sentence_similarity(source_sentence=ok, sentences=[too_long])
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=f"({over} > {model_max})"):
         loaded_model.run_sentence_similarities(
             source_sentences=[too_long], sentences=[ok]
         )
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=f"({over} > {model_max})"):
         loaded_model.run_sentence_similarities(
             source_sentences=[ok], sentences=[too_long]
         )
 
     # reranker test both query and document text
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=f"({over} > {model_max})"):
         loaded_model.run_rerank_query(query=too_long, documents=[{"text": ok}])
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=f"({over} > {model_max})"):
         loaded_model.run_rerank_query(query=ok, documents=[{"text": too_long}])
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=f"({over} > {model_max})"):
         loaded_model.run_rerank_queries(queries=[too_long], documents=[{"text": ok}])
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=f"({over} > {model_max})"):
         loaded_model.run_rerank_queries(queries=[ok], documents=[{"text": too_long}])
 
 
@@ -551,41 +611,42 @@ def test_too_many_tokens_error_params(truncate_input_tokens, loaded_model):
     """
 
     model_max = loaded_model.model.max_seq_length
+    over = model_max + 1
 
     ok = "x " * (model_max - 2)  # Subtract 2 for begin/end tokens
     too_long = "x " * (model_max - 1)  # This will go over
 
     # embedding(s)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=f"({over} > {model_max})"):
         loaded_model.run_embedding(
             text=too_long, truncate_input_tokens=truncate_input_tokens
         )
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=f"({over} > {model_max})"):
         loaded_model.run_embeddings(
             texts=[too_long], truncate_input_tokens=truncate_input_tokens
         )
 
     # sentence similarity(ies) test both source_sentence and sentences
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=f"({over} > {model_max})"):
         loaded_model.run_sentence_similarity(
             source_sentence=too_long,
             sentences=[ok],
             truncate_input_tokens=truncate_input_tokens,
         )
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=f"({over} > {model_max})"):
         loaded_model.run_sentence_similarity(
             source_sentence=ok,
             sentences=[too_long],
             truncate_input_tokens=truncate_input_tokens,
         )
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=f"({over} > {model_max})"):
         loaded_model.run_sentence_similarities(
             source_sentences=[too_long],
             sentences=[ok],
             truncate_input_tokens=truncate_input_tokens,
         )
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=f"({over} > {model_max})"):
         loaded_model.run_sentence_similarities(
             source_sentences=[ok],
             sentences=[too_long],
@@ -593,26 +654,26 @@ def test_too_many_tokens_error_params(truncate_input_tokens, loaded_model):
         )
 
     # reranker test both query and document text
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=f"({over} > {model_max})"):
         loaded_model.run_rerank_query(
             query=too_long,
             documents=[{"text": ok}],
             truncate_input_tokens=truncate_input_tokens,
         )
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=f"({over} > {model_max})"):
         loaded_model.run_rerank_query(
             query=ok,
             documents=[{"text": too_long}],
             truncate_input_tokens=truncate_input_tokens,
         )
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=f"({over} > {model_max})"):
         loaded_model.run_rerank_queries(
             queries=[too_long],
             documents=[{"text": ok}],
             truncate_input_tokens=truncate_input_tokens,
         )
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=f"({over} > {model_max})"):
         loaded_model.run_rerank_queries(
             queries=[ok],
             documents=[{"text": too_long}],
@@ -699,7 +760,6 @@ def test_embeddings_with_truncation(truncate_input_tokens, loaded_model):
         repeat = truncate_input_tokens
 
     # Build a text like "x x x.. x " with room for one more token
-    repeat = repeat - 2  # space for start/end tokens
     repeat = repeat - 1  # space for the final x or y token to show difference
 
     base = "x " * repeat  # A bunch of "x" tokens
@@ -714,7 +774,10 @@ def test_embeddings_with_truncation(truncate_input_tokens, loaded_model):
     vectors = res.results.vectors
 
     # x...xyz is the same as x...xy because that is exactly where truncation worked
+    assert len(vectors[2].data.values) == len(vectors[3].data.values)
     assert np.allclose(vectors[2].data.values, vectors[3].data.values)
+    for i in range(len(vectors[2].data.values)):
+        assert approx(vectors[2].data.values[i]) == approx(vectors[3].data.values[i])
 
     # Make sure the base, x, y are not a match (we kept the significant last char)
     assert not np.allclose(vectors[0].data.values, vectors[1].data.values)
@@ -727,7 +790,7 @@ def test__with_retry_happy_path(loaded_model):
     loaded_model._with_retry(print, "hello", "world", sep="<:)>", end="!!!\n")
 
 
-def test__with_retry_fail(loaded_model, monkeypatch):
+def test__with_retry_fail(loaded_model):
     """fn never works, loops then raises the exception"""
 
     def fn():
@@ -780,3 +843,162 @@ def test__with_retry_fail_fail_win(loaded_model, monkeypatch):
 
     # Third try did not raise an exception. Returns 3.
     assert 3 == loaded_model._with_retry(fail_fail_win)
+
+
+def test_env_val_to_bool():
+    assert not utils.env_val_to_bool(None)
+    assert not utils.env_val_to_bool("")
+    assert not utils.env_val_to_bool("   ")
+    assert not utils.env_val_to_bool(0)
+    assert not utils.env_val_to_bool("0")
+    assert not utils.env_val_to_bool(" False ")
+    assert not utils.env_val_to_bool("  false   ")
+    assert not utils.env_val_to_bool("   fAlSE    ")
+
+    assert utils.env_val_to_bool(1)
+    assert utils.env_val_to_bool("1")
+    assert utils.env_val_to_bool(" True ")
+    assert utils.env_val_to_bool("  true   ")
+    assert utils.env_val_to_bool("   tRuE    ")
+
+
+def test_env_val_to_int():
+    expected_default = 12345
+    assert expected_default == utils.env_val_to_int(None, expected_default)
+    assert expected_default == utils.env_val_to_int("", expected_default)
+    assert expected_default == utils.env_val_to_int("   ", expected_default)
+    assert expected_default == utils.env_val_to_int(" ss ", expected_default)
+    assert expected_default == utils.env_val_to_int("  sss   ", expected_default)
+    assert expected_default == utils.env_val_to_int("   ssss    ", expected_default)
+
+    assert 0 == utils.env_val_to_int(0, expected_default)
+    assert 0 == utils.env_val_to_int("0", expected_default)
+    assert 0 == utils.env_val_to_int(False, expected_default)
+    assert 456 == utils.env_val_to_int("456", expected_default)
+    assert 456 == utils.env_val_to_int(" 456 ", expected_default)
+    assert 1 == utils.env_val_to_int(True, expected_default)
+
+
+@pytest.mark.parametrize(
+    # `expected_count` are valid for the `BertForSequenceClassification` model.
+    ["texts", "expected_count"],
+    [
+        # Only tokens requiring model attention is counted.
+        # [PAD] doesn't attract model attention, but [CLS] and [SEP] does
+        # [CLS] 5 normal tokens [SEP]
+        (["12345"], 5 + 2),
+        # [CLS] 5 normal [SEP], [CLS] 4 normal [SEP] [PAD]
+        (["12 345", "6 789"], 9 + 4),
+    ],
+)
+def test_sum_token_count_no_truncation(texts, expected_count, loaded_model):
+    tokenized, _ = loaded_model.model._truncate_input_tokens(
+        truncate_input_tokens=-1,  # don't truncate. Model's truncation can still apply.
+        texts=texts,
+    )
+    token_count = sum_token_count(
+        tokenized,
+        truncate_only=False,
+    )
+
+    assert token_count == expected_count
+
+
+@pytest.mark.parametrize(
+    # `expected_count` are valid for the `BertForSequenceClassification` model.
+    ["texts", "truncate", "expected_count"],
+    [
+        # Only tokens requiring model attention is counted.
+        # [PAD] doesn't attract model attention, but [CLS] and [SEP] does
+        #
+        # All encodings: [CLS] 12345 [SEP]
+        # No truncation
+        (["12345"], 10, 7),
+        # All encodings: [CLS] 123 [SEP] + [CLS] 45 [SEP] [PAD]
+        # Only truncated: [CLS] 123 [SEP]
+        (["12345"], 5, 3 + 2),
+        #
+        # All encodings: [CLS] 123 [SEP] + [CLS] 45 [SEP] [PAD], [CLS] 678 [SEP] + [CLS] 9 [SEP] [PAD] [PAD]
+        # Only truncated: [CLS] 123 [SEP] , [CLS] 678 [SEP]
+        (["12 345", "6 789"], 5, (3 + 2) + (3 + 2)),
+    ],
+)
+def test_sum_token_count_with_truncation(texts, truncate, expected_count, loaded_model):
+    tokenized, _ = loaded_model.model._truncate_input_tokens(
+        truncate_input_tokens=truncate,
+        texts=texts,
+    )
+    token_count = sum_token_count(
+        tokenized,
+        truncate_only=True,
+    )
+
+    assert token_count == expected_count
+
+
+def test_encoding_order(loaded_model: EmbeddingModule):
+    """Confirm that encoding doesn't modify the original sort order"""
+    separate_embeddings = [loaded_model.run_embedding(text=i) for i in MANY_INPUTS]
+    combined_embeddings = loaded_model.run_embeddings(texts=MANY_INPUTS)
+
+    separate_vectors = [
+        e.to_dict()["result"]["data"]["values"] for e in separate_embeddings
+    ]
+    combined_vectors = [
+        e["data"]["values"] for e in combined_embeddings.to_dict()["results"]["vectors"]
+    ]
+
+    assert len(separate_vectors) == len(
+        combined_vectors
+    ), "expected the same number separate and combined embeddings"
+
+    # test order by comparing value of individual embeddings in sequence
+    for i, e in enumerate(separate_vectors):
+        assert approx(e) == combined_vectors[i]
+
+    # test expected failure case by reordering
+    shifted_separate_vectors = separate_vectors[1:] + [separate_vectors[0]]
+
+    for i, e in enumerate(shifted_separate_vectors):
+        assert e != separate_vectors[i], "expected order to be have been altered"
+        assert (
+            not approx(e) == combined_vectors[i]
+        ), "expected altered order to not match combined vectors"
+
+
+@pytest.mark.parametrize(
+    ("mapping", "expected"),
+    [
+        ([0, 0, 0, 0, 0], [0]),
+        ([0, 1, 2, 3, 4], [0, 1, 2, 3, 4]),
+        ([0, 0, 1, 1, 1, 2], [0, 2, 5]),
+        ([], []),
+    ],
+)
+def test_get_sample_start_indexes(mapping, expected):
+    mock_tokenized = {
+        "overflow_to_sample_mapping": torch.Tensor(mapping).type(torch.int8)
+    }
+    assert get_sample_start_indexes(mock_tokenized) == expected
+
+
+def test_encode_extensions(loaded_model):
+    # loaded model can return_token_count
+    ret = loaded_model._encode_with_retry("text here", return_token_count=True)
+    assert isinstance(ret, Tuple)
+    assert isinstance(ret[0], np.ndarray)
+    assert isinstance(ret[1], int)
+    ret = loaded_model._encode_with_retry("text here", return_token_count=False)
+    assert isinstance(ret, np.ndarray)
+
+    # Make sure use with un-wrapped SentenceTransformer model is unaffected by extended params or return tokens
+    ret = BOOTSTRAPPED_MODEL._encode_with_retry(
+        "text here",
+        return_token_count=True,
+        truncate_input_tokens=123,
+        implicit_truncation_errors=False,
+    )
+    assert isinstance(ret, np.ndarray)
+    BOOTSTRAPPED_MODEL._encode_with_retry(
+        "text here"
+    )  # and no KeyError trying to remove non-existing keys
