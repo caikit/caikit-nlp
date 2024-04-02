@@ -203,6 +203,16 @@ class StubTGISClient:
         fake_result.generated_token_count = 1
         fake_result.text = "moose"
         fake_result.input_token_count = 1
+        token = mock.Mock()
+        token.text = "moose"
+        token.logprob = 0.2
+        token.rank = 1
+        fake_result.tokens = [token]
+        input_tokens = mock.Mock()
+        input_tokens.text = "moose"
+        input_tokens.logprob = 0.2
+        input_tokens.rank = 1
+        fake_result.input_tokens = [input_tokens]
         fake_response.responses = [fake_result]
         return fake_response
 
@@ -216,7 +226,13 @@ class StubTGISClient:
         token = mock.Mock()
         token.text = "moose"
         token.logprob = 0.2
+        token.rank = 1
         fake_stream.tokens = [token]
+        input_tokens = mock.Mock()
+        input_tokens.text = "moose"
+        input_tokens.logprob = 0.2
+        input_tokens.rank = 1
+        fake_stream.input_tokens = [input_tokens]
         fake_stream.text = "moose"
         for _ in range(3):
             yield fake_stream
@@ -236,6 +252,12 @@ class StubTGISClient:
         assert result.generated_tokens == 1
         assert result.finish_reason == 5
         assert result.input_token_count == 1
+        assert result.tokens[0].text == "moose"
+        assert result.tokens[0].logprob == 0.2
+        assert result.tokens[0].rank == 1
+        assert result.input_tokens[0].text == "moose"
+        assert result.input_tokens[0].logprob == 0.2
+        assert result.input_tokens[0].rank == 1
 
     @staticmethod
     def validate_stream_generate_response(stream_result):
@@ -247,6 +269,10 @@ class StubTGISClient:
         assert first_result.generated_text == "moose"
         assert first_result.tokens[0].text == "moose"
         assert first_result.tokens[0].logprob == 0.2
+        assert first_result.tokens[0].rank == 1
+        assert first_result.input_tokens[0].text == "moose"
+        assert first_result.input_tokens[0].logprob == 0.2
+        assert first_result.input_tokens[0].rank == 1
         assert first_result.details.finish_reason == 5
         assert first_result.details.generated_tokens == 1
         assert first_result.details.seed == 10

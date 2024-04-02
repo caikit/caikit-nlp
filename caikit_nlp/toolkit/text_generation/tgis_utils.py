@@ -37,9 +37,19 @@ error = error_handler.get(log)
 
 GENERATE_FUNCTION_TGIS_ARGS = """
     {}
-    preserve_input_text: str
+    preserve_input_text: bool
         Whether or not the source string should be contained in the generated output,
         e.g., as a prefix.
+    input_tokens: bool
+        Whether or not to include list of input tokens.  
+    generated_tokens: bool
+        Whether or not to include list of individual generated tokens.  
+    token_logprobs: bool
+        Whether or not to include logprob for each returned token.  
+        Applicable only if generated_tokens == true and/or input_tokens == true
+    token_ranks: bool
+        Whether or not to include rank of each returned token.     
+        Applicable only if generated_tokens == true and/or input_tokens == true                             
 """.format(
     GENERATE_FUNCTION_ARGS
 )
@@ -48,6 +58,10 @@ GENERATE_FUNCTION_TGIS_ARGS = """
 def validate_inf_params(
     text,
     preserve_input_text,
+    input_tokens,
+    generated_tokens,
+    token_logprobs,
+    token_ranks,
     eos_token,
     max_new_tokens,
     min_new_tokens,
@@ -74,6 +88,10 @@ def validate_inf_params(
     )
     error.type_check("<NLP65883535E>", str, text=text)
     error.type_check("<NLP65883537E>", bool, preserve_input_text=preserve_input_text)
+    error.type_check("<NLP65883538E>", bool, input_tokens=input_tokens)
+    error.type_check("<NLP65883539E>", bool, generated_tokens=generated_tokens)
+    error.type_check("<NLP65883540E>", bool, token_logprobs=token_logprobs)
+    error.type_check("<NLP65883541E>", bool, token_ranks=token_ranks)
     error.type_check("<NLP85452188E>", str, allow_none=True, eos_token=eos_token)
     error.type_check(
         "<NLP03860681E>",
@@ -174,6 +192,10 @@ def validate_inf_params(
 
 def get_params(
     preserve_input_text,
+    input_tokens,
+    generated_tokens,
+    token_logprobs,
+    token_ranks,
     max_new_tokens,
     min_new_tokens,
     truncate_input_tokens,
@@ -211,10 +233,10 @@ def get_params(
 
     res_options = generation_pb2.ResponseOptions(
         input_text=preserve_input_text,
-        generated_tokens=True,
-        input_tokens=False,
-        token_logprobs=True,
-        token_ranks=True,
+        generated_tokens=generated_tokens,
+        input_tokens=input_tokens,
+        token_logprobs=token_logprobs,
+        token_ranks=token_ranks,
     )
     stopping = generation_pb2.StoppingCriteria(
         stop_sequences=stop_sequences,
@@ -268,6 +290,10 @@ class TGISGenerationClient:
         self,
         text,
         preserve_input_text,
+        input_tokens,
+        generated_tokens,
+        token_logprobs,
+        token_ranks,
         max_new_tokens,
         min_new_tokens,
         truncate_input_tokens,
@@ -305,6 +331,10 @@ class TGISGenerationClient:
         validate_inf_params(
             text=text,
             preserve_input_text=preserve_input_text,
+            input_tokens=input_tokens,
+            generated_tokens=generated_tokens,
+            token_logprobs=token_logprobs,
+            token_ranks=token_ranks,
             eos_token=self.eos_token,
             max_new_tokens=max_new_tokens,
             min_new_tokens=min_new_tokens,
@@ -325,6 +355,10 @@ class TGISGenerationClient:
 
         params = get_params(
             preserve_input_text=preserve_input_text,
+            input_tokens=input_tokens,
+            generated_tokens=generated_tokens,
+            token_logprobs=token_logprobs,
+            token_ranks=token_ranks,
             max_new_tokens=max_new_tokens,
             min_new_tokens=min_new_tokens,
             truncate_input_tokens=truncate_input_tokens,
@@ -366,6 +400,24 @@ class TGISGenerationClient:
         )
         response = batch_response.responses[0]
 
+        token_list = []
+        if response.tokens is not None:
+            for token in response.tokens:
+                token_list.append(
+                    GeneratedToken(
+                        text=token.text, logprob=token.logprob, rank=token.rank
+                    )
+                )
+
+        input_token_list = []
+        if response.input_tokens is not None:
+            for token in response.input_tokens:
+                input_token_list.append(
+                    GeneratedToken(
+                        text=token.text, logprob=token.logprob, rank=token.rank
+                    )
+                )
+
         return GeneratedTextResult(
             generated_text=response.text,
             generated_tokens=response.generated_token_count,
@@ -373,12 +425,18 @@ class TGISGenerationClient:
             producer_id=self.producer_id,
             input_token_count=response.input_token_count,
             seed=seed,
+            tokens=token_list,
+            input_tokens=input_token_list,
         )
 
     def stream_generate(
         self,
         text,
         preserve_input_text,
+        input_tokens,
+        generated_tokens,
+        token_logprobs,
+        token_ranks,
         max_new_tokens,
         min_new_tokens,
         truncate_input_tokens,
@@ -416,6 +474,10 @@ class TGISGenerationClient:
         validate_inf_params(
             text=text,
             preserve_input_text=preserve_input_text,
+            input_tokens=input_tokens,
+            generated_tokens=generated_tokens,
+            token_logprobs=token_logprobs,
+            token_ranks=token_ranks,
             eos_token=self.eos_token,
             max_new_tokens=max_new_tokens,
             min_new_tokens=min_new_tokens,
@@ -434,6 +496,10 @@ class TGISGenerationClient:
 
         params = get_params(
             preserve_input_text=preserve_input_text,
+            input_tokens=input_tokens,
+            generated_tokens=generated_tokens,
+            token_logprobs=token_logprobs,
+            token_ranks=token_ranks,
             max_new_tokens=max_new_tokens,
             min_new_tokens=min_new_tokens,
             truncate_input_tokens=truncate_input_tokens,
@@ -476,13 +542,25 @@ class TGISGenerationClient:
                 input_token_count=stream_part.input_token_count,
             )
             token_list = []
-            for token in stream_part.tokens:
-                token_list.append(
-                    GeneratedToken(text=token.text, logprob=token.logprob)
-                )
+            if stream_part.tokens is not None:
+                for token in stream_part.tokens:
+                    token_list.append(
+                        GeneratedToken(
+                            text=token.text, logprob=token.logprob, rank=token.rank
+                        )
+                    )
+            input_token_list = []
+            if stream_part.input_tokens is not None:
+                for token in stream_part.input_tokens:
+                    input_token_list.append(
+                        GeneratedToken(
+                            text=token.text, logprob=token.logprob, rank=token.rank
+                        )
+                    )
             yield GeneratedTextStreamResult(
                 generated_text=stream_part.text,
                 tokens=token_list,
+                input_tokens=input_token_list,
                 details=details,
             )
 
