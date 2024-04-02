@@ -404,14 +404,18 @@ class TGISGenerationClient:
         if response.tokens is not None:
             for token in response.tokens:
                 token_list.append(
-                    GeneratedToken(text=token.text, logprob=token.logprob)
+                    GeneratedToken(
+                        text=token.text, logprob=token.logprob, rank=token.rank
+                    )
                 )
 
         input_token_list = []
         if response.input_tokens is not None:
             for token in response.input_tokens:
                 input_token_list.append(
-                    GeneratedToken(text=token.text, logprob=token.logprob)
+                    GeneratedToken(
+                        text=token.text, logprob=token.logprob, rank=token.rank
+                    )
                 )
 
         return GeneratedTextResult(
@@ -541,13 +545,17 @@ class TGISGenerationClient:
             if stream_part.tokens is not None:
                 for token in stream_part.tokens:
                     token_list.append(
-                        GeneratedToken(text=token.text, logprob=token.logprob)
+                        GeneratedToken(
+                            text=token.text, logprob=token.logprob, rank=token.rank
+                        )
                     )
             input_token_list = []
             if stream_part.input_tokens is not None:
                 for token in stream_part.input_tokens:
                     input_token_list.append(
-                        GeneratedToken(text=token.text, logprob=token.logprob)
+                        GeneratedToken(
+                            text=token.text, logprob=token.logprob, rank=token.rank
+                        )
                     )
             yield GeneratedTextStreamResult(
                 generated_text=stream_part.text,
