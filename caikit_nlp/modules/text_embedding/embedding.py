@@ -818,7 +818,9 @@ class SentenceTransformerWithTruncate(SentenceTransformer):
             max_length = max_tokens
         elif 0 < truncate_input_tokens <= max_tokens:
             okay_to_truncate = True
-            max_length = truncate_input_tokens
+            # Add 2 for begin/end tokens, but don't go higher than model's max_tokens
+            max_length = min(truncate_input_tokens + 2, max_tokens)
+
         else:
             okay_to_truncate = not implicit_truncation_errors
             max_length = max_tokens
@@ -859,7 +861,9 @@ class SentenceTransformerWithTruncate(SentenceTransformer):
                 padding=True,
             )
 
-            tokens = sum_token_count(tokenized, truncate_only=False)
+            tokens = 0
+            for encoding in tokenized.encodings:
+                tokens = max(sum(encoding.attention_mask), tokens)
             error.log_raise(
                 "<NLP08391926E>",
                 ValueError(
@@ -869,6 +873,20 @@ class SentenceTransformerWithTruncate(SentenceTransformer):
             )
 
         input_token_count = sum_token_count(tokenized, truncate_only=True)
+
+        # Tokenize without overflow for batching and truncation to work together.
+        tokenized = self.tokenizer(
+            *to_tokenize,
+            return_attention_mask=True,
+            return_token_type_ids=False,
+            return_overflowing_tokens=False,
+            return_offsets_mapping=False,
+            return_length=False,
+            return_tensors="pt",
+            truncation=True,
+            padding=True,
+            max_length=max_length,
+        )
 
         return TruncatedTokensTuple(tokenized, input_token_count)
 
