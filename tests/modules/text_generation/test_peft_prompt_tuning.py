@@ -429,6 +429,14 @@ def test_run_exponential_decay_len_penatly_object(causal_lm_dummy_model):
     assert isinstance(pred, GeneratedTextResult)
 
 
+def test_run_tokenizer_not_implemented(causal_lm_dummy_model):
+    with pytest.raises(NotImplementedError):
+        causal_lm_dummy_model.run_tokenizer("This text doesn't matter")
+
+
+######################## Test train ###############################################
+
+
 def test_train_with_data_validation_raises(causal_lm_train_kwargs, set_cpu_device):
     """Check if we are able to throw error for when number of examples are more than configured limit"""
     patch_kwargs = {

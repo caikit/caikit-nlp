@@ -209,3 +209,9 @@ def test_zero_epoch_case(disable_wip):
     }
     model = TextGeneration.train(**train_kwargs)
     assert isinstance(model.model, HFAutoSeq2SeqLM)
+
+
+def test_run_tokenizer_not_implemented():
+    with pytest.raises(NotImplementedError):
+        model = TextGeneration.bootstrap(SEQ2SEQ_LM_MODEL)
+        model.run_tokenizer("This text doesn't matter")
