@@ -31,8 +31,8 @@ from caikit import get_config
 from caikit.core.data_model import DataStream
 from caikit.core.exceptions import error_handler
 from caikit.core.modules import ModuleBase, ModuleConfig, ModuleSaver, module
-from caikit.interfaces.nlp.data_model import GeneratedTextResult
-from caikit.interfaces.nlp.tasks import TextGenerationTask
+from caikit.interfaces.nlp.data_model import GeneratedTextResult, TokenizationResults
+from caikit.interfaces.nlp.tasks import TextGenerationTask, TokenizationTask
 import alog
 
 # Local
@@ -60,7 +60,7 @@ TRAINING_LOSS_LOG_FILENAME = "training_logs.jsonl"
     id="f9181353-4ccf-4572-bd1e-f12bcda26792",
     name="Text Generation",
     version="0.1.0",
-    task=TextGenerationTask,
+    tasks=[TextGenerationTask, TokenizationTask],
 )
 class TextGeneration(ModuleBase):
     """Module to provide text generation capabilities"""
@@ -521,6 +521,7 @@ class TextGeneration(ModuleBase):
                         json.dump(loss_log, f)
                         f.write("\n")
 
+    @TextGenerationTask.taskmethod()
     def run(
         self,
         text: str,
@@ -574,6 +575,22 @@ class TextGeneration(ModuleBase):
             task_type=self.model.TASK_TYPE,
             **kwargs,
         )
+
+    @TokenizationTask.taskmethod()
+    def run_tokenizer(
+        self,
+        text: str,
+    ) -> TokenizationResults:
+        """Run tokenization task against the model
+
+        Args:
+           text: str
+                Text to tokenize
+        Returns:
+            TokenizationResults
+                The token count
+        """
+        raise NotImplementedError("Tokenization not implemented for local")
 
     ################################## Private Functions ######################################
 
