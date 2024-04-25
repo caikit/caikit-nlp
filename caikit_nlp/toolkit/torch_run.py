@@ -24,7 +24,8 @@ import os
 
 # Third Party
 from torch import cuda
-from torch.distributed.launcher.api import LaunchConfig, Std
+from torch.distributed.elastic.multiprocessing.api import Std
+from torch.distributed.launcher.api import LaunchConfig
 import torch.distributed as dist
 
 # First Party
