@@ -48,8 +48,9 @@ from caikit.interfaces.nlp.data_model import (
     ClassificationTrainRecord,
     GeneratedTextResult,
     GeneratedTextStreamResult,
+    TokenizationResults,
 )
-from caikit.interfaces.nlp.tasks import TextGenerationTask
+from caikit.interfaces.nlp.tasks import TextGenerationTask, TokenizationTask
 import alog
 
 # Local
@@ -87,7 +88,7 @@ TRAINING_LOSS_LOG_FILENAME = "training_logs.jsonl"
     id="6655831b-960a-4dc5-8df4-867026e2cd41",
     name="Peft generation",
     version="0.1.0",
-    task=TextGenerationTask,
+    tasks=[TextGenerationTask, TokenizationTask],
 )
 class PeftPromptTuning(ModuleBase):
 
@@ -273,6 +274,22 @@ class PeftPromptTuning(ModuleBase):
             exponential_decay_length_penalty=exponential_decay_length_penalty,
             stop_sequences=stop_sequences,
         )
+
+    @TokenizationTask.taskmethod()
+    def run_tokenizer(
+        self,
+        text: str,
+    ) -> TokenizationResults:
+        """Run tokenization task against the model
+
+        Args:
+           text: str
+                Text to tokenize
+        Returns:
+            TokenizationResults
+                The token count
+        """
+        raise NotImplementedError("Tokenization not implemented for local")
 
     @classmethod
     def train(
