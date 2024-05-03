@@ -197,6 +197,21 @@ def test_save_load_and_run():
     _assert_is_expected_embedding_result(result)
 
 
+def test_public_model_info():
+    """Check if we can get model info successfully"""
+    model_id = "model_id"
+    with tempfile.TemporaryDirectory(suffix="-1st") as model_dir:
+        model_path = os.path.join(model_dir, model_id)
+        BOOTSTRAPPED_MODEL.save(model_path)
+        new_model = EmbeddingModule.load(model_path)
+
+    result = new_model.public_model_info
+    assert "max_seq_length" in result
+    assert "sentence_embedding_dimension" in result
+    assert type(result["max_seq_length"]) is int
+    assert type(result["sentence_embedding_dimension"]) is int
+
+
 @pytest.mark.parametrize(
     "model_path", ["", " ", " " * 100], ids=["empty", "space", "spaces"]
 )
