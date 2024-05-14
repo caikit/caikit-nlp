@@ -16,8 +16,15 @@
 # Standard
 from typing import Iterable
 
+# Third Party
+import grpc
+
 # First Party
 from caikit.core.exceptions import error_handler
+from caikit.core.exceptions.caikit_core_exception import (
+    CaikitCoreException,
+    CaikitCoreStatusCode,
+)
 from caikit.interfaces.nlp.data_model import (
     GeneratedTextResult,
     GeneratedTextStreamResult,
@@ -41,18 +48,51 @@ GENERATE_FUNCTION_TGIS_ARGS = """
         Whether or not the source string should be contained in the generated output,
         e.g., as a prefix.
     input_tokens: bool
-        Whether or not to include list of input tokens.  
+        Whether or not to include list of input tokens.
     generated_tokens: bool
-        Whether or not to include list of individual generated tokens.  
+        Whether or not to include list of individual generated tokens.
     token_logprobs: bool
-        Whether or not to include logprob for each returned token.  
+        Whether or not to include logprob for each returned token.
         Applicable only if generated_tokens == true and/or input_tokens == true
     token_ranks: bool
-        Whether or not to include rank of each returned token.     
-        Applicable only if generated_tokens == true and/or input_tokens == true                             
+        Whether or not to include rank of each returned token.
+        Applicable only if generated_tokens == true and/or input_tokens == true
 """.format(
     GENERATE_FUNCTION_ARGS
 )
+
+
+# Mapping from grpc status codes to caikit status codes. There is not a 1:1
+# mapping at the moment, so this conversion is lossy!
+GRPC_TO_CAIKIT_CORE_STATUS = {
+    grpc.StatusCode.CANCELLED: CaikitCoreStatusCode.CONNECTION_ERROR,
+    grpc.StatusCode.UNKNOWN: CaikitCoreStatusCode.UNKNOWN,
+    grpc.StatusCode.INVALID_ARGUMENT: CaikitCoreStatusCode.INVALID_ARGUMENT,
+    grpc.StatusCode.DEADLINE_EXCEEDED: CaikitCoreStatusCode.CONNECTION_ERROR,
+    grpc.StatusCode.NOT_FOUND: CaikitCoreStatusCode.NOT_FOUND,
+    grpc.StatusCode.ALREADY_EXISTS: CaikitCoreStatusCode.INVALID_ARGUMENT,
+    grpc.StatusCode.PERMISSION_DENIED: CaikitCoreStatusCode.FORBIDDEN,
+    grpc.StatusCode.RESOURCE_EXHAUSTED: CaikitCoreStatusCode.INVALID_ARGUMENT,
+    grpc.StatusCode.FAILED_PRECONDITION: CaikitCoreStatusCode.INVALID_ARGUMENT,
+    grpc.StatusCode.ABORTED: CaikitCoreStatusCode.CONNECTION_ERROR,
+    grpc.StatusCode.OUT_OF_RANGE: CaikitCoreStatusCode.INVALID_ARGUMENT,
+    grpc.StatusCode.UNIMPLEMENTED: CaikitCoreStatusCode.UNKNOWN,
+    grpc.StatusCode.INTERNAL: CaikitCoreStatusCode.FATAL,
+    grpc.StatusCode.UNAVAILABLE: CaikitCoreStatusCode.CONNECTION_ERROR,
+    grpc.StatusCode.DATA_LOSS: CaikitCoreStatusCode.CONNECTION_ERROR,
+    grpc.StatusCode.UNAUTHENTICATED: CaikitCoreStatusCode.UNAUTHORIZED,
+}
+
+
+def raise_caikit_core_exception(rpc_error: grpc.RpcError):
+    """Helper to wrap logic of converting from grpc.RpcError ->
+    CaikitCoreException
+    """
+    caikit_status_code = GRPC_TO_CAIKIT_CORE_STATUS.get(
+        rpc_error.code(), CaikitCoreStatusCode.UNKNOWN
+    )
+    error_message = rpc_error.details() or f"Unknown RpcError: {rpc_error}"
+    raise CaikitCoreException(caikit_status_code, error_message) from rpc_error
 
 
 def validate_inf_params(
@@ -391,7 +431,10 @@ class TGISGenerationClient:
 
         # Currently, we send a batch request of len(x)==1, so we expect one response back
         with alog.ContextTimer(log.trace, "TGIS request duration: "):
-            batch_response = self.tgis_client.Generate(request)
+            try:
+                batch_response = self.tgis_client.Generate(request)
+            except grpc.RpcError as err:
+                raise_caikit_core_exception(err)
 
         error.value_check(
             "<NLP38899018E>",
@@ -532,37 +575,40 @@ class TGISGenerationClient:
             )
 
         # stream GenerationResponse
-        stream_response = self.tgis_client.GenerateStream(request)
+        try:
+            stream_response = self.tgis_client.GenerateStream(request)
 
-        for stream_part in stream_response:
-            details = TokenStreamDetails(
-                finish_reason=stream_part.stop_reason,
-                generated_tokens=stream_part.generated_token_count,
-                seed=stream_part.seed,
-                input_token_count=stream_part.input_token_count,
-            )
-            token_list = []
-            if stream_part.tokens is not None:
-                for token in stream_part.tokens:
-                    token_list.append(
-                        GeneratedToken(
-                            text=token.text, logprob=token.logprob, rank=token.rank
+            for stream_part in stream_response:
+                details = TokenStreamDetails(
+                    finish_reason=stream_part.stop_reason,
+                    generated_tokens=stream_part.generated_token_count,
+                    seed=stream_part.seed,
+                    input_token_count=stream_part.input_token_count,
+                )
+                token_list = []
+                if stream_part.tokens is not None:
+                    for token in stream_part.tokens:
+                        token_list.append(
+                            GeneratedToken(
+                                text=token.text, logprob=token.logprob, rank=token.rank
+                            )
                         )
-                    )
-            input_token_list = []
-            if stream_part.input_tokens is not None:
-                for token in stream_part.input_tokens:
-                    input_token_list.append(
-                        GeneratedToken(
-                            text=token.text, logprob=token.logprob, rank=token.rank
+                input_token_list = []
+                if stream_part.input_tokens is not None:
+                    for token in stream_part.input_tokens:
+                        input_token_list.append(
+                            GeneratedToken(
+                                text=token.text, logprob=token.logprob, rank=token.rank
+                            )
                         )
-                    )
-            yield GeneratedTextStreamResult(
-                generated_text=stream_part.text,
-                tokens=token_list,
-                input_tokens=input_token_list,
-                details=details,
-            )
+                yield GeneratedTextStreamResult(
+                    generated_text=stream_part.text,
+                    tokens=token_list,
+                    input_tokens=input_token_list,
+                    details=details,
+                )
+        except grpc.RpcError as err:
+            raise_caikit_core_exception(err)
 
     def unary_tokenize(
         self,
@@ -598,7 +644,10 @@ class TGISGenerationClient:
 
         # Currently, we send a batch request of len(x)==1, so we expect one response back
         with alog.ContextTimer(log.trace, "TGIS request duration: "):
-            batch_response = self.tgis_client.Tokenize(request)
+            try:
+                batch_response = self.tgis_client.Tokenize(request)
+            except grpc.RpcError as err:
+                raise_caikit_core_exception(err)
 
         error.value_check(
             "<NLP38899081E>",
