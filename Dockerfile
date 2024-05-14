@@ -20,7 +20,7 @@ RUN --mount=source=.git,target=.git,type=bind tox -e build
 
 FROM base as deploy
 
-RUN python -m venv /opt/caikit/
+RUN python -m venv --upgrade-deps /opt/caikit/
 
 ENV VIRTUAL_ENV=/opt/caikit
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
