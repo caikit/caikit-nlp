@@ -47,11 +47,13 @@ embedding:
   # Attempt to optimize with PyTorch compile()
   pt2_compile: false
   # Use IPEX optimize. Works best when used with autocast (bfloat16) below.
-  ipex: false
+  ipex: true
   # Use autocast in encode with its default dtype (bfloat16)
-  autocast: false
+  autocast: true
   # For testing, set device to "mps" on MacOS or "xpu" for IPEX GPU.
   # Otherwise, the default does automatic checks for cuda GPU (else cpu).
+  graphmode: true
+  # Use graph mode with IPEX CPU
   device: ""
 
 runtime:
