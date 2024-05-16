@@ -576,7 +576,7 @@ class TGISGenerationClient:
 
         # stream GenerationResponse
         try:
-            stream_response = self.tgis_client.GenerateStream(request)
+            stream_response = self.tgis_client.GenerateStream(request, timeout=60) # set timeout to 60s, TODO: Make this configurable
 
             for stream_part in stream_response:
                 details = TokenStreamDetails(
