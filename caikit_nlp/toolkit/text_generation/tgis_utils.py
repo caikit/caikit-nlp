@@ -435,7 +435,9 @@ class TGISGenerationClient:
         # Currently, we send a batch request of len(x)==1, so we expect one response back
         with alog.ContextTimer(log.trace, "TGIS request duration: "):
             try:
-                batch_response = self.tgis_client.Generate(request, timeout=self.tgis_req_timeout)
+                batch_response = self.tgis_client.Generate(
+                    request, timeout=self.tgis_req_timeout
+                )
             except grpc.RpcError as err:
                 raise_caikit_core_exception(err)
 
@@ -579,7 +581,9 @@ class TGISGenerationClient:
 
         # stream GenerationResponse
         try:
-            stream_response = self.tgis_client.GenerateStream(request, timeout=self.tgis_req_timeout)
+            stream_response = self.tgis_client.GenerateStream(
+                request, timeout=self.tgis_req_timeout
+            )
 
             for stream_part in stream_response:
                 details = TokenStreamDetails(
@@ -648,7 +652,9 @@ class TGISGenerationClient:
         # Currently, we send a batch request of len(x)==1, so we expect one response back
         with alog.ContextTimer(log.trace, "TGIS request duration: "):
             try:
-                batch_response = self.tgis_client.Tokenize(request, timeout=self.tgis_req_timeout)
+                batch_response = self.tgis_client.Tokenize(
+                    request, timeout=self.tgis_req_timeout
+                )
             except grpc.RpcError as err:
                 raise_caikit_core_exception(err)
 
