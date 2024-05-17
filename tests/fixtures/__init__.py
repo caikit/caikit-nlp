@@ -208,7 +208,7 @@ class StubTGISClient:
         return StubTGISClient.tokenize(request)
 
     @staticmethod
-    def unary_generate(request):
+    def unary_generate(request, **kwargs):
         fake_response = mock.Mock()
         fake_result = mock.Mock()
         fake_result.stop_reason = 5
@@ -229,7 +229,7 @@ class StubTGISClient:
         return fake_response
 
     @staticmethod
-    def stream_generate(request):
+    def stream_generate(request, **kwargs):
         fake_stream = mock.Mock()
         fake_stream.stop_reason = 5
         fake_stream.generated_token_count = 1
@@ -250,7 +250,7 @@ class StubTGISClient:
             yield fake_stream
 
     @staticmethod
-    def tokenize(request):
+    def tokenize(request, **kwargs):
         fake_response = mock.Mock()
         fake_result = mock.Mock()
         fake_result.token_count = 1
