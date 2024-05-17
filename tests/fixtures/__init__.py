@@ -198,13 +198,13 @@ class StubTGISClient:
     def __init__(self, base_model_name):
         pass
 
-    def Generate(self, request):
+    def Generate(self, request, **kwargs):
         return StubTGISClient.unary_generate(request)
 
-    def GenerateStream(self, request):
+    def GenerateStream(self, request, **kwargs):
         return StubTGISClient.stream_generate(request)
 
-    def Tokenize(self, request):
+    def Tokenize(self, request, **kwargs):
         return StubTGISClient.tokenize(request)
 
     @staticmethod
