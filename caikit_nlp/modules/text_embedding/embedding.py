@@ -803,6 +803,12 @@ def sum_token_count(
 
 
 class SentenceTransformerWithTruncate(SentenceTransformer):
+    def __init__(self, *args, **kwargs):
+        super(SentenceTransformerWithTruncate, self).__init__(*args, **kwargs)
+        if GRAPH_MODE:
+            # Initialize the compiled model right after the base class initialization
+            self.compiled_model = self._apply_graph_mode()  # Compile and store the graph model
+    
     def _truncate_input_tokens(
         self,
         truncate_input_tokens: int,
@@ -913,6 +919,8 @@ class SentenceTransformerWithTruncate(SentenceTransformer):
 
         :return: A TorchScript graph that is optimized for inference.
         """
+        self.eval()
+
         max_seq_length = self.max_seq_length
         vocab_size = self.tokenizer.vocab_size
         
@@ -936,7 +944,7 @@ class SentenceTransformerWithTruncate(SentenceTransformer):
 
         # Freeze the compiled graph to optimize it for runtime performance
         compiled_graph = torch.jit.freeze(compiled_graph)
-
+        
         return compiled_graph
 
 
@@ -990,7 +998,7 @@ class SentenceTransformerWithTruncate(SentenceTransformer):
             output_value,
             normalize_embeddings,
         )
-
+        # torchscript requires eval mode
         self.eval()
 
         if convert_to_tensor:
@@ -1035,13 +1043,8 @@ class SentenceTransformerWithTruncate(SentenceTransformer):
 
             features = batch_to_device(features, device)
 
-            # load model that will be JIT compiled as a graph
-            if GRAPH_MODE:
-                # compiled_model = self._apply_graph_mode(features)
-                compiled_model = self._apply_graph_mode()
-
             # Determine which model to use based on GRAPH_MODE
-            model_to_use = compiled_model if GRAPH_MODE else self.forward
+            model_to_use = self.compiled_model if GRAPH_MODE else self.forward
 
             # Execution context based on AUTOCAST
             context_manager = torch.cpu.amp.autocast() if AUTOCAST else nullcontext()
