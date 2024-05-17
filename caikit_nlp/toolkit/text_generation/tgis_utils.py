@@ -20,6 +20,7 @@ from typing import Iterable
 import grpc
 
 # First Party
+from caikit import get_config
 from caikit.core.exceptions import error_handler
 from caikit.core.exceptions.caikit_core_exception import (
     CaikitCoreException,
@@ -326,6 +327,8 @@ class TGISGenerationClient:
         self.producer_id = producer_id
         self.prefix_id = prefix_id
 
+        self.tgis_req_timeout = get_config().tgis_request_timeout
+
     def unary_generate(
         self,
         text,
@@ -432,7 +435,9 @@ class TGISGenerationClient:
         # Currently, we send a batch request of len(x)==1, so we expect one response back
         with alog.ContextTimer(log.trace, "TGIS request duration: "):
             try:
-                batch_response = self.tgis_client.Generate(request)
+                batch_response = self.tgis_client.Generate(
+                    request, timeout=self.tgis_req_timeout
+                )
             except grpc.RpcError as err:
                 raise_caikit_core_exception(err)
 
@@ -576,7 +581,9 @@ class TGISGenerationClient:
 
         # stream GenerationResponse
         try:
-            stream_response = self.tgis_client.GenerateStream(request)
+            stream_response = self.tgis_client.GenerateStream(
+                request, timeout=self.tgis_req_timeout
+            )
 
             for stream_part in stream_response:
                 details = TokenStreamDetails(
@@ -645,7 +652,9 @@ class TGISGenerationClient:
         # Currently, we send a batch request of len(x)==1, so we expect one response back
         with alog.ContextTimer(log.trace, "TGIS request duration: "):
             try:
-                batch_response = self.tgis_client.Tokenize(request)
+                batch_response = self.tgis_client.Tokenize(
+                    request, timeout=self.tgis_req_timeout
+                )
             except grpc.RpcError as err:
                 raise_caikit_core_exception(err)
 

@@ -54,22 +54,19 @@ class MockTgisClient:
             )
 
     def Generate(
-        self,
-        request: generation_pb2.BatchedGenerationRequest,
+        self, request: generation_pb2.BatchedGenerationRequest, **kwargs
     ) -> generation_pb2.BatchedGenerationResponse:
         self._maybe_raise(grpc._channel._InactiveRpcError)
         return generation_pb2.BatchedGenerationResponse()
 
     def GenerateStream(
-        self,
-        request: generation_pb2.SingleGenerationRequest,
+        self, request: generation_pb2.SingleGenerationRequest, **kwargs
     ) -> Iterable[generation_pb2.GenerationResponse]:
         self._maybe_raise(grpc._channel._MultiThreadedRendezvous, None, None, None)
         yield generation_pb2.GenerationResponse()
 
     def Tokenize(
-        self,
-        request: generation_pb2.BatchedTokenizeRequest,
+        self, request: generation_pb2.BatchedTokenizeRequest, **kwargs
     ) -> generation_pb2.BatchedTokenizeResponse:
         self._maybe_raise(grpc._channel._InactiveRpcError)
         return generation_pb2.BatchedTokenizeResponse()

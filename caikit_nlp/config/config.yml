@@ -56,3 +56,6 @@ embedding:
 
 runtime:
   library: caikit_nlp
+
+# Configure request timeout for TGIS backend (in seconds)
+tgis_request_timeout: 60
