@@ -14,7 +14,7 @@ classifiers=[
     "License :: OSI Approved :: Apache Software License"
 ]
 dependencies = [
-    "caikit[runtime-grpc,runtime-http]>=0.26.17,<0.27.0",
+    "caikit[runtime-grpc,runtime-http]>=0.26.27,<0.27.0",
     "caikit-tgis-backend>=0.1.27,<0.2.0",
     # TODO: loosen dependencies
     "grpcio>=1.62.2", # explicitly pin grpc dependencies to a recent version to avoid pip backtracking

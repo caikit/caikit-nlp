@@ -15,7 +15,7 @@
 # Standard
 from collections.abc import Sized
 from enum import Enum, auto
-from typing import Callable, Dict, List, NamedTuple, Optional, TypeVar, Union
+from typing import Any, Callable, Dict, List, NamedTuple, Optional, TypeVar, Union
 import importlib
 import os
 import time
@@ -177,6 +177,20 @@ class EmbeddingModule(ModuleBase):
         model.encode("warmup")
 
         return cls(model)
+
+    @property
+    def public_model_info(cls) -> Dict[str, Any]:  # pylint: disable=no-self-argument
+        """Helper property to return public metadata about a specific Model. This
+        function is separate from `metdata` as that contains the entire ModelConfig
+        which might not want to be shared/exposed.
+
+        Returns:
+            Dict[str, str]: A dictionary of this models's public metadata
+        """
+        return {
+            "max_seq_length": cls.model.max_seq_length,
+            "sentence_embedding_dimension": cls.model.get_sentence_embedding_dimension(),
+        }
 
     @classmethod
     def _get_ipex(cls, ipex_flag):
