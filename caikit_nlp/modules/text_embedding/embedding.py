@@ -916,8 +916,8 @@ class SentenceTransformerWithTruncate(SentenceTransformer):
 
     def _apply_graph_mode(self) -> torch.jit.ScriptModule:
         """
-        Compiles the model into a TorchScript graph using predefined fixed-size randomized 
-        input tensors.The tensors simulate typical input structures without relying 
+        Compiles the model into a TorchScript graph using predefined fixed-size randomized
+        input tensors.The tensors simulate typical input structures without relying
         on actual input feature data.
 
         :return: A TorchScript graph that is optimized for inference.
