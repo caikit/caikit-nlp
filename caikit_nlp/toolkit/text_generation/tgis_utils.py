@@ -329,6 +329,21 @@ class TGISGenerationClient:
 
         self.tgis_req_timeout = get_config().tgis_request_timeout
 
+        if (
+            not self.tgis_req_timeout
+            or not isinstance(self.tgis_req_timeout, int)
+            or self.tgis_req_timeout <= 0
+        ):
+            log.info("<RUN57106697I>", "TGIS timeout not set")
+            self.tgis_req_timeout = None
+
+        else:
+            log.info(
+                "<RUN57106696T>",
+                "Setting TGIS timeout value to  %d",
+                self.tgis_req_timeout,
+            )
+
     def unary_generate(
         self,
         text,
