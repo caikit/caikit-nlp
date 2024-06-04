@@ -334,7 +334,7 @@ class TGISGenerationClient:
             or not isinstance(self.tgis_req_timeout, int)
             or self.tgis_req_timeout <= 0
         ):
-            log.info("<RUN57106697I>", "TGIS timeout not set")
+            log.debug("<RUN57106697I>", "TGIS timeout not set")
             self.tgis_req_timeout = None
 
         else:
