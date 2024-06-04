@@ -338,7 +338,7 @@ class TGISGenerationClient:
             self.tgis_req_timeout = None
 
         else:
-            log.debug
+            log.debug(
                 "<RUN57106696T>",
                 "Setting TGIS timeout value to  %d",
                 self.tgis_req_timeout,
