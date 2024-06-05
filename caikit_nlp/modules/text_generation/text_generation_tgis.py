@@ -14,7 +14,7 @@
 
 
 # Standard
-from typing import Iterable, List, Optional, Tuple, Union
+from typing import Any, Iterable, List, Optional, Tuple, Union
 import os
 
 # Third Party
@@ -73,6 +73,7 @@ class TextGenerationTGIS(ModuleBase):
         eos_token: Optional[str] = None,
         pad_token: Optional[str] = None,
         tgis_backend: Optional[TGISBackend] = None,
+        conn_cfg: Optional[dict[str, Any]] = None,
     ):
         super().__init__()
 
@@ -82,6 +83,7 @@ class TextGenerationTGIS(ModuleBase):
         error.type_check("<NLP53511308E>", str, allow_none=True, pad_token=pad_token)
         self.model = model
         self.model_name = model_name
+        self.conn_cfg = conn_cfg
 
         # Set _model_loaded as False by default. This will only get set to True if
         # we enable the tgis_backend and we are able to fetch the client successfully.
@@ -91,7 +93,11 @@ class TextGenerationTGIS(ModuleBase):
         # for example, bootstrapping a model to caikit format and saving.
         self._client = None
         if tgis_backend:
-            self._client = tgis_backend.get_client(model_name)
+            if conn_cfg:
+                tgis_backend.register_model_connection(
+                    model_id=model_name, conn_cfg=conn_cfg
+                )
+            self._client = tgis_backend.get_client(model_id=model_name)
             # mark that the model is loaded so that we can unload it later
             self._model_loaded = True
             self.tgis_backend = tgis_backend
@@ -141,6 +147,7 @@ class TextGenerationTGIS(ModuleBase):
             eos_token=eos_token,
             pad_token=pad_token,
             tgis_backend=load_backend,
+            # TODO: Add connection_config?
         )
 
     @classmethod
@@ -164,6 +171,11 @@ class TextGenerationTGIS(ModuleBase):
         config = ModuleConfig.load(model_path)
         tgis_backend = config.tgis_backend or load_backend
         artifacts_path = config.artifact_path
+
+        # connection_config is a dict with all the necessary fields to successfully create
+        # a TGISConnection using the .from_config() method.
+        conn_cfg = config.connection_config
+
         if artifacts_path:
             model_name = os.path.join(model_path, artifacts_path)
             error.dir_check("<NLP01983374E>", model_name)
@@ -172,6 +184,7 @@ class TextGenerationTGIS(ModuleBase):
             model_name = config.model_name
             error.type_check("<NLP90686335E>", str, model_name=model_name)
             log.debug("Loading with model name: %s", model_name)
+
         return cls(
             model_name,
             bos_token=config.bos_token,
@@ -179,6 +192,7 @@ class TextGenerationTGIS(ModuleBase):
             eos_token=config.eos_token,
             pad_token=config.pad_token,
             tgis_backend=tgis_backend,
+            conn_cfg=conn_cfg,
         )
 
     def save(self, model_path: str):
@@ -203,6 +217,7 @@ class TextGenerationTGIS(ModuleBase):
                     "sep_token": self._sep_token,
                     "eos_token": self._eos_token,
                     "pad_token": self._pad_token,
+                    # TODO: Add connection_config
                 }
             )
 

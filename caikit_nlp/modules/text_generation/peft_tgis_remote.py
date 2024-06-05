@@ -14,8 +14,9 @@
 """This file contains a distributed backend implementation for leveraging the PEFT-trained
 prompt vectors in TGIS generation requests.
 """
+
 # Standard
-from typing import Iterable, List, Optional, Tuple, Union
+from typing import Any, Iterable, List, Optional, Tuple, Union
 import os
 
 # Third Party
@@ -66,6 +67,7 @@ class PeftPromptTuningTGIS(ModuleBase):  # pylint: disable=too-many-instance-att
         enable_backend: bool = True,
         tgis_backend: Optional[TGISBackend] = None,
         prompt_artifacts: Optional[List[str]] = None,
+        conn_cfg: Optional[dict[str, Any]] = None,
     ) -> None:
         super().__init__()
         # Configure the internal client
@@ -73,7 +75,11 @@ class PeftPromptTuningTGIS(ModuleBase):  # pylint: disable=too-many-instance-att
         # for example, bootstrapping a model to caikit format and saving.
         self._client = None
         self._tgis_backend = tgis_backend
-        if enable_backend:
+        if enable_backend and tgis_backend:
+            if conn_cfg:
+                tgis_backend.register_model_connection(
+                    model_id=base_model_name, conn_cfg=conn_cfg
+                )
             # get_client will also launch a local TGIS process and get the model
             # loaded when using the local TGIS backend
             self._client = tgis_backend.get_client(base_model_name)
@@ -89,6 +95,7 @@ class PeftPromptTuningTGIS(ModuleBase):  # pylint: disable=too-many-instance-att
         self.eos_token = eos_token
         self.verbalizer = verbalizer
         self.enable_backend = enable_backend
+        self.conn_cfg = conn_cfg
 
         self.tgis_generation_client = TGISGenerationClient(
             self.base_model_name,
@@ -142,6 +149,10 @@ class PeftPromptTuningTGIS(ModuleBase):  # pylint: disable=too-many-instance-att
         log.debug("Prompt ID: %s", prompt_cache_id)
         log.debug("TGIS model ID: %s", base_model_name)
 
+        # connection_config is a dict with all the necessary fields to successfully create
+        # a TGISConnection using the .from_config() method.
+        conn_cfg = config.connection_config
+
         # Get all the valid prompt artifact files so they can be loaded after
         # the connection is established
         prompt_artifacts = [
@@ -159,6 +170,7 @@ class PeftPromptTuningTGIS(ModuleBase):  # pylint: disable=too-many-instance-att
             verbalizer,
             tgis_backend=load_backend,
             prompt_artifacts=prompt_artifacts,
+            conn_cfg=conn_cfg,
         )
 
     def save(self, model_path: str):
@@ -178,6 +190,7 @@ class PeftPromptTuningTGIS(ModuleBase):  # pylint: disable=too-many-instance-att
                     "prompt_cache_id": self._prompt_cache_id,
                     "eos_token": self.eos_token,
                     "verbalizer": self.verbalizer,
+                    # TODO: Add connection_config
                 }
             )
 
