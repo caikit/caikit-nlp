@@ -14,10 +14,12 @@
 """
 Tests for tgis_utils
 """
+
 # Standard
 from typing import Iterable, Optional, Type
 
 # Third Party
+import fastapi
 import grpc
 import grpc._channel
 import pytest
@@ -25,6 +27,7 @@ import pytest
 # First Party
 from caikit.core.data_model import ProducerId
 from caikit.core.exceptions.caikit_core_exception import CaikitCoreException
+from caikit.interfaces.runtime.data_model import RuntimeServerContextType
 from caikit_tgis_backend.protobufs import generation_pb2
 
 # Local
@@ -127,3 +130,37 @@ def test_TGISGenerationClient_rpc_errors(status_code, method):
     )
     rpc_err = context.value.__context__
     assert isinstance(rpc_err, grpc.RpcError)
+
+
+@pytest.mark.parametrize(
+    argnames=["context", "ok", "route_info"],
+    argvalues=[
+        (
+            fastapi.Request(
+                {"type": "http", "headers": [(b"x-route-info", b"sometext")]}
+            ),
+            True,
+            "sometext",
+        ),
+        (
+            fastapi.Request(
+                {"type": "http", "headers": [(b"route-info", b"sometext")]}
+            ),
+            False,
+            None,
+        ),
+        ("should raise ValueError", False, None),
+        (None, False, None),
+        # Uncertain how to create a grpc.ServicerContext object
+    ],
+)
+def test_get_route_info(
+    context: RuntimeServerContextType, ok: bool, route_info: Optional[str]
+):
+    if not isinstance(context, (fastapi.Request, grpc.ServicerContext, type(None))):
+        with pytest.raises(ValueError):
+            tgis_utils.get_route_info(context)
+    else:
+        actual_ok, actual_route_info = tgis_utils.get_route_info(context)
+        assert actual_ok == ok
+        assert actual_route_info == route_info
