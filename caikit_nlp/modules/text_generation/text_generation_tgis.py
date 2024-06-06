@@ -14,6 +14,7 @@
 
 
 # Standard
+from functools import cached_property
 from typing import Iterable, List, Optional, Tuple, Union
 import os
 
@@ -30,6 +31,7 @@ from caikit.interfaces.nlp.data_model import (
     TokenizationResults,
 )
 from caikit.interfaces.nlp.tasks import TextGenerationTask, TokenizationTask
+from caikit.interfaces.runtime.data_model import RuntimeServerContextType
 from caikit_tgis_backend import TGISBackend
 import alog
 
@@ -43,6 +45,7 @@ from ...resources.pretrained_model import (
 from ...toolkit.text_generation.tgis_utils import (
     GENERATE_FUNCTION_TGIS_ARGS,
     TGISGenerationClient,
+    get_route_info,
 )
 from .text_generation_local import TextGeneration
 
@@ -86,14 +89,7 @@ class TextGenerationTGIS(ModuleBase):
         # Set _model_loaded as False by default. This will only get set to True if
         # we enable the tgis_backend and we are able to fetch the client successfully.
         self._model_loaded = False
-        # Configure the internal client
-        # NOTE: This is made optional for the cases where we do not need to execute `.run` function
-        # for example, bootstrapping a model to caikit format and saving.
-        self._client = None
         if tgis_backend:
-            self._client = tgis_backend.get_client(model_name)
-            # mark that the model is loaded so that we can unload it later
-            self._model_loaded = True
             self.tgis_backend = tgis_backend
 
         self._bos_token = bos_token
@@ -108,6 +104,14 @@ class TextGenerationTGIS(ModuleBase):
         # nothing to unload if we didn't finish loading
         if self._model_loaded and self.tgis_backend:
             self.tgis_backend.unload_model(self.model_name)
+
+    @cached_property
+    def _client(self):
+        # Configure the internal client
+        # NOTE: This is made optional for the cases where we do not need to execute `.run` function
+        # for example, bootstrapping a model to caikit format and saving.
+        if hasattr(self, "tgis_backend") and self.tgis_backend:
+            return self.tgis_backend.get_client(self.model_name)
 
     @classmethod
     def bootstrap(cls, model_path: str, load_backend: Union[BackendBase, None] = None):
@@ -207,7 +211,7 @@ class TextGenerationTGIS(ModuleBase):
             )
 
     # pylint: disable=duplicate-code
-    @TextGenerationTask.taskmethod()
+    @TextGenerationTask.taskmethod(context_arg="context")
     def run(
         self,
         text: str,
@@ -231,6 +235,7 @@ class TextGenerationTGIS(ModuleBase):
         generated_tokens: bool = True,
         token_logprobs: bool = True,
         token_ranks: bool = True,
+        context: Optional[RuntimeServerContextType] = None,
     ) -> GeneratedTextResult:
         f"""Run inference against the model running in TGIS.
 
@@ -240,6 +245,9 @@ class TextGenerationTGIS(ModuleBase):
             GeneratedTextResult
                 Generated text result produced by TGIS.
         """
+        if self.tgis_backend:
+            self._register_model_connection_with_context(context)
+
         if self._model_loaded:
             return self.tgis_generation_client.unary_generate(
                 text=text,
@@ -263,7 +271,7 @@ class TextGenerationTGIS(ModuleBase):
                 stop_sequences=stop_sequences,
             )
 
-    @TextGenerationTask.taskmethod(output_streaming=True)
+    @TextGenerationTask.taskmethod(output_streaming=True, context_arg="context")
     def run_stream_out(
         self,
         text: str,
@@ -287,6 +295,7 @@ class TextGenerationTGIS(ModuleBase):
         generated_tokens: bool = True,
         token_logprobs: bool = True,
         token_ranks: bool = True,
+        context: Optional[RuntimeServerContextType] = None,
     ) -> Iterable[GeneratedTextStreamResult]:
         f"""Run output stream inferencing for text generation module.
 
@@ -295,6 +304,8 @@ class TextGenerationTGIS(ModuleBase):
         Returns:
             Iterable[GeneratedTextStreamResult]
         """
+        if self.tgis_backend:
+            self._register_model_connection_with_context(context)
 
         if self._model_loaded:
             return self.tgis_generation_client.stream_generate(
@@ -319,10 +330,11 @@ class TextGenerationTGIS(ModuleBase):
                 stop_sequences=stop_sequences,
             )
 
-    @TokenizationTask.taskmethod()
+    @TokenizationTask.taskmethod(context_arg="context")
     def run_tokenizer(
         self,
         text: str,
+        context: Optional[RuntimeServerContextType] = None,
     ) -> TokenizationResults:
         """Run tokenization task against the model running in TGIS.
 
@@ -333,7 +345,22 @@ class TextGenerationTGIS(ModuleBase):
             TokenizationResults
                 The token count
         """
+        if self.tgis_backend:
+            self._register_model_connection_with_context(context)
+
         if self._model_loaded:
             return self.tgis_generation_client.unary_tokenize(
                 text=text,
             )
+
+    def _register_model_connection_with_context(
+        self, context: Optional[RuntimeServerContextType]
+    ):
+        ok, route_info = get_route_info(context)
+        if ok:
+            self.tgis_backend.register_model_connection(
+                self.model_name, {"hostname": route_info}
+            )
+        else:
+            self.tgis_backend.register_model_connection(self.model_name)
+        self._model_loaded = True
