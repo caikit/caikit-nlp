@@ -73,7 +73,6 @@ class PeftPromptTuningTGIS(ModuleBase):  # pylint: disable=too-many-instance-att
     ) -> None:
         super().__init__()
 
-        # self._client = None
         self._tgis_backend = tgis_backend
         if enable_backend:
             error.type_check(
