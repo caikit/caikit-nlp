@@ -14,6 +14,7 @@
 
 
 # Standard
+from functools import cached_property
 from typing import Iterable, List, Optional, Tuple, Union
 import os
 
@@ -30,6 +31,7 @@ from caikit.interfaces.nlp.data_model import (
     TokenizationResults,
 )
 from caikit.interfaces.nlp.tasks import TextGenerationTask, TokenizationTask
+from caikit.interfaces.runtime.data_model import RuntimeServerContextType
 from caikit_tgis_backend import TGISBackend
 import alog
 
@@ -43,6 +45,7 @@ from ...resources.pretrained_model import (
 from ...toolkit.text_generation.tgis_utils import (
     GENERATE_FUNCTION_TGIS_ARGS,
     TGISGenerationClient,
+    get_route_info,
 )
 from .text_generation_local import TextGeneration
 
@@ -86,28 +89,33 @@ class TextGenerationTGIS(ModuleBase):
         # Set _model_loaded as False by default. This will only get set to True if
         # we enable the tgis_backend and we are able to fetch the client successfully.
         self._model_loaded = False
-        # Configure the internal client
-        # NOTE: This is made optional for the cases where we do not need to execute `.run` function
-        # for example, bootstrapping a model to caikit format and saving.
-        self._client = None
         if tgis_backend:
-            self._client = tgis_backend.get_client(model_name)
-            # mark that the model is loaded so that we can unload it later
-            self._model_loaded = True
             self.tgis_backend = tgis_backend
 
+        self._tgis_backend = tgis_backend
         self._bos_token = bos_token
         self._sep_token = sep_token
         self._eos_token = eos_token
         self._pad_token = pad_token
-        self.tgis_generation_client = TGISGenerationClient(
-            self.model_name, self._eos_token, self._client, self.PRODUCER_ID
-        )
 
     def __del__(self):
         # nothing to unload if we didn't finish loading
-        if self._model_loaded and self.tgis_backend:
-            self.tgis_backend.unload_model(self.model_name)
+        if self._model_loaded and self._tgis_backend:
+            self._tgis_backend.unload_model(self.model_name)
+
+    @cached_property
+    def _client(self):
+        # Lazily configure/create the internal tgis backend client
+        if self._tgis_backend:
+            return self._tgis_backend.get_client(self.model_name)
+
+    @cached_property
+    def tgis_generation_client(self):
+        # Lazily create the generation client
+        # This in turn calls self._client which also lazily gets the tgis backend client
+        return TGISGenerationClient(
+            self.model_name, self._eos_token, self._client, self.PRODUCER_ID
+        )
 
     @classmethod
     def bootstrap(cls, model_path: str, load_backend: Union[BackendBase, None] = None):
@@ -207,7 +215,7 @@ class TextGenerationTGIS(ModuleBase):
             )
 
     # pylint: disable=duplicate-code
-    @TextGenerationTask.taskmethod()
+    @TextGenerationTask.taskmethod(context_arg="context")
     def run(
         self,
         text: str,
@@ -231,6 +239,7 @@ class TextGenerationTGIS(ModuleBase):
         generated_tokens: bool = True,
         token_logprobs: bool = True,
         token_ranks: bool = True,
+        context: Optional[RuntimeServerContextType] = None,
     ) -> GeneratedTextResult:
         f"""Run inference against the model running in TGIS.
 
@@ -240,6 +249,8 @@ class TextGenerationTGIS(ModuleBase):
             GeneratedTextResult
                 Generated text result produced by TGIS.
         """
+        self._register_model_connection_with_context(context)
+
         if self._model_loaded:
             return self.tgis_generation_client.unary_generate(
                 text=text,
@@ -263,7 +274,7 @@ class TextGenerationTGIS(ModuleBase):
                 stop_sequences=stop_sequences,
             )
 
-    @TextGenerationTask.taskmethod(output_streaming=True)
+    @TextGenerationTask.taskmethod(output_streaming=True, context_arg="context")
     def run_stream_out(
         self,
         text: str,
@@ -287,6 +298,7 @@ class TextGenerationTGIS(ModuleBase):
         generated_tokens: bool = True,
         token_logprobs: bool = True,
         token_ranks: bool = True,
+        context: Optional[RuntimeServerContextType] = None,
     ) -> Iterable[GeneratedTextStreamResult]:
         f"""Run output stream inferencing for text generation module.
 
@@ -295,6 +307,7 @@ class TextGenerationTGIS(ModuleBase):
         Returns:
             Iterable[GeneratedTextStreamResult]
         """
+        self._register_model_connection_with_context(context)
 
         if self._model_loaded:
             return self.tgis_generation_client.stream_generate(
@@ -319,10 +332,11 @@ class TextGenerationTGIS(ModuleBase):
                 stop_sequences=stop_sequences,
             )
 
-    @TokenizationTask.taskmethod()
+    @TokenizationTask.taskmethod(context_arg="context")
     def run_tokenizer(
         self,
         text: str,
+        context: Optional[RuntimeServerContextType] = None,
     ) -> TokenizationResults:
         """Run tokenization task against the model running in TGIS.
 
@@ -333,7 +347,28 @@ class TextGenerationTGIS(ModuleBase):
             TokenizationResults
                 The token count
         """
+        self._register_model_connection_with_context(context)
+
         if self._model_loaded:
             return self.tgis_generation_client.unary_tokenize(
                 text=text,
             )
+
+    def _register_model_connection_with_context(
+        self, context: Optional[RuntimeServerContextType]
+    ):
+        """
+        Register a remote model connection with the configured TGISBackend if there is
+        a context override provided.
+        """
+        if self._tgis_backend:
+            if route_info := get_route_info(context):
+                log.debug(
+                    "<NLP15770311D> Registering remote model connection with context "
+                    "override: 'hostname: %s'",
+                    route_info,
+                )
+                self._tgis_backend.register_model_connection(
+                    self.model_name, {"hostname": route_info}, fill_with_defaults=True
+                )
+            self._model_loaded = True

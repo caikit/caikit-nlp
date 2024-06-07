@@ -14,10 +14,12 @@
 """
 Tests for tgis_utils
 """
+
 # Standard
 from typing import Iterable, Optional, Type
 
 # Third Party
+import fastapi
 import grpc
 import grpc._channel
 import pytest
@@ -25,10 +27,12 @@ import pytest
 # First Party
 from caikit.core.data_model import ProducerId
 from caikit.core.exceptions.caikit_core_exception import CaikitCoreException
+from caikit.interfaces.runtime.data_model import RuntimeServerContextType
 from caikit_tgis_backend.protobufs import generation_pb2
 
 # Local
 from caikit_nlp.toolkit.text_generation import tgis_utils
+from tests.fixtures import TestServicerContext
 
 ## Helpers #####################################################################
 
@@ -127,3 +131,45 @@ def test_TGISGenerationClient_rpc_errors(status_code, method):
     )
     rpc_err = context.value.__context__
     assert isinstance(rpc_err, grpc.RpcError)
+
+
+@pytest.mark.parametrize(
+    argnames=["context", "route_info"],
+    argvalues=[
+        (
+            fastapi.Request(
+                {
+                    "type": "http",
+                    "headers": [
+                        (tgis_utils.ROUTE_INFO_HEADER_KEY.encode(), b"sometext")
+                    ],
+                }
+            ),
+            "sometext",
+        ),
+        (
+            fastapi.Request(
+                {"type": "http", "headers": [(b"route-info", b"sometext")]}
+            ),
+            None,
+        ),
+        (
+            TestServicerContext({tgis_utils.ROUTE_INFO_HEADER_KEY: "sometext"}),
+            "sometext",
+        ),
+        (
+            TestServicerContext({"route-info": "sometext"}),
+            None,
+        ),
+        ("should raise ValueError", None),
+        (None, None),
+        # Uncertain how to create a grpc.ServicerContext object
+    ],
+)
+def test_get_route_info(context: RuntimeServerContextType, route_info: Optional[str]):
+    if not isinstance(context, (fastapi.Request, grpc.ServicerContext, type(None))):
+        with pytest.raises(ValueError):
+            tgis_utils.get_route_info(context)
+    else:
+        actual_route_info = tgis_utils.get_route_info(context)
+        assert actual_route_info == route_info

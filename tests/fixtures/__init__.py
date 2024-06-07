@@ -1,8 +1,8 @@
-"""Helpful fixtures for configuring individual unit tests.
-"""
+"""Helpful fixtures for configuring individual unit tests."""
+
 # Standard
 from contextlib import contextmanager
-from typing import Iterable, Optional
+from typing import Iterable, Optional, Union
 from unittest import mock
 import json
 import os
@@ -191,6 +191,7 @@ def requires_determinism(request):
 
 ### Common TGIS stub classes
 
+
 # Helper stubs / mocks; we use these to patch caikit so that we don't actually
 # test the TGIS backend directly, and instead stub the client and inspect the
 # args that we pass to it.
@@ -342,3 +343,15 @@ def temp_config(**overrides):
 
     with mock.patch.object(caikit.config.config, "_IMMUTABLE_CONFIG", local_config):
         yield local_config
+
+
+class TestServicerContext:
+    """
+    A dummy class for mimicking ServicerContext invocation metadata storage.
+    """
+
+    def __init__(self, metadata: dict[str, Union[str, bytes]]):
+        self.metadata = metadata
+
+    def invocation_metadata(self):
+        return list(self.metadata.items())

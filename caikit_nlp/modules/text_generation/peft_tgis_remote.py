@@ -14,7 +14,9 @@
 """This file contains a distributed backend implementation for leveraging the PEFT-trained
 prompt vectors in TGIS generation requests.
 """
+
 # Standard
+from functools import cached_property
 from typing import Iterable, List, Optional, Tuple, Union
 import os
 
@@ -32,6 +34,7 @@ from caikit.interfaces.nlp.data_model import (
     TokenizationResults,
 )
 from caikit.interfaces.nlp.tasks import TextGenerationTask, TokenizationTask
+from caikit.interfaces.runtime.data_model import RuntimeServerContextType
 from caikit_tgis_backend import TGISBackend
 import alog
 
@@ -40,6 +43,7 @@ from ...data_model import ExponentialDecayLengthPenalty
 from ...toolkit.text_generation.tgis_utils import (
     GENERATE_FUNCTION_TGIS_ARGS,
     TGISGenerationClient,
+    get_route_info,
 )
 from ...toolkit.verbalizer_utils import render_verbalizer
 from . import PeftPromptTuning
@@ -68,15 +72,14 @@ class PeftPromptTuningTGIS(ModuleBase):  # pylint: disable=too-many-instance-att
         prompt_artifacts: Optional[List[str]] = None,
     ) -> None:
         super().__init__()
-        # Configure the internal client
-        # NOTE: This is made optional for the cases where we do not need to execute `.run` function
-        # for example, bootstrapping a model to caikit format and saving.
-        self._client = None
+
         self._tgis_backend = tgis_backend
         if enable_backend:
+            error.type_check(
+                "<NLP33971947E>", TGISBackend, tgis_backend=self._tgis_backend
+            )
             # get_client will also launch a local TGIS process and get the model
             # loaded when using the local TGIS backend
-            self._client = tgis_backend.get_client(base_model_name)
 
             # Tell the backend to load all of the available prompt files
             if prompt_artifacts:
@@ -106,6 +109,14 @@ class PeftPromptTuningTGIS(ModuleBase):  # pylint: disable=too-many-instance-att
             model_id = getattr(self, "base_model_name", None)
             if tgis_backend and prompt_cache_id and model_id:
                 tgis_backend.unload_prompt_artifacts(model_id, prompt_cache_id)
+
+    @cached_property
+    def _client(self):
+        # Configure the internal client
+        # NOTE: This is made optional for the cases where we do not need to execute `.run` function
+        # for example, bootstrapping a model to caikit format and saving.
+        if self._tgis_backend:
+            return self._tgis_backend.get_client(self.base_model_name)
 
     @classmethod
     def load(cls, model_path: str, load_backend: BackendBase) -> "PeftPromptTuningTGIS":
@@ -182,7 +193,7 @@ class PeftPromptTuningTGIS(ModuleBase):  # pylint: disable=too-many-instance-att
             )
 
     # pylint: disable=duplicate-code
-    @TextGenerationTask.taskmethod()
+    @TextGenerationTask.taskmethod(context_arg="context")
     def run(
         self,
         text: str,
@@ -206,6 +217,7 @@ class PeftPromptTuningTGIS(ModuleBase):  # pylint: disable=too-many-instance-att
         generated_tokens: bool = True,
         token_logprobs: bool = True,
         token_ranks: bool = True,
+        context: Optional[RuntimeServerContextType] = None,
     ) -> GeneratedTextResult:
         f"""Run inference against the model running in TGIS.
 
@@ -221,6 +233,8 @@ class PeftPromptTuningTGIS(ModuleBase):  # pylint: disable=too-many-instance-att
             self.enable_backend,
             "Backend must be configured and loaded with this module before executing `run` call.",
         )
+        self._register_model_connection_with_context(context)
+
         verbalized_text = render_verbalizer(self.verbalizer, {"input": text})
         return self.tgis_generation_client.unary_generate(
             text=verbalized_text,
@@ -244,7 +258,7 @@ class PeftPromptTuningTGIS(ModuleBase):  # pylint: disable=too-many-instance-att
             stop_sequences=stop_sequences,
         )
 
-    @TextGenerationTask.taskmethod(output_streaming=True)
+    @TextGenerationTask.taskmethod(output_streaming=True, context_arg="context")
     def run_stream_out(
         self,
         text: str,
@@ -268,6 +282,7 @@ class PeftPromptTuningTGIS(ModuleBase):  # pylint: disable=too-many-instance-att
         generated_tokens: bool = True,
         token_logprobs: bool = True,
         token_ranks: bool = True,
+        context: Optional[RuntimeServerContextType] = None,
     ) -> Iterable[GeneratedTextStreamResult]:
         f"""Run output stream inferencing against the model running in TGIS
 
@@ -283,6 +298,9 @@ class PeftPromptTuningTGIS(ModuleBase):  # pylint: disable=too-many-instance-att
             "Backend must be configured and loaded with this module \
             before executing `run_stream_out` call.",
         )
+
+        self._register_model_connection_with_context(context)
+
         verbalized_text = render_verbalizer(self.verbalizer, {"input": text})
         return self.tgis_generation_client.stream_generate(
             text=verbalized_text,
@@ -306,10 +324,11 @@ class PeftPromptTuningTGIS(ModuleBase):  # pylint: disable=too-many-instance-att
             stop_sequences=stop_sequences,
         )
 
-    @TokenizationTask.taskmethod()
+    @TokenizationTask.taskmethod(context_arg="context")
     def run_tokenizer(
         self,
         text: str,
+        context: Optional[RuntimeServerContextType] = None,
     ) -> TokenizationResults:
         """Run tokenization task against the model running in TGIS.
 
@@ -320,6 +339,30 @@ class PeftPromptTuningTGIS(ModuleBase):  # pylint: disable=too-many-instance-att
             TokenizationResults
                 The token count
         """
+
+        self._register_model_connection_with_context(context)
+
         return self.tgis_generation_client.unary_tokenize(
             text=text,
         )
+
+    def _register_model_connection_with_context(
+        self, context: Optional[RuntimeServerContextType]
+    ):
+        """
+        Register a remote model connection with the configured TGISBackend if there is
+        a context override provided.
+        """
+        if self._tgis_backend:
+            if route_info := get_route_info(context):
+                log.debug(
+                    "<NLP10705560D> Registering remote model connection with context "
+                    "override: 'hostname: %s'",
+                    route_info,
+                )
+                self._tgis_backend.register_model_connection(
+                    self.base_model_name,
+                    {"hostname": route_info},
+                    fill_with_defaults=True,
+                )
+            self._model_loaded = True
