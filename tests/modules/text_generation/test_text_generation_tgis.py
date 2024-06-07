@@ -19,6 +19,7 @@ import caikit
 from caikit_nlp.data_model import ExponentialDecayLengthPenalty, GenerationTrainRecord
 from caikit_nlp.modules.text_generation import TextGeneration, TextGenerationTGIS
 from caikit_nlp.resources.pretrained_model.hf_auto_seq2seq_lm import HFAutoSeq2SeqLM
+from tests.fixtures import set_cpu_device  # noqa
 from tests.fixtures import (
     CAUSAL_LM_MODEL,
     SEQ2SEQ_LM_MODEL,
