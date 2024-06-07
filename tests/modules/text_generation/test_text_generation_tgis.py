@@ -1,5 +1,5 @@
-"""Tests for text-generation module
-"""
+"""Tests for text-generation module"""
+
 # Standard
 from unittest import mock
 import os
@@ -12,6 +12,7 @@ import torch
 
 # First Party
 from caikit.interfaces.nlp.data_model import GeneratedTextResult
+from caikit_tgis_backend import TGISBackend
 import caikit
 
 # Local
@@ -23,7 +24,6 @@ from tests.fixtures import (
     SEQ2SEQ_LM_MODEL,
     StubTGISBackend,
     StubTGISClient,
-    set_cpu_device,
 )
 
 SAMPLE_TEXT = "Hello stub"
@@ -150,6 +150,26 @@ def test_remote_tgis_only_model():
     with tempfile.TemporaryDirectory() as model_dir:
         model.save(model_dir)
         TextGenerationTGIS.load(model_dir, load_backend=tgis_backend)
+
+
+def test_client_lazy_load():
+    """
+    Test that the TGISBackend client is lazy loaded
+    """
+    model_name = "model-name"
+    tgis_backend = TGISBackend(
+        {"connection": {"hostname": "{model_id}.localhost:1234"}}
+    )
+    model = TextGenerationTGIS(model_name, tgis_backend=tgis_backend)
+
+    # No tgis_backend client and _model_loaded still False
+    assert "_client" not in model.__dict__
+    assert not model.__dict__.get("_model_loaded", True)
+
+    # Client gets created on accessing ._client
+    client = model._client
+    assert client is not None
+    assert client
 
 
 ### Output streaming tests ##############################################################

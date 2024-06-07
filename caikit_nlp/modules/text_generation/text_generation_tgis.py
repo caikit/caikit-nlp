@@ -109,6 +109,14 @@ class TextGenerationTGIS(ModuleBase):
         if self._tgis_backend:
             return self._tgis_backend.get_client(self.model_name)
 
+    @cached_property
+    def tgis_generation_client(self):
+        # Lazily create the generation client
+        # This in turn calls self._client which also lazily gets the tgis backend client
+        return TGISGenerationClient(
+            self.model_name, self._eos_token, self._client, self.PRODUCER_ID
+        )
+
     @classmethod
     def bootstrap(cls, model_path: str, load_backend: Union[BackendBase, None] = None):
         """Function to bootstrap a pre-trained transformers model and
