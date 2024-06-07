@@ -693,9 +693,11 @@ def get_route_info(
     context: Optional[RuntimeServerContextType],
 ) -> Tuple[bool, Optional[str]]:
     """
-    Returns a tuple `(True, x-route-info)` from context if "x-route-info" was found in the headers/metadata.
+    Returns a tuple `(True, x-route-info)` from context if "x-route-info" was found in
+    the headers/metadata.
 
-    Otherwise returns a tuple `(False, None)` if "x-route-info" was not found in the context or if context is None.
+    Otherwise returns a tuple `(False, None)` if "x-route-info" was not found in the
+    context or if context is None.
     """
     if context is None:
         return False, None

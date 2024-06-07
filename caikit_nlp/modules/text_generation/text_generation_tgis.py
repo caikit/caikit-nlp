@@ -363,7 +363,8 @@ class TextGenerationTGIS(ModuleBase):
         ok, route_info = get_route_info(context)
         if ok:
             log.debug(
-                "<NLP15770311D> Registering remote model connection with context override: 'hostname: %s'",
+                "<NLP15770311D> Registering remote model connection with context "
+                "override: 'hostname: %s'",
                 route_info,
             )
             self._tgis_backend.register_model_connection(

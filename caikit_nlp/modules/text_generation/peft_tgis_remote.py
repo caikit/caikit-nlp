@@ -357,7 +357,8 @@ class PeftPromptTuningTGIS(ModuleBase):  # pylint: disable=too-many-instance-att
         ok, route_info = get_route_info(context)
         if ok:
             log.debug(
-                "<NLP10705560D> Registering remote model connection with context override: 'hostname: %s'",
+                "<NLP10705560D> Registering remote model connection with context "
+                "override: 'hostname: %s'",
                 route_info,
             )
             self._tgis_backend.register_model_connection(
