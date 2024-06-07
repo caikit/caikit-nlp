@@ -233,8 +233,7 @@ class PeftPromptTuningTGIS(ModuleBase):  # pylint: disable=too-many-instance-att
             self.enable_backend,
             "Backend must be configured and loaded with this module before executing `run` call.",
         )
-        if self._tgis_backend:
-            self._register_model_connection_with_context(context)
+        self._register_model_connection_with_context(context)
 
         verbalized_text = render_verbalizer(self.verbalizer, {"input": text})
         return self.tgis_generation_client.unary_generate(
@@ -300,8 +299,7 @@ class PeftPromptTuningTGIS(ModuleBase):  # pylint: disable=too-many-instance-att
             before executing `run_stream_out` call.",
         )
 
-        if self._tgis_backend:
-            self._register_model_connection_with_context(context)
+        self._register_model_connection_with_context(context)
 
         verbalized_text = render_verbalizer(self.verbalizer, {"input": text})
         return self.tgis_generation_client.stream_generate(
@@ -341,8 +339,8 @@ class PeftPromptTuningTGIS(ModuleBase):  # pylint: disable=too-many-instance-att
             TokenizationResults
                 The token count
         """
-        if self._tgis_backend:
-            self._register_model_connection_with_context(context)
+
+        self._register_model_connection_with_context(context)
 
         return self.tgis_generation_client.unary_tokenize(
             text=text,
@@ -352,18 +350,19 @@ class PeftPromptTuningTGIS(ModuleBase):  # pylint: disable=too-many-instance-att
         self, context: Optional[RuntimeServerContextType]
     ):
         """
-        Register a model connection with the configured TGISBackend.
+        Register a remote model connection with the configured TGISBackend if there is
+        a context override provided.
         """
-        ok, route_info = get_route_info(context)
-        if ok:
-            log.debug(
-                "<NLP10705560D> Registering remote model connection with context "
-                "override: 'hostname: %s'",
-                route_info,
-            )
-            self._tgis_backend.register_model_connection(
-                self.base_model_name, {"hostname": route_info}, fill_with_defaults=True
-            )
-        else:
-            self._tgis_backend.register_model_connection(self.base_model_name)
-        self._model_loaded = True
+        if self._tgis_backend:
+            if route_info := get_route_info(context):
+                log.debug(
+                    "<NLP10705560D> Registering remote model connection with context "
+                    "override: 'hostname: %s'",
+                    route_info,
+                )
+                self._tgis_backend.register_model_connection(
+                    self.base_model_name,
+                    {"hostname": route_info},
+                    fill_with_defaults=True,
+                )
+            self._model_loaded = True

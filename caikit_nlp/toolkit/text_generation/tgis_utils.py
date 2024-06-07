@@ -14,7 +14,7 @@
 """This file is for helper functions related to TGIS."""
 
 # Standard
-from typing import Iterable, Optional, Tuple
+from typing import Iterable, Optional
 
 # Third Party
 import fastapi
@@ -692,7 +692,7 @@ class TGISGenerationClient:
 
 def get_route_info(
     context: Optional[RuntimeServerContextType],
-) -> Tuple[bool, Optional[str]]:
+) -> Optional[str]:
     """
     Returns a tuple `(True, x-route-info)` from context if "x-route-info" was found in
     the headers/metadata.
@@ -701,20 +701,20 @@ def get_route_info(
     context or if context is None.
     """
     if context is None:
-        return False, None
+        return None
 
     if isinstance(context, grpc.ServicerContext):
-        route_info = dict(context.invocation_metadata()).get(ROUTE_INFO_KEY)
+        route_info = dict(context.invocation_metadata()).get(ROUTE_INFO_HEADER_KEY)
         if route_info:
-            return True, route_info
+            return route_info
     elif isinstance(context, fastapi.Request):
-        route_info = context.headers.get(ROUTE_INFO_KEY)
+        route_info = context.headers.get(ROUTE_INFO_HEADER_KEY)
         if route_info:
-            return True, route_info
+            return route_info
     else:
         error.log_raise(
             "<NLP92615097E>",
             ValueError(f"context is of an unsupported type: {type(context)}"),
         )
 
-    return False, None
+    return None

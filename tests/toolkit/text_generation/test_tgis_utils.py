@@ -134,47 +134,42 @@ def test_TGISGenerationClient_rpc_errors(status_code, method):
 
 
 @pytest.mark.parametrize(
-    argnames=["context", "ok", "route_info"],
+    argnames=["context", "route_info"],
     argvalues=[
         (
             fastapi.Request(
                 {
                     "type": "http",
-                    "headers": [(tgis_utils.ROUTE_INFO_KEY.encode(), b"sometext")],
+                    "headers": [
+                        (tgis_utils.ROUTE_INFO_HEADER_KEY.encode(), b"sometext")
+                    ],
                 }
             ),
-            True,
             "sometext",
         ),
         (
             fastapi.Request(
                 {"type": "http", "headers": [(b"route-info", b"sometext")]}
             ),
-            False,
             None,
         ),
         (
-            TestServicerContext({tgis_utils.ROUTE_INFO_KEY: "sometext"}),
-            True,
+            TestServicerContext({tgis_utils.ROUTE_INFO_HEADER_KEY: "sometext"}),
             "sometext",
         ),
         (
             TestServicerContext({"route-info": "sometext"}),
-            False,
             None,
         ),
-        ("should raise ValueError", False, None),
-        (None, False, None),
+        ("should raise ValueError", None),
+        (None, None),
         # Uncertain how to create a grpc.ServicerContext object
     ],
 )
-def test_get_route_info(
-    context: RuntimeServerContextType, ok: bool, route_info: Optional[str]
-):
+def test_get_route_info(context: RuntimeServerContextType, route_info: Optional[str]):
     if not isinstance(context, (fastapi.Request, grpc.ServicerContext, type(None))):
         with pytest.raises(ValueError):
             tgis_utils.get_route_info(context)
     else:
-        actual_ok, actual_route_info = tgis_utils.get_route_info(context)
-        assert actual_ok == ok
+        actual_route_info = tgis_utils.get_route_info(context)
         assert actual_route_info == route_info
