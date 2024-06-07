@@ -115,7 +115,7 @@ class PeftPromptTuningTGIS(ModuleBase):  # pylint: disable=too-many-instance-att
         # Configure the internal client
         # NOTE: This is made optional for the cases where we do not need to execute `.run` function
         # for example, bootstrapping a model to caikit format and saving.
-        if hasattr(self, "tgis_backend") and self._tgis_backend:
+        if self._tgis_backend:
             return self._tgis_backend.get_client(self.base_model_name)
 
     @classmethod
@@ -351,10 +351,13 @@ class PeftPromptTuningTGIS(ModuleBase):  # pylint: disable=too-many-instance-att
     def _register_model_connection_with_context(
         self, context: Optional[RuntimeServerContextType]
     ):
+        """
+        Register a model connection with the configured TGISBackend.
+        """
         ok, route_info = get_route_info(context)
         if ok:
             self._tgis_backend.register_model_connection(
-                self.base_model_name, {"hostname": route_info}
+                self.base_model_name, {"hostname": route_info}, fill_with_defaults=True
             )
         else:
             self._tgis_backend.register_model_connection(self.base_model_name)

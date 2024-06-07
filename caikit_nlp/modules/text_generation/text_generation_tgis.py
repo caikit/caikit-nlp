@@ -92,26 +92,22 @@ class TextGenerationTGIS(ModuleBase):
         if tgis_backend:
             self.tgis_backend = tgis_backend
 
+        self._tgis_backend = tgis_backend
         self._bos_token = bos_token
         self._sep_token = sep_token
         self._eos_token = eos_token
         self._pad_token = pad_token
-        self.tgis_generation_client = TGISGenerationClient(
-            self.model_name, self._eos_token, self._client, self.PRODUCER_ID
-        )
 
     def __del__(self):
         # nothing to unload if we didn't finish loading
-        if self._model_loaded and self.tgis_backend:
-            self.tgis_backend.unload_model(self.model_name)
+        if self._model_loaded and self._tgis_backend:
+            self._tgis_backend.unload_model(self.model_name)
 
     @cached_property
     def _client(self):
-        # Configure the internal client
-        # NOTE: This is made optional for the cases where we do not need to execute `.run` function
-        # for example, bootstrapping a model to caikit format and saving.
-        if hasattr(self, "tgis_backend") and self.tgis_backend:
-            return self.tgis_backend.get_client(self.model_name)
+        # Lazily configure/create the internal tgis backend client
+        if self._tgis_backend:
+            return self._tgis_backend.get_client(self.model_name)
 
     @classmethod
     def bootstrap(cls, model_path: str, load_backend: Union[BackendBase, None] = None):
@@ -245,7 +241,7 @@ class TextGenerationTGIS(ModuleBase):
             GeneratedTextResult
                 Generated text result produced by TGIS.
         """
-        if self.tgis_backend:
+        if self._tgis_backend:
             self._register_model_connection_with_context(context)
 
         if self._model_loaded:
@@ -304,7 +300,7 @@ class TextGenerationTGIS(ModuleBase):
         Returns:
             Iterable[GeneratedTextStreamResult]
         """
-        if self.tgis_backend:
+        if self._tgis_backend:
             self._register_model_connection_with_context(context)
 
         if self._model_loaded:
@@ -345,7 +341,7 @@ class TextGenerationTGIS(ModuleBase):
             TokenizationResults
                 The token count
         """
-        if self.tgis_backend:
+        if self._tgis_backend:
             self._register_model_connection_with_context(context)
 
         if self._model_loaded:
@@ -358,9 +354,9 @@ class TextGenerationTGIS(ModuleBase):
     ):
         ok, route_info = get_route_info(context)
         if ok:
-            self.tgis_backend.register_model_connection(
-                self.model_name, {"hostname": route_info}
+            self._tgis_backend.register_model_connection(
+                self.model_name, {"hostname": route_info}, fill_with_defaults=True
             )
         else:
-            self.tgis_backend.register_model_connection(self.model_name)
+            self._tgis_backend.register_model_connection(self.model_name)
         self._model_loaded = True

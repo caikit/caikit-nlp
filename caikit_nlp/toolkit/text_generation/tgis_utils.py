@@ -86,6 +86,8 @@ GRPC_TO_CAIKIT_CORE_STATUS = {
     grpc.StatusCode.UNAUTHENTICATED: CaikitCoreStatusCode.UNAUTHORIZED,
 }
 
+ROUTE_INFO_KEY = "x-route-info"
+
 
 def raise_caikit_core_exception(rpc_error: grpc.RpcError):
     """Helper to wrap logic of converting from grpc.RpcError ->
@@ -699,11 +701,11 @@ def get_route_info(
         return False, None
 
     if isinstance(context, grpc.ServicerContext):
-        route_info = dict(context.invocation_metadata()).get("x-route-info")
+        route_info = dict(context.invocation_metadata()).get(ROUTE_INFO_KEY)
         if route_info:
             return True, route_info
     elif isinstance(context, fastapi.Request):
-        route_info = context.headers.get("x-route-info")
+        route_info = context.headers.get(ROUTE_INFO_KEY)
         if route_info:
             return True, route_info
     else:
