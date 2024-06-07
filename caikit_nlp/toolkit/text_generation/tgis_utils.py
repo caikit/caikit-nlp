@@ -86,7 +86,8 @@ GRPC_TO_CAIKIT_CORE_STATUS = {
     grpc.StatusCode.UNAUTHENTICATED: CaikitCoreStatusCode.UNAUTHORIZED,
 }
 
-ROUTE_INFO_KEY = "x-route-info"
+# HTTP Header / gRPC Metadata key used to identify a route override
+ROUTE_INFO_HEADER_KEY = "x-route-info"
 
 
 def raise_caikit_core_exception(rpc_error: grpc.RpcError):
