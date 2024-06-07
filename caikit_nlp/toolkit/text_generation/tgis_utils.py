@@ -716,5 +716,3 @@ def get_route_info(
             "<NLP92615097E>",
             ValueError(f"context is of an unsupported type: {type(context)}"),
         )
-
-    return None
