@@ -32,6 +32,7 @@ from caikit_tgis_backend.protobufs import generation_pb2
 
 # Local
 from caikit_nlp.toolkit.text_generation import tgis_utils
+from tests.fixtures import TestServicerContext
 
 ## Helpers #####################################################################
 
@@ -137,7 +138,10 @@ def test_TGISGenerationClient_rpc_errors(status_code, method):
     argvalues=[
         (
             fastapi.Request(
-                {"type": "http", "headers": [(b"x-route-info", b"sometext")]}
+                {
+                    "type": "http",
+                    "headers": [(tgis_utils.ROUTE_INFO_KEY.encode(), b"sometext")],
+                }
             ),
             True,
             "sometext",
@@ -146,6 +150,16 @@ def test_TGISGenerationClient_rpc_errors(status_code, method):
             fastapi.Request(
                 {"type": "http", "headers": [(b"route-info", b"sometext")]}
             ),
+            False,
+            None,
+        ),
+        (
+            TestServicerContext({tgis_utils.ROUTE_INFO_KEY: "sometext"}),
+            True,
+            "sometext",
+        ),
+        (
+            TestServicerContext({"route-info": "sometext"}),
             False,
             None,
         ),
