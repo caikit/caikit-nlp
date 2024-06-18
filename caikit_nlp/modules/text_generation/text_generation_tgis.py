@@ -45,7 +45,6 @@ from ...resources.pretrained_model import (
 from ...toolkit.text_generation.tgis_utils import (
     GENERATE_FUNCTION_TGIS_ARGS,
     TGISGenerationClient,
-    get_route_info,
 )
 from .text_generation_local import TextGeneration
 
@@ -362,13 +361,5 @@ class TextGenerationTGIS(ModuleBase):
         a context override provided.
         """
         if self._tgis_backend:
-            if route_info := get_route_info(context):
-                log.debug(
-                    "<NLP15770311D> Registering remote model connection with context "
-                    "override: 'hostname: %s'",
-                    route_info,
-                )
-                self._tgis_backend.register_model_connection(
-                    self.model_name, {"hostname": route_info}, fill_with_defaults=True
-                )
+            self._tgis_backend.handle_runtime_context(self.model_name, context)
             self._model_loaded = True

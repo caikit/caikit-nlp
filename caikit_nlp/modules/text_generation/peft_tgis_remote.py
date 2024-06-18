@@ -43,7 +43,6 @@ from ...data_model import ExponentialDecayLengthPenalty
 from ...toolkit.text_generation.tgis_utils import (
     GENERATE_FUNCTION_TGIS_ARGS,
     TGISGenerationClient,
-    get_route_info,
 )
 from ...toolkit.verbalizer_utils import render_verbalizer
 from . import PeftPromptTuning
@@ -354,15 +353,5 @@ class PeftPromptTuningTGIS(ModuleBase):  # pylint: disable=too-many-instance-att
         a context override provided.
         """
         if self._tgis_backend:
-            if route_info := get_route_info(context):
-                log.debug(
-                    "<NLP10705560D> Registering remote model connection with context "
-                    "override: 'hostname: %s'",
-                    route_info,
-                )
-                self._tgis_backend.register_model_connection(
-                    self.base_model_name,
-                    {"hostname": route_info},
-                    fill_with_defaults=True,
-                )
+            self._tgis_backend.handle_runtime_context(self.base_model_name, context)
             self._model_loaded = True
