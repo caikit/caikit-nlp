@@ -14,10 +14,9 @@
 """This file is for helper functions related to TGIS."""
 
 # Standard
-from typing import Iterable, Optional
+from typing import Iterable
 
 # Third Party
-import fastapi
 import grpc
 
 # First Party
@@ -34,7 +33,6 @@ from caikit.interfaces.nlp.data_model import (
     TokenizationResults,
     TokenStreamDetails,
 )
-from caikit.interfaces.runtime.data_model import RuntimeServerContextType
 from caikit_tgis_backend import TGISBackend
 from caikit_tgis_backend.protobufs import generation_pb2
 import alog
