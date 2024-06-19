@@ -133,6 +133,9 @@ def test_TGISGenerationClient_rpc_errors(status_code, method):
     assert isinstance(rpc_err, grpc.RpcError)
 
 
+# NOTE: This test is preserved in caikit-nlp despite being duplicated in
+# caikit-tgis-backend so that we guarantee that the functionality is accessible
+# in a version-compatible way here.
 @pytest.mark.parametrize(
     argnames=["context", "route_info"],
     argvalues=[
@@ -168,7 +171,7 @@ def test_TGISGenerationClient_rpc_errors(status_code, method):
 )
 def test_get_route_info(context: RuntimeServerContextType, route_info: Optional[str]):
     if not isinstance(context, (fastapi.Request, grpc.ServicerContext, type(None))):
-        with pytest.raises(ValueError):
+        with pytest.raises(TypeError):
             tgis_utils.get_route_info(context)
     else:
         actual_route_info = tgis_utils.get_route_info(context)

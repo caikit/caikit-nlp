@@ -14,10 +14,9 @@
 """This file is for helper functions related to TGIS."""
 
 # Standard
-from typing import Iterable, Optional
+from typing import Iterable
 
 # Third Party
-import fastapi
 import grpc
 
 # First Party
@@ -34,7 +33,7 @@ from caikit.interfaces.nlp.data_model import (
     TokenizationResults,
     TokenStreamDetails,
 )
-from caikit.interfaces.runtime.data_model import RuntimeServerContextType
+from caikit_tgis_backend import TGISBackend
 from caikit_tgis_backend.protobufs import generation_pb2
 import alog
 
@@ -87,7 +86,9 @@ GRPC_TO_CAIKIT_CORE_STATUS = {
 }
 
 # HTTP Header / gRPC Metadata key used to identify a route override
-ROUTE_INFO_HEADER_KEY = "x-route-info"
+# (forwarded for API compatibility)
+ROUTE_INFO_HEADER_KEY = TGISBackend.ROUTE_INFO_HEADER_KEY
+get_route_info = TGISBackend.get_route_info
 
 
 def raise_caikit_core_exception(rpc_error: grpc.RpcError):
@@ -687,32 +688,4 @@ class TGISGenerationClient:
 
         return TokenizationResults(
             token_count=response.token_count,
-        )
-
-
-def get_route_info(
-    context: Optional[RuntimeServerContextType],
-) -> Optional[str]:
-    """
-    Returns a tuple `(True, x-route-info)` from context if "x-route-info" was found in
-    the headers/metadata.
-
-    Otherwise returns a tuple `(False, None)` if "x-route-info" was not found in the
-    context or if context is None.
-    """
-    if context is None:
-        return None
-
-    if isinstance(context, grpc.ServicerContext):
-        route_info = dict(context.invocation_metadata()).get(ROUTE_INFO_HEADER_KEY)
-        if route_info:
-            return route_info
-    elif isinstance(context, fastapi.Request):
-        route_info = context.headers.get(ROUTE_INFO_HEADER_KEY)
-        if route_info:
-            return route_info
-    else:
-        error.log_raise(
-            "<NLP92615097E>",
-            ValueError(f"context is of an unsupported type: {type(context)}"),
         )
