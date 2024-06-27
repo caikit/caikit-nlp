@@ -42,6 +42,8 @@ from caikit.interfaces.nlp.data_model import (
     SentenceSimilarityResult,
     SentenceSimilarityResults,
     SentenceSimilarityScores,
+    Token,
+    TokenizationResults,
 )
 from caikit.interfaces.nlp.tasks import (
     EmbeddingTask,
@@ -50,6 +52,7 @@ from caikit.interfaces.nlp.tasks import (
     RerankTasks,
     SentenceSimilarityTask,
     SentenceSimilarityTasks,
+    TokenizationTask,
 )
 import alog
 
@@ -120,6 +123,7 @@ class TruncatedTokensTuple(NamedTuple):
         SentenceSimilarityTasks,
         RerankTask,
         RerankTasks,
+        TokenizationTask,
     ],
 )
 class EmbeddingModule(ModuleBase):
@@ -191,6 +195,29 @@ class EmbeddingModule(ModuleBase):
             "max_seq_length": cls.model.max_seq_length,
             "sentence_embedding_dimension": cls.model.get_sentence_embedding_dimension(),
         }
+
+    @TokenizationTask.taskmethod()
+    def run_tokenizer(
+        self,
+        text: str,
+    ) -> TokenizationResults:
+        """Run tokenization task against the model
+
+        Args:
+        text: str
+                Text to tokenize
+        Returns:
+            TokenizationResults
+                The token count
+        """
+        result = self.model.tokenizer.encode_plus(text, return_offsets_mapping=True)
+
+        mapping = [
+            interv for interv in result.offset_mapping if (interv[1] - interv[0]) > 0
+        ]
+        tokens = [Token(start=i[0], end=i[1], text=text[i[0] : i[1]]) for i in mapping]
+
+        return TokenizationResults(token_count=len(result.input_ids), results=tokens)
 
     @classmethod
     def _get_ipex(cls, ipex_flag):
