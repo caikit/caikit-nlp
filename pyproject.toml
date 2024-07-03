@@ -29,7 +29,7 @@ dependencies = [
     "scipy>=1.8.1",
     "sentence-transformers>=2.3.1,<2.4.0",
     "tokenizers>=0.13.3",
-    "torch>=2.0.1,<2.3.0",
+    "torch>=2.2.2,<2.3.0",
     "tqdm>=4.65.0",
     "transformers>=4.32.0",
     "peft==0.6.0",
