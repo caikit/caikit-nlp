@@ -238,6 +238,7 @@ class TextGenerationTGIS(ModuleBase):
         generated_tokens: bool = True,
         token_logprobs: bool = True,
         token_ranks: bool = True,
+        include_stop_sequence: bool = True,
         context: Optional[RuntimeServerContextType] = None,
     ) -> GeneratedTextResult:
         f"""Run inference against the model running in TGIS.
@@ -258,6 +259,7 @@ class TextGenerationTGIS(ModuleBase):
                 generated_tokens=generated_tokens,
                 token_logprobs=token_logprobs,
                 token_ranks=token_ranks,
+                include_stop_sequence=include_stop_sequence,
                 max_new_tokens=max_new_tokens,
                 min_new_tokens=min_new_tokens,
                 truncate_input_tokens=truncate_input_tokens,
@@ -297,6 +299,7 @@ class TextGenerationTGIS(ModuleBase):
         generated_tokens: bool = True,
         token_logprobs: bool = True,
         token_ranks: bool = True,
+        include_stop_sequence: bool = True,
         context: Optional[RuntimeServerContextType] = None,
     ) -> Iterable[GeneratedTextStreamResult]:
         f"""Run output stream inferencing for text generation module.
@@ -316,6 +319,7 @@ class TextGenerationTGIS(ModuleBase):
                 generated_tokens=generated_tokens,
                 token_logprobs=token_logprobs,
                 token_ranks=token_ranks,
+                include_stop_sequence=include_stop_sequence,
                 max_new_tokens=max_new_tokens,
                 min_new_tokens=min_new_tokens,
                 truncate_input_tokens=truncate_input_tokens,
