@@ -118,6 +118,7 @@ def test_TGISGenerationClient_rpc_errors(status_code, method):
                 max_time=None,
                 exponential_decay_length_penalty=None,
                 stop_sequences=["asdf"],
+                include_stop_sequence=True,
             )
             if method.endswith("_generate")
             else dict()
