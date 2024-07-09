@@ -52,6 +52,8 @@ embedding:
   autocast: false
   # For testing, set device to "mps" on MacOS or "xpu" for IPEX GPU.
   # Otherwise, the default does automatic checks for cuda GPU (else cpu).
+  graphmode: false
+  # Use graph mode with IPEX CPU
   device: ""
 
 runtime:
