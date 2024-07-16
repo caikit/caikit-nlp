@@ -59,6 +59,9 @@ GENERATE_FUNCTION_TGIS_ARGS = """
     token_ranks: bool
         Whether or not to include rank of each returned token.
         Applicable only if generated_tokens == true and/or input_tokens == true
+    include_stop_sequence: bool
+        Whether or not to include stop sequence.
+        If not specified, default behavior depends on server setting.
 """.format(
     GENERATE_FUNCTION_ARGS
 )
@@ -109,6 +112,7 @@ def validate_inf_params(
     generated_tokens,
     token_logprobs,
     token_ranks,
+    include_stop_sequence,
     eos_token,
     max_new_tokens,
     min_new_tokens,
@@ -139,6 +143,9 @@ def validate_inf_params(
     error.type_check("<NLP65883539E>", bool, generated_tokens=generated_tokens)
     error.type_check("<NLP65883540E>", bool, token_logprobs=token_logprobs)
     error.type_check("<NLP65883541E>", bool, token_ranks=token_ranks)
+    error.type_check(
+        "<NLP65883542E>", bool, include_stop_sequence=include_stop_sequence
+    )
     error.type_check("<NLP85452188E>", str, allow_none=True, eos_token=eos_token)
     error.type_check(
         "<NLP03860681E>",
@@ -243,6 +250,7 @@ def get_params(
     generated_tokens,
     token_logprobs,
     token_ranks,
+    include_stop_sequence,
     max_new_tokens,
     min_new_tokens,
     truncate_input_tokens,
@@ -290,6 +298,7 @@ def get_params(
         max_new_tokens=max_new_tokens,
         min_new_tokens=min_new_tokens,
         time_limit_millis=int(max_time * 1000) if max_time else None,
+        include_stop_sequence=include_stop_sequence,
     )
 
     if exponential_decay_length_penalty:
@@ -358,6 +367,7 @@ class TGISGenerationClient:
         generated_tokens,
         token_logprobs,
         token_ranks,
+        include_stop_sequence,
         max_new_tokens,
         min_new_tokens,
         truncate_input_tokens,
@@ -399,6 +409,7 @@ class TGISGenerationClient:
             generated_tokens=generated_tokens,
             token_logprobs=token_logprobs,
             token_ranks=token_ranks,
+            include_stop_sequence=include_stop_sequence,
             eos_token=self.eos_token,
             max_new_tokens=max_new_tokens,
             min_new_tokens=min_new_tokens,
@@ -423,6 +434,7 @@ class TGISGenerationClient:
             generated_tokens=generated_tokens,
             token_logprobs=token_logprobs,
             token_ranks=token_ranks,
+            include_stop_sequence=include_stop_sequence,
             max_new_tokens=max_new_tokens,
             min_new_tokens=min_new_tokens,
             truncate_input_tokens=truncate_input_tokens,
@@ -506,6 +518,7 @@ class TGISGenerationClient:
         generated_tokens,
         token_logprobs,
         token_ranks,
+        include_stop_sequence,
         max_new_tokens,
         min_new_tokens,
         truncate_input_tokens,
@@ -547,6 +560,7 @@ class TGISGenerationClient:
             generated_tokens=generated_tokens,
             token_logprobs=token_logprobs,
             token_ranks=token_ranks,
+            include_stop_sequence=include_stop_sequence,
             eos_token=self.eos_token,
             max_new_tokens=max_new_tokens,
             min_new_tokens=min_new_tokens,
@@ -569,6 +583,7 @@ class TGISGenerationClient:
             generated_tokens=generated_tokens,
             token_logprobs=token_logprobs,
             token_ranks=token_ranks,
+            include_stop_sequence=include_stop_sequence,
             max_new_tokens=max_new_tokens,
             min_new_tokens=min_new_tokens,
             truncate_input_tokens=truncate_input_tokens,
