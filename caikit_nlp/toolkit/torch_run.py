@@ -24,7 +24,6 @@ import os
 
 # Third Party
 from torch import cuda
-from torch.distributed.elastic.multiprocessing.api import Std
 from torch.distributed.launcher.api import LaunchConfig
 import torch.distributed as dist
 
@@ -100,6 +99,5 @@ def get_torch_elastic_launch_config(
         rdzv_backend="static",
         rdzv_endpoint=f"{master_addr}:{master_port}",
         rdzv_configs=rdzv_configs,
-        tee=Std.ALL,
         max_restarts=max_restarts,
     )

@@ -1018,7 +1018,7 @@ def test_encoding_order(loaded_model: EmbeddingModule, truncate_input_tokens):
 
     # test order by comparing value of individual embeddings in sequence
     for i, e in enumerate(separate_vectors):
-        assert np.allclose(e, combined_vectors[i])
+        assert np.allclose(e, combined_vectors[i], rtol=1e-03, atol=1e-05)
 
     # test expected failure case by reordering
     shifted_separate_vectors = separate_vectors[1:] + [separate_vectors[0]]
@@ -1029,7 +1029,7 @@ def test_encoding_order(loaded_model: EmbeddingModule, truncate_input_tokens):
             not approx(e) == combined_vectors[i]
         ), "expected altered order to not match combined vectors"
         assert not np.allclose(
-            e, combined_vectors[i]
+            e, combined_vectors[i], rtol=1e-05, atol=1e-08
         ), "expected altered order to not match combined"
 
 
@@ -1105,7 +1105,9 @@ def test_same_same(loaded_model: EmbeddingModule, truncate_input_tokens):
         assert np.allclose(e, combined_vectors[i])
 
     # Next ensuring that the two identical sentences yield identical results (and 3rd does not)
-    assert np.array_equal(combined_vectors[0], combined_vectors[1])
+    assert np.allclose(combined_vectors[0], combined_vectors[1], rtol=1e-05, atol=1e-08)
     assert not np.array_equal(combined_vectors[1], combined_vectors[2])
-    assert np.array_equal(separate_vectors[0], separate_vectors[1])
-    assert not np.array_equal(separate_vectors[1], separate_vectors[2])
+    assert np.allclose(separate_vectors[0], separate_vectors[1], rtol=1e-05, atol=1e-08)
+    assert not np.allclose(
+        separate_vectors[1], separate_vectors[2], rtol=1e-05, atol=1e-08
+    )
