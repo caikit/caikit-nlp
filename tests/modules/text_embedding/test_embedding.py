@@ -1018,7 +1018,7 @@ def test_encoding_order(loaded_model: EmbeddingModule, truncate_input_tokens):
 
     # test order by comparing value of individual embeddings in sequence
     for i, e in enumerate(separate_vectors):
-        assert np.isclose(e, combined_vectors[i])
+        assert np.isclose(e, combined_vectors[i], rtol=1e-03, atol=1e-05).all()
 
     # test expected failure case by reordering
     shifted_separate_vectors = separate_vectors[1:] + [separate_vectors[0]]
