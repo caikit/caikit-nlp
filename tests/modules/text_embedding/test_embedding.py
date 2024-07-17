@@ -1018,7 +1018,7 @@ def test_encoding_order(loaded_model: EmbeddingModule, truncate_input_tokens):
 
     # test order by comparing value of individual embeddings in sequence
     for i, e in enumerate(separate_vectors):
-        assert np.isclose(e, combined_vectors[i], rtol=1e-03, atol=1e-05).all()
+        assert np.allclose(e, combined_vectors[i], rtol=1e-03, atol=1e-05)
 
     # test expected failure case by reordering
     shifted_separate_vectors = separate_vectors[1:] + [separate_vectors[0]]
@@ -1105,13 +1105,13 @@ def test_same_same(loaded_model: EmbeddingModule, truncate_input_tokens):
         assert np.allclose(e, combined_vectors[i])
 
     # Next ensuring that the two identical sentences yield identical results (and 3rd does not)
-    assert np.isclose(
+    assert np.allclose(
         combined_vectors[0], combined_vectors[1], rtol=1e-05, atol=1e-08
-    ).all()
+    )
     assert not np.array_equal(combined_vectors[1], combined_vectors[2])
-    assert np.isclose(
+    assert np.allclose(
         separate_vectors[0], separate_vectors[1], rtol=1e-05, atol=1e-08
-    ).all()
-    assert not np.isclose(
+    )
+    assert not np.allclose(
         separate_vectors[1], separate_vectors[2], rtol=1e-05, atol=1e-08
-    ).all()
+    )
