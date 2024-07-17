@@ -1029,7 +1029,7 @@ def test_encoding_order(loaded_model: EmbeddingModule, truncate_input_tokens):
             not approx(e) == combined_vectors[i]
         ), "expected altered order to not match combined vectors"
         assert not np.allclose(
-            e, combined_vectors[i]
+            e, combined_vectors[i], rtol=1e-05, atol=1e-08
         ), "expected altered order to not match combined"
 
 
