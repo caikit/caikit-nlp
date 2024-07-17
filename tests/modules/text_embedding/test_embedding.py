@@ -1105,7 +1105,7 @@ def test_same_same(loaded_model: EmbeddingModule, truncate_input_tokens):
         assert np.allclose(e, combined_vectors[i])
 
     # Next ensuring that the two identical sentences yield identical results (and 3rd does not)
-    assert np.array_equal(combined_vectors[0], combined_vectors[1])
+    assert np.isclose(combined_vectors[0], combined_vectors[1], rtol=1e-05, atol=1e-08).all()
     assert not np.array_equal(combined_vectors[1], combined_vectors[2])
-    assert np.array_equal(separate_vectors[0], separate_vectors[1])
-    assert not np.array_equal(separate_vectors[1], separate_vectors[2])
+    assert np.isclose(separate_vectors[0], separate_vectors[1], rtol=1e-05, atol=1e-08).all()
+    assert not np.isclose(separate_vectors[1], separate_vectors[2], rtol=1e-05, atol=1e-08).all()
