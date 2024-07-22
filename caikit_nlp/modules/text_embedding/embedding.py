@@ -107,6 +107,7 @@ class TruncatedTokensTuple(NamedTuple):
 
     tokenized: BatchEncoding
     input_token_count: int
+    truncation_needed: List[int]
 
 
 @module(
@@ -751,12 +752,10 @@ class TruncateCountBehavior(Enum):
 
 def sum_token_count(
     tokenized: BatchEncoding,
-    truncate_only: bool,
 ) -> int:
-    """Returns the number of non-special tokens.
+    """Returns the number of non-special tokens. Assumes truncation w/o overflow.
     Args:
         tokenized: BatchEncoding
-        truncate_only: bool
     Returns:
         Int total of all tokens contained in tokenized.
     """
@@ -781,33 +780,97 @@ def sum_token_count(
 
     token_count = 0
 
-    if truncate_only:
-        # Only sum the length for the 1st encoding of each sample
-        samples_start_idx = get_sample_start_indexes(tokenized)
-
-        token_count = sum(
-            (
-                x
-                for idx in samples_start_idx
-                for x in tokenized.encodings[idx].attention_mask
-            )
-        )
-    else:
-        # Sum the length of all encodings for all samples
-        for encoding in tokenized.encodings:
-            token_count += sum(encoding.attention_mask)
+    # Sum the length of all encodings for all samples
+    for encoding in tokenized.encodings:
+        token_count += sum(encoding.attention_mask)
 
     return token_count
 
 
+def _truncate_texts(texts, tokenized, max_length, text_indexes):
+    """Truncate texts using tokenized offsets and desired max_length.
+
+    This implements truncation in the texts without changing the tokenizer
+    truncation parameters to avoid thread locking ("Already borrowed" exceptions).
+
+    After the texts have been truncated, they should be re-tokenized
+    to get a new `tokenized` structure for use in encode.
+    """
+
+    for text_number in text_indexes:
+
+        # The offset_mapping describes the text position for each token in this text.
+        offsets = tokenized["offset_mapping"][text_number]
+
+        # Find the first offset that is not empty (0, 0) to avoid added tokens
+        # Note: Normally just start at 0, but it's imaginable that tokenizer could skip stuff.
+        start = next(offset for offset in offsets if offset != (0, 0))[0]
+        # Find the end index where the text string should be truncated
+        end = _get_end_index(max_length, text_number, tokenized)
+
+        # Use the start-beginning end-ending to slice the text based on token truncation
+        # i.e. if start=(0,5) and end=(72,78) then we want slice [0:78]
+        texts[text_number] = texts[text_number][
+            start:end
+        ]  # replace text with truncated
+
+
+def _get_end_index(max_length, text_number, tokenized):
+    offsets = tokenized["offset_mapping"][text_number]
+    attn_mask = tokenized.encodings[text_number].attention_mask
+
+    # Find the last offset by counting attn masks
+    # and keeping the last non-zero offset end.
+    token_count = 0
+    end_index = 0
+    for n, attn in enumerate(attn_mask):
+        if attn == 1:
+            token_count += 1
+            end = offsets[n][1]  # Index to end character from offset
+            if end > end_index:  # Grab last non-zero end index (ensures increasing too)
+                end_index = end
+        if token_count >= max_length - 1:  # Stop with room for an end token
+            break
+    return end_index
+
+
 class SentenceTransformerWithTruncate(SentenceTransformer):
-    def _truncate_input_tokens(
+    def _truncation_needed(self, tokenized, max_length, texts):
+        """Check for truncation needed to meet max_length token limit
+        Returns:
+            List of indexes of the texts that need truncating ([] if none)
+        """
+
+        ret = []  # List of indexes for texts that need truncation
+
+        if max_length < 0:
+            # -1 means to just let the model do its thing
+            return ret
+
+        for i, encoding in enumerate(tokenized.encodings):
+            input_tokens = sum(encoding.attention_mask)
+            if input_tokens > max_length or input_tokens > self.max_seq_length:
+                # Greater than truncate_input_tokens plus 2 (start/end) or over model limit
+                ret.append(i)
+            elif input_tokens == self.max_seq_length:
+                # At model limit, including start/end...
+                # This may or may not have already been truncated at the model limit.
+                # Check the strlen and last offset to see if the text actually needs truncating
+                # to make room for the end separator token.
+                # We need to know this, for "not okay_to_truncate" errors.
+                end_index = _get_end_index(max_length, i, tokenized)
+                if end_index < len(texts[i]):
+                    ret.append(i)
+
+        return ret
+
+    def _tokenize_plus(
         self,
         truncate_input_tokens: int,
         texts: List[str],
         implicit_truncation_errors: bool = True,
     ) -> TruncatedTokensTuple:
-        """Truncate input tokens
+        """Tokenize with support for truncation handling and returning the token count
         Args:
             truncate_input_tokens: int
                 Truncation length for input tokens.
@@ -842,67 +905,42 @@ class SentenceTransformerWithTruncate(SentenceTransformer):
         assert len(texts) > 0, "Cannot truncate nothing"
         assert isinstance(texts[0], str), "Only str can be truncated"
 
-        to_tokenize = [texts]
-        to_tokenize = [[str(s).strip() for s in col] for col in to_tokenize]
-        tokenized = self.tokenizer(
-            *to_tokenize,
-            return_attention_mask=True,
+        texts = [str(s).strip() for s in texts]
+
+        # Call tokenizer with the same truncation parameters every time
+        tokenized = self._get_tokenized(texts)
+
+        # Custom truncation and/or error raise if needed
+        truncation_needed = self._truncation_needed(tokenized, max_length, texts)
+        if truncation_needed and okay_to_truncate:
+            # Truncate texts in place
+            _truncate_texts(texts, tokenized, max_length, truncation_needed)
+            # Re-tokenize the truncated texts
+            tokenized = self._get_tokenized(texts)
+            truncation_needed = []  # truncation accomplished
+
+        input_token_count = sum_token_count(tokenized)
+        return TruncatedTokensTuple(tokenized, input_token_count, truncation_needed)
+
+    def _get_tokenized(self, texts):
+        """Intentionally always call tokenizer the same way to avoid thread issues.
+
+        Avoid changing the max length, truncation, and padding to avoid the
+        "Already borrowed" errors that come with concurrent threads attempting to use
+        the fast tokenizer with different truncation settings.
+        """
+        return self.tokenizer(
+            texts,
+            return_attention_mask=True,  # Used for determining token count
             return_token_type_ids=False,
-            return_overflowing_tokens=True,
-            return_offsets_mapping=True,
-            return_length=True,
-            return_tensors="pt",
-            truncation=True,
-            padding=True,
-            max_length=max_length,
-        )
-
-        # When truncation occurs multiple encodings are created for a single sample text
-        was_truncated = len(tokenized.encodings) > len(to_tokenize[0])
-
-        if not okay_to_truncate and was_truncated:
-            # re-tokenize without truncation to eliminate the duplication of certain
-            # special tokens (eg. [CLS] and [SEP]) with each overflow encoding.
-            tokenized = self.tokenizer(
-                *to_tokenize,
-                return_attention_mask=True,
-                return_token_type_ids=False,
-                return_overflowing_tokens=True,
-                return_offsets_mapping=True,
-                return_length=True,
-                return_tensors="pt",
-                truncation=False,
-                padding=True,
-            )
-
-            tokens = 0
-            for encoding in tokenized.encodings:
-                tokens = max(sum(encoding.attention_mask), tokens)
-            error.log_raise(
-                "<NLP08391926E>",
-                ValueError(
-                    f"Token sequence length is longer than the specified "
-                    f"maximum sequence length for this model ({tokens} > {max_tokens})."
-                ),
-            )
-
-        input_token_count = sum_token_count(tokenized, truncate_only=True)
-
-        # Tokenize without overflow for batching and truncation to work together.
-        tokenized = self.tokenizer(
-            *to_tokenize,
-            return_attention_mask=True,
-            return_token_type_ids=False,
-            return_overflowing_tokens=False,
-            return_offsets_mapping=False,
+            return_overflowing_tokens=False,  # DO NOT USE overflow tokens break sentence batches
+            return_offsets_mapping=True,  # Used for truncation
             return_length=False,
             return_tensors="pt",
-            truncation=True,
-            padding=True,
-            max_length=max_length,
+            truncation=True,  # DO NOT CHANGE else "Already borrowed" errors
+            padding=True,  # DO NOT CHANGE else "Already borrowed" errors
+            max_length=self.max_seq_length,  # DO NOT CHANGE else "Already borrowed" errors
         )
-
-        return TruncatedTokensTuple(tokenized, input_token_count)
 
     def encode(
         self,
@@ -990,11 +1028,38 @@ class SentenceTransformerWithTruncate(SentenceTransformer):
 
         for start_index in range(0, len(list_of_sentences), batch_size):
             sentences_batch = sentences_sorted[start_index : start_index + batch_size]
-            features, token_count = self._truncate_input_tokens(
+            features, token_count, truncation_needed = self._tokenize_plus(
                 truncate_input_tokens,
                 sentences_batch,
                 implicit_truncation_errors=implicit_truncation_errors,
             )
+
+            if truncation_needed:  # truncation was needed and was not done/not allowed
+                if input_was_string:
+                    index_hint = "."
+                else:
+                    # Add index hint for texts where the error was detected.
+                    # Adjust indexes for the start of the batch
+                    truncation_needed = [x + start_index for x in truncation_needed]
+                    # Convert index to pre-sorted index
+                    truncation_needed = [
+                        length_sorted_idx[x] for x in truncation_needed
+                    ]
+                    indexes = f"{', '.join(str(i) for i in truncation_needed)}."
+                    index_hint = (
+                        " for text at "
+                        f"{'index' if len(truncation_needed) == 1 else 'indexes'}: {indexes}"
+                    )
+
+                error.log_raise(
+                    "<NLP08391926E>",
+                    ValueError(
+                        f"Token sequence length (+2 for start/end tokens) exceeds the "
+                        f"maximum sequence length for this model ({self.max_seq_length})"
+                        f"{index_hint}"
+                    ),
+                )
+
             input_token_count += token_count
 
             features = batch_to_device(features, device)
