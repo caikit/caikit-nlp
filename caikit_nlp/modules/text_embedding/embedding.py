@@ -14,13 +14,26 @@
 
 # Standard
 from collections.abc import Sized
+from copy import deepcopy
 from enum import Enum, auto
-from typing import Any, Callable, Dict, List, NamedTuple, Optional, TypeVar, Union
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    NamedTuple,
+    Optional,
+    TypeVar,
+    Union,
+)
 import importlib
 import os
+import threading
 import time
 
 # Third Party
+from torch import nn
 from torch.backends import mps
 from transformers import BatchEncoding
 import numpy as np
@@ -110,6 +123,7 @@ class TruncatedTokensTuple(NamedTuple):
     truncation_needed: List[int]
 
 
+# pylint: disable=too-many-lines
 @module(
     "eeb12558-b4fa-4f34-a9fd-3f5890e9cd3f",
     "EmbeddingModule",
@@ -171,12 +185,6 @@ class EmbeddingModule(ModuleBase):
         if device is not None:
             model.to(torch.device(device))
         model = EmbeddingModule._optimize(model, ipex, device, AUTOCAST, PT2_COMPILE)
-
-        # Validate model with any encode test (simple and hardcoded for now).
-        # This gets some of the first-time inference cost out of the way.
-        # This avoids using the tokenizer (for truncation) before it is ready.
-        model.encode("warmup")
-
         return cls(model)
 
     @property
@@ -835,6 +843,29 @@ def _get_end_index(max_length, text_number, tokenized):
 
 
 class SentenceTransformerWithTruncate(SentenceTransformer):
+    def __init__(
+        self,
+        model_name_or_path: Optional[str] = None,
+        modules: Optional[Iterable[nn.Module]] = None,
+        device: Optional[str] = None,
+        cache_folder: Optional[str] = None,
+        trust_remote_code: bool = False,
+        revision: Optional[str] = None,
+        token: Optional[Union[bool, str]] = None,
+        use_auth_token: Optional[Union[bool, str]] = None,
+    ):
+        super().__init__(
+            model_name_or_path,
+            modules,
+            device,
+            cache_folder,
+            trust_remote_code,
+            revision,
+            token,
+            use_auth_token,
+        )
+        self.tokenizers = {}
+
     def _truncation_needed(self, tokenized, max_length, texts):
         """Check for truncation needed to meet max_length token limit
         Returns:
@@ -925,11 +956,22 @@ class SentenceTransformerWithTruncate(SentenceTransformer):
     def _get_tokenized(self, texts):
         """Intentionally always call tokenizer the same way to avoid thread issues.
 
+        Use a copy of the tokenizer per-model (self) and per-thread (map by thread ID).
+
         Avoid changing the max length, truncation, and padding to avoid the
         "Already borrowed" errors that come with concurrent threads attempting to use
         the fast tokenizer with different truncation settings.
         """
-        return self.tokenizer(
+
+        # Keep copies of tokenizer per thread (in each wrapped model instance)
+        thread_id = threading.get_ident()
+        tokenizer = (
+            self.tokenizers[thread_id]
+            if thread_id in self.tokenizers
+            else self.tokenizers.setdefault(thread_id, deepcopy(self.tokenizer))
+        )
+
+        return tokenizer(
             texts,
             return_attention_mask=True,  # Used for determining token count
             return_token_type_ids=False,
