@@ -21,6 +21,8 @@ from caikit.interfaces.nlp.data_model import (
     RerankResults,
     RerankScore,
     RerankScores,
+    Token,
+    TokenizationResults,
 )
 
 # Local
@@ -278,6 +280,14 @@ def test_run_embeddings(loaded_model):
     assert isinstance(res.results.vectors, list)
     _assert_is_expected_embeddings_results(res.results)
     assert res.input_token_count == INPUT_TOKEN_COUNT
+
+
+def test_run_tokenization(loaded_model):
+    res = loaded_model.run_tokenizer(text=INPUT)
+    assert isinstance(res, TokenizationResults)
+    assert isinstance(res.results, list)
+    assert isinstance(res.results[0], Token)
+    assert res.token_count == INPUT_TOKEN_COUNT
 
 
 @pytest.mark.parametrize(
