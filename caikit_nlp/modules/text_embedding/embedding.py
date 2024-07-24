@@ -213,7 +213,7 @@ class EmbeddingModule(ModuleBase):
         """Run tokenization task against the model
 
         Args:
-        text: str
+            text: str
                 Text to tokenize
         Returns:
             TokenizationResults
