@@ -235,10 +235,10 @@ class TextGenerationTGIS(ModuleBase):
         seed: Optional[np.uint64] = None,
         preserve_input_text: bool = False,
         input_tokens: bool = False,
-        generated_tokens: bool = True,
-        token_logprobs: bool = True,
-        token_ranks: bool = True,
-        include_stop_sequence: Optional[bool] = True,
+        generated_tokens: bool = False,
+        token_logprobs: bool = False,
+        token_ranks: bool = False,
+        include_stop_sequence: Optional[bool] = None,
         context: Optional[RuntimeServerContextType] = None,
     ) -> GeneratedTextResult:
         f"""Run inference against the model running in TGIS.
@@ -296,10 +296,10 @@ class TextGenerationTGIS(ModuleBase):
         seed: Optional[np.uint64] = None,
         preserve_input_text: bool = False,
         input_tokens: bool = False,
-        generated_tokens: bool = True,
-        token_logprobs: bool = True,
-        token_ranks: bool = True,
-        include_stop_sequence: Optional[bool] = True,
+        generated_tokens: bool = False,
+        token_logprobs: bool = False,
+        token_ranks: bool = False,
+        include_stop_sequence: Optional[bool] = None,
         context: Optional[RuntimeServerContextType] = None,
     ) -> Iterable[GeneratedTextStreamResult]:
         f"""Run output stream inferencing for text generation module.

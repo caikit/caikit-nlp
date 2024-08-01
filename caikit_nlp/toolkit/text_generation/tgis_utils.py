@@ -144,7 +144,7 @@ def validate_inf_params(
     error.type_check("<NLP65883540E>", bool, token_logprobs=token_logprobs)
     error.type_check("<NLP65883541E>", bool, token_ranks=token_ranks)
     error.type_check(
-        "<NLP65883542E>", bool, include_stop_sequence=include_stop_sequence
+        "<NLP65883542E>", bool, allow_none=True, include_stop_sequence=include_stop_sequence
     )
     error.type_check("<NLP85452188E>", str, allow_none=True, eos_token=eos_token)
     error.type_check(
