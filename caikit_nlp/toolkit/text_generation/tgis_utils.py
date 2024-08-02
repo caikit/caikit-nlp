@@ -474,6 +474,13 @@ class TGISGenerationClient:
                 batch_response = self.tgis_client.Generate(
                     request, timeout=self.tgis_req_timeout
                 )
+            except grpc._channel._InactiveRpcError as err:
+                log.error("<NLP30829218E>", err.details)
+                error_message = "The underlying TCP connection is closed"
+                caikit_status_code = GRPC_TO_CAIKIT_CORE_STATUS.get(
+                    err.code(), CaikitCoreStatusCode.UNKNOWN
+                )
+                raise CaikitCoreException(caikit_status_code, error_message) from err
             except grpc.RpcError as err:
                 raise_caikit_core_exception(err)
 
@@ -653,6 +660,13 @@ class TGISGenerationClient:
                     input_tokens=input_token_list,
                     details=details,
                 )
+        except grpc._channel._InactiveRpcError as err:
+            log.error("<NLP11829118E>", err.details)
+            error_message = "The underlying TCP connection is closed"
+            caikit_status_code = GRPC_TO_CAIKIT_CORE_STATUS.get(
+                err.code(), CaikitCoreStatusCode.UNKNOWN
+            )
+            raise CaikitCoreException(caikit_status_code, error_message) from err
         except grpc.RpcError as err:
             raise_caikit_core_exception(err)
 
