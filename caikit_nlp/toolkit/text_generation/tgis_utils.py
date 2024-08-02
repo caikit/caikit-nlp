@@ -91,6 +91,7 @@ GRPC_TO_CAIKIT_CORE_STATUS = {
 # HTTP Header / gRPC Metadata key used to identify a route override
 # (forwarded for API compatibility)
 ROUTE_INFO_HEADER_KEY = TGISBackend.ROUTE_INFO_HEADER_KEY
+INACTIVE_RPC_CONN_ERR_MESSAGE = "The underlying TCP connection is closed"
 get_route_info = TGISBackend.get_route_info
 
 
@@ -476,11 +477,12 @@ class TGISGenerationClient:
                 )
             except grpc._channel._InactiveRpcError as err:
                 log.error("<NLP30829218E>", err.details)
-                error_message = "The underlying TCP connection is closed"
                 caikit_status_code = GRPC_TO_CAIKIT_CORE_STATUS.get(
                     err.code(), CaikitCoreStatusCode.UNKNOWN
                 )
-                raise CaikitCoreException(caikit_status_code, error_message) from err
+                raise CaikitCoreException(
+                    caikit_status_code, INACTIVE_RPC_CONN_ERR_MESSAGE
+                ) from err
             except grpc.RpcError as err:
                 raise_caikit_core_exception(err)
 
@@ -662,11 +664,12 @@ class TGISGenerationClient:
                 )
         except grpc._channel._InactiveRpcError as err:
             log.error("<NLP11829118E>", err.details)
-            error_message = "The underlying TCP connection is closed"
             caikit_status_code = GRPC_TO_CAIKIT_CORE_STATUS.get(
                 err.code(), CaikitCoreStatusCode.UNKNOWN
             )
-            raise CaikitCoreException(caikit_status_code, error_message) from err
+            raise CaikitCoreException(
+                caikit_status_code, INACTIVE_RPC_CONN_ERR_MESSAGE
+            ) from err
         except grpc.RpcError as err:
             raise_caikit_core_exception(err)
 
