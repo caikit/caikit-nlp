@@ -22,6 +22,7 @@ from typing import (
     Dict,
     Iterable,
     List,
+    Literal,
     NamedTuple,
     Optional,
     TypeVar,
@@ -82,6 +83,8 @@ try:
     sentence_transformers = importlib.import_module("sentence_transformers")
     # Third Party
     from sentence_transformers import SentenceTransformer
+    from sentence_transformers.model_card import SentenceTransformerModelCardData
+    from sentence_transformers.similarity_functions import SimilarityFunction
     from sentence_transformers.util import batch_to_device, cos_sim, dot_score
     from sentence_transformers.util import (
         normalize_embeddings as normalize,  # avoid parameter shadowing
@@ -107,6 +110,7 @@ NO_IMPLICIT_TRUNCATION = env_val_to_bool(
     val=embedding_cfg.get("implicit_truncation_errors", True)
 )
 DEVICE = embedding_cfg.get("device", "")
+TRUST_REMOTE_CODE = embedding_cfg.get("trust_remote_code")
 
 RT = TypeVar("RT")  # return type
 
@@ -183,7 +187,9 @@ class EmbeddingModule(ModuleBase):
         ipex = cls._get_ipex(IPEX)
         device = cls._select_device(ipex, DEVICE)
         model = SentenceTransformerWithTruncate(
-            model_name_or_path=artifacts_path, device=device
+            model_name_or_path=artifacts_path,
+            device=device,
+            trust_remote_code=TRUST_REMOTE_CODE,
         )
         model.eval()  # required for IPEX at least
         if device is not None:
@@ -719,7 +725,12 @@ class EmbeddingModule(ModuleBase):
             model_name_or_path: str
                 Model name (Hugging Face hub) or path to model to load.
         """
-        return cls(model=SentenceTransformer(model_name_or_path=model_name_or_path))
+        return cls(
+            model=SentenceTransformer(
+                model_name_or_path=model_name_or_path,
+                trust_remote_code=TRUST_REMOTE_CODE,
+            )
+        )
 
     def save(self, model_path: str, *args, **kwargs):
         """Save model using config in model_path
@@ -875,21 +886,39 @@ class SentenceTransformerWithTruncate(SentenceTransformer):
         model_name_or_path: Optional[str] = None,
         modules: Optional[Iterable[nn.Module]] = None,
         device: Optional[str] = None,
+        prompts: Optional[Dict[str, str]] = None,
+        default_prompt_name: Optional[str] = None,
+        similarity_fn_name: Optional[Union[str, SimilarityFunction]] = None,
         cache_folder: Optional[str] = None,
         trust_remote_code: bool = False,
         revision: Optional[str] = None,
+        local_files_only: bool = False,
         token: Optional[Union[bool, str]] = None,
         use_auth_token: Optional[Union[bool, str]] = None,
+        truncate_dim: Optional[int] = None,
+        model_kwargs: Optional[Dict[str, Any]] = None,
+        tokenizer_kwargs: Optional[Dict[str, Any]] = None,
+        config_kwargs: Optional[Dict[str, Any]] = None,
+        model_card_data: Optional[SentenceTransformerModelCardData] = None,
     ):
         super().__init__(
             model_name_or_path,
             modules,
             device,
+            prompts,
+            default_prompt_name,
+            similarity_fn_name,
             cache_folder,
             trust_remote_code,
             revision,
+            local_files_only,
             token,
             use_auth_token,
+            truncate_dim,
+            model_kwargs,
+            tokenizer_kwargs,
+            config_kwargs,
+            model_card_data,
         )
         self.tokenizers = {}
 
@@ -1014,9 +1043,12 @@ class SentenceTransformerWithTruncate(SentenceTransformer):
     def encode(
         self,
         sentences: Union[str, List[str]],
+        prompt_name: Optional[str] = None,
+        prompt: Optional[str] = None,
         batch_size: int = 32,
         show_progress_bar: bool = None,
         output_value: str = "sentence_embedding",
+        precision: Literal["float32", "int8", "uint8", "binary", "ubinary"] = "float32",
         convert_to_numpy: bool = True,
         convert_to_tensor: bool = False,
         device: str = None,
@@ -1029,9 +1061,12 @@ class SentenceTransformerWithTruncate(SentenceTransformer):
         Computes sentence embeddings
 
         :param sentences: the sentences to embed
+        :param prompt_name: Ignored here. Added for compatibility with super API.
+        :param prompt: Ignored here. Added for compatibility with super API.
         :param batch_size: the batch size used for the computation
         :param show_progress_bar: Ignored here. Added for compatibility with super API.
         :param output_value: Ignored here. Added for compatibility with super API.
+        :param precision: Ignored here. Added for compatibility with super API.
         :param convert_to_numpy: If true, the output is a list of numpy vectors. Else, it is a list
                 of pytorch tensors.
         :param convert_to_tensor: If true, you get one large tensor as return. Overwrites any
@@ -1057,8 +1092,11 @@ class SentenceTransformerWithTruncate(SentenceTransformer):
 
         # These args are for API compatability, but are currently ignored in our version of encode()
         _ = (
+            prompt_name,
+            prompt,
             show_progress_bar,
             output_value,
+            precision,
             normalize_embeddings,
         )
 
