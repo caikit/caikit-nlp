@@ -476,7 +476,7 @@ class TGISGenerationClient:
                     request, timeout=self.tgis_req_timeout
                 )
             except grpc._channel._InactiveRpcError as err:
-                log.error("<NLP30829218E>", err.details)
+                log.error("<NLP30829218E>", err.details())
                 caikit_status_code = GRPC_TO_CAIKIT_CORE_STATUS.get(
                     err.code(), CaikitCoreStatusCode.UNKNOWN
                 )
@@ -663,7 +663,7 @@ class TGISGenerationClient:
                     details=details,
                 )
         except grpc._channel._InactiveRpcError as err:
-            log.error("<NLP11829118E>", err.details)
+            log.error("<NLP11829118E>", err.details())
             caikit_status_code = GRPC_TO_CAIKIT_CORE_STATUS.get(
                 err.code(), CaikitCoreStatusCode.UNKNOWN
             )
