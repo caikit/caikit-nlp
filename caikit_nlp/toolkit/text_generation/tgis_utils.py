@@ -485,8 +485,7 @@ class TGISGenerationClient:
                     raise CaikitCoreException(
                         caikit_status_code, INACTIVE_RPC_CONN_ERR_MESSAGE
                     ) from err
-                else:
-                    raise CaikitCoreException(caikit_status_code, details) from err
+                raise CaikitCoreException(caikit_status_code, details) from err
             except grpc.RpcError as err:
                 raise_caikit_core_exception(err)
 
@@ -676,8 +675,7 @@ class TGISGenerationClient:
                 raise CaikitCoreException(
                     caikit_status_code, INACTIVE_RPC_CONN_ERR_MESSAGE
                 ) from err
-            else:
-                raise CaikitCoreException(caikit_status_code, details) from err
+            raise CaikitCoreException(caikit_status_code, details) from err
         except grpc.RpcError as err:
             raise_caikit_core_exception(err)
 
