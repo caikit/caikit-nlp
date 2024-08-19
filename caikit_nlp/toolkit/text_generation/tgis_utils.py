@@ -476,13 +476,16 @@ class TGISGenerationClient:
                     request, timeout=self.tgis_req_timeout
                 )
             except grpc._channel._InactiveRpcError as err:
-                log.error("<NLP30829218E>", err.details)
+                details = err.details()
+                log.error("<NLP30829218E>", details)
                 caikit_status_code = GRPC_TO_CAIKIT_CORE_STATUS.get(
                     err.code(), CaikitCoreStatusCode.UNKNOWN
                 )
-                raise CaikitCoreException(
-                    caikit_status_code, INACTIVE_RPC_CONN_ERR_MESSAGE
-                ) from err
+                if caikit_status_code == CaikitCoreStatusCode.CONNECTION_ERROR:
+                    raise CaikitCoreException(
+                        caikit_status_code, INACTIVE_RPC_CONN_ERR_MESSAGE
+                    ) from err
+                raise CaikitCoreException(caikit_status_code, details) from err
             except grpc.RpcError as err:
                 raise_caikit_core_exception(err)
 
@@ -663,13 +666,16 @@ class TGISGenerationClient:
                     details=details,
                 )
         except grpc._channel._InactiveRpcError as err:
-            log.error("<NLP11829118E>", err.details)
+            details = err.details()
+            log.error("<NLP11829118E>", details)
             caikit_status_code = GRPC_TO_CAIKIT_CORE_STATUS.get(
                 err.code(), CaikitCoreStatusCode.UNKNOWN
             )
-            raise CaikitCoreException(
-                caikit_status_code, INACTIVE_RPC_CONN_ERR_MESSAGE
-            ) from err
+            if caikit_status_code == CaikitCoreStatusCode.CONNECTION_ERROR:
+                raise CaikitCoreException(
+                    caikit_status_code, INACTIVE_RPC_CONN_ERR_MESSAGE
+                ) from err
+            raise CaikitCoreException(caikit_status_code, details) from err
         except grpc.RpcError as err:
             raise_caikit_core_exception(err)
 
