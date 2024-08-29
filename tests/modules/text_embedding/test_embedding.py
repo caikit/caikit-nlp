@@ -24,6 +24,7 @@ from caikit.interfaces.nlp.data_model import (
     Token,
     TokenizationResults,
 )
+import aconfig
 
 # Local
 from caikit_nlp.modules.text_embedding import EmbeddingModule, utils
@@ -856,7 +857,7 @@ def test__with_retry_fail(loaded_model):
 def test__with_retry_fail_fail(loaded_model, monkeypatch):
     """fn needs a few tries, tries twice and fails."""
 
-    monkeypatch.setattr(loaded_model, "RETRY_COUNT", 1)  # less than 3 tries
+    monkeypatch.setattr(loaded_model, "retry_count", 1)  # less than 3 tries
 
     def generate_ints():
         yield from range(9)  # More than enough for retry loop
@@ -880,7 +881,7 @@ def test__with_retry_fail_fail(loaded_model, monkeypatch):
 def test__with_retry_fail_fail_win(loaded_model, monkeypatch):
     """fn needs a few tries, logs, loops and succeeds"""
 
-    monkeypatch.setattr(loaded_model, "RETRY_COUNT", 6)  # test needs at least 3 tries
+    monkeypatch.setattr(loaded_model, "retry_count", 6)  # test needs at least 3 tries
 
     def generate_ints():
         yield from range(9)  # More than enough for retry loop
@@ -915,21 +916,33 @@ def test_env_val_to_bool():
     assert utils.env_val_to_bool("   tRuE    ")
 
 
-def test_env_val_to_int():
+def test_config_val_to_int():
+    conf = aconfig.Config(
+        {
+            "zero": 0,
+            "zero_str": "0",
+            "false": False,
+            "number_str": "456",
+            "number_str2": " 456 ",
+            "true": True,
+            "non_int": "oh-oh",
+        }
+    )
     expected_default = 12345
-    assert expected_default == utils.env_val_to_int(None, expected_default)
-    assert expected_default == utils.env_val_to_int("", expected_default)
-    assert expected_default == utils.env_val_to_int("   ", expected_default)
-    assert expected_default == utils.env_val_to_int(" ss ", expected_default)
-    assert expected_default == utils.env_val_to_int("  sss   ", expected_default)
-    assert expected_default == utils.env_val_to_int("   ssss    ", expected_default)
+    assert expected_default == conf.get("bogus", expected_default)
 
-    assert 0 == utils.env_val_to_int(0, expected_default)
-    assert 0 == utils.env_val_to_int("0", expected_default)
-    assert 0 == utils.env_val_to_int(False, expected_default)
-    assert 456 == utils.env_val_to_int("456", expected_default)
-    assert 456 == utils.env_val_to_int(" 456 ", expected_default)
-    assert 1 == utils.env_val_to_int(True, expected_default)
+    assert 0 == conf.get("zero", expected_default)
+    assert 0 == int(conf.get("zero_str", expected_default))
+    assert 0 == int(conf.get("false", expected_default))
+    assert 456 == int(conf.get("number_str", expected_default))
+    assert 456 == int(conf.get("number_str2", expected_default))
+    assert 1 == conf.get("true", expected_default)
+    assert 1 == int(conf.get("true", expected_default))
+
+    assert "oh-oh" == conf.get("non_int", 123)  # default not used (got "uh-oh")
+    # Using a bad config (e.g., some non-integer string) with int() will raise ValueError
+    with pytest.raises(ValueError):
+        int(conf.get("non_int", 123))  # default not used, int("uh-oh") raises
 
 
 @pytest.mark.parametrize(

@@ -22,11 +22,3 @@ def env_val_to_bool(val):
 
     # For testing env vars for values that mean false (else True!)
     return str(val).lower().strip() not in ("no", "n", "false", "0", "f", "off", "")
-
-
-def env_val_to_int(val, default):
-    """Returns the integer value of env var or default value if None or invalid integer"""
-    try:
-        return int(val)
-    except (TypeError, ValueError):
-        return default
