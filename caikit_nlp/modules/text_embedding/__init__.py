@@ -29,4 +29,5 @@ Implements the following tasks:
 """
 
 # Local
+from .crossencoder import CrossEncoderModule
 from .embedding import EmbeddingModule

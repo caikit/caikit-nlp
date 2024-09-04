@@ -1,0 +1,807 @@
+# Copyright The Caikit Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Standard
+from copy import deepcopy
+from functools import partial
+from typing import Any, Dict, List, NamedTuple, Optional, TypeVar, Union
+import importlib
+import os
+import threading
+
+# Third Party
+from sentence_transformers import CrossEncoder
+from torch.backends import mps
+from torch.utils.data import DataLoader
+import numpy as np
+import torch
+
+# First Party
+from caikit import get_config
+from caikit.core import ModuleBase, ModuleConfig, ModuleSaver, module
+from caikit.core.data_model.json_dict import JsonDict
+from caikit.core.exceptions import error_handler
+from caikit.interfaces.nlp.data_model import (
+    RerankResult,
+    RerankResults,
+    RerankScore,
+    RerankScores,
+    Token,
+    TokenizationResults,
+)
+from caikit.interfaces.nlp.tasks import RerankTask, RerankTasks, TokenizationTask
+import alog
+
+# Local
+from caikit_nlp.modules.text_embedding.utils import env_val_to_bool
+
+logger = alog.use_channel("TXT_EMB")
+error = error_handler.get(logger)
+
+
+RT = TypeVar("RT")  # return type
+
+
+class RerankResultTuple(NamedTuple):
+    """Output of modified predict()"""
+
+    scores: list
+    input_token_count: int
+
+
+class PredictResultTuple(NamedTuple):
+    """Output of modified predict()"""
+
+    scores: np.ndarray
+    input_token_count: int
+
+
+# pylint: disable=too-many-lines disable=duplicate-code
+@module(
+    "1673f8f2-726f-48cb-93a1-540c81f0f3c9",
+    "CrossEncoderModule",
+    "0.0.1",
+    tasks=[
+        RerankTask,
+        RerankTasks,
+        TokenizationTask,
+    ],
+)
+class CrossEncoderModule(ModuleBase):
+
+    _ARTIFACTS_PATH_KEY = "artifacts_path"
+    _ARTIFACTS_PATH_DEFAULT = "artifacts"
+
+    def __init__(
+        self,
+        model: "CrossEncoderWithTruncate",
+    ):
+        super().__init__()
+        self.model = model
+
+        # model_max_length attribute availability might(?) vary by model/tokenizer
+        self.model_max_length = getattr(model.tokenizer, "model_max_length", None)
+
+    @classmethod
+    def load(
+        cls, model_path: Union[str, ModuleConfig], *args, **kwargs
+    ) -> "CrossEncoderModule":
+        """Load model
+
+        Args:
+            model_path (Union[str, ModuleConfig]): Path to saved model or
+                in-memory ModuleConfig
+
+        Returns:
+            CrossEncoderModule
+                Instance of this class built from the model.
+        """
+
+        config = ModuleConfig.load(model_path)
+        error.dir_check("<NLP13823362E>", config.model_path)
+
+        artifacts_path = config.get(cls._ARTIFACTS_PATH_KEY)
+        error.value_check(
+            "<NLP20896115E>",
+            artifacts_path,
+            ValueError(f"Model config missing '{cls._ARTIFACTS_PATH_KEY}'"),
+        )
+
+        artifacts_path = os.path.abspath(
+            os.path.join(config.model_path, artifacts_path)
+        )
+        error.dir_check("<NLP33193321E>", artifacts_path)
+
+        # Read config/env settings that are needed at load time.
+        embedding_cfg = get_config().get("embedding", {})
+
+        trust_remote_code = env_val_to_bool(embedding_cfg.get("trust_remote_code"))
+        device = cls._select_device(False, embedding_cfg.get("device", ""))
+
+        model = CrossEncoderWithTruncate(
+            model_name=artifacts_path,
+            device=device,
+            trust_remote_code=trust_remote_code,
+        )
+
+        return cls(model)
+
+    @property
+    def public_model_info(cls) -> Dict[str, Any]:  # pylint: disable=no-self-argument
+        """Helper property to return public metadata about a specific Model. This
+        function is separate from `metadata` as that contains the entire ModelConfig
+        which might not want to be shared/exposed.
+
+        Returns:
+            Dict[str, str]: A dictionary of this model's public metadata
+        """
+
+        return (
+            {"max_seq_length": cls.model_max_length}
+            if cls.model_max_length is not None
+            else {}
+        )
+
+    @TokenizationTask.taskmethod()
+    def run_tokenizer(
+        self,
+        text: str,
+    ) -> TokenizationResults:
+        """Run tokenization task against the model
+
+        Args:
+            text: str
+                Text to tokenize
+        Returns:
+            TokenizationResults
+                The token count
+        """
+        result = self.model.get_tokenized([text], return_offsets_mapping=True)
+
+        mapping = [
+            interv for interv in result.offset_mapping[0] if (interv[1] - interv[0]) > 0
+        ]
+        tokens = [Token(start=i[0], end=i[1], text=text[i[0] : i[1]]) for i in mapping]
+
+        return TokenizationResults(token_count=len(result.input_ids[0]), results=tokens)
+
+    @classmethod
+    def _get_ipex(cls, ipex_flag):
+        """Get IPEX optimization library if enabled and available, else return False
+
+        Returns ipex library or False
+        """
+        ret = False
+
+        # Enabled by environment variable
+        # When IPEX is not false, attempt to import the library and use it.
+        if ipex_flag:
+            try:
+                ret = importlib.import_module("intel_extension_for_pytorch")
+            except Exception as ie:  # pylint: disable=broad-exception-caught
+                # We don't require the module so catch, log, proceed to return False
+                msg = (
+                    f"IPEX enabled in env, but skipping ipex.optimize() because "
+                    f"import intel_extension_for_pytorch failed with exception: {ie}"
+                )
+                logger.warning(msg, exc_info=True)
+
+        return ret
+
+    @staticmethod
+    def _select_device(use_ipex, device):
+        """Use environment variables and availability to determine the device to use"""
+        if use_ipex:
+            # If enabled, use "xpu" (IPEX on GPU instead of IPEX on CPU)
+            if device == "xpu":
+                return "xpu"
+        elif device == "mps" and mps.is_built() and mps.is_available():
+            # Never use on ipex, but otherwise use mps if enabled and available
+            return "mps"
+
+        return "cuda" if torch.cuda.is_available() else None
+
+    @staticmethod
+    def _get_backend(use_ipex, use_device):
+        """Determine the backend to use for torch compile.
+
+        Considers global ipex if enabled first, next mps device, finally defaults.
+
+        Returns the backend for torch.compile()
+        """
+        if use_ipex:
+            return "ipex"
+        if use_device == "mps":
+            return mps
+        return "inductor"  # default backend
+
+    @staticmethod
+    def _optimize(model, ipex, device, autocast, pt2_compile):
+        if ipex:
+            if autocast:  # IPEX performs best with autocast using bfloat16
+                model = ipex.optimize(
+                    model, dtype=torch.bfloat16, weights_prepack=False
+                )
+            else:
+                model = ipex.optimize(model, weights_prepack=False)
+
+        # torch.compile won't work everywhere, but when set we'll try it
+        if pt2_compile:
+            backend = CrossEncoderModule._get_backend(ipex, device)
+            try:
+                model = torch.compile(model, backend=backend, mode="max-autotune")
+            except Exception as e:  # pylint: disable=broad-exception-caught
+                # Not always supported (e.g. in a python version) so catch, log, proceed.
+                warn_msg = (
+                    f"PT2_COMPILE enabled, but continuing without torch.compile() "
+                    f"because it failed with exception: {e}"
+                )
+                logger.warning(warn_msg, exc_info=True)
+        return model
+
+    @RerankTask.taskmethod()
+    def run_rerank_query(
+        self,
+        query: str,
+        documents: List[JsonDict],
+        top_n: Optional[int] = None,
+        truncate_input_tokens: Optional[int] = 0,
+        return_documents: bool = True,
+        return_query: bool = True,
+        return_text: bool = True,
+    ) -> RerankResult:
+        """Rerank the documents returning the most relevant top_n in order for this query.
+        Args:
+            query: str
+                Query is the source string to be compared to the text of the documents.
+            documents:  List[JsonDict]
+                Each document is a dict. The text value is used for comparison to the query.
+                If there is no text key, then _text is used and finally default is "".
+            top_n:  Optional[int]
+                Results for the top n most relevant documents will be returned.
+                If top_n is not provided or (not > 0), then all are returned.
+            truncate_input_tokens: int
+                Truncation length for input tokens.
+                If less than zero, this is disabled (returns texts without processing).
+                If zero or greater than the model's maximum, then this is a test
+                to see if truncation is needed. If needed, an exception is thrown.
+                Otherwise, we take this usable truncation limit to truncate the tokens and then
+                decode them to return truncated strings that can be used with this model.
+            return_documents:  bool
+                Default True
+                Setting to False will disable returning of the input document (index is returned).
+            return_query:  bool
+                Default True
+                Setting to False will disable returning of the query (results are in query order)
+            return_text:  bool
+                Default True
+                Setting to False will disable returning of document text string that was used.
+        Returns:
+            RerankResult
+                Returns the (top_n) scores in relevance order (most relevant first).
+                The results always include a score and index which may be used to find the document
+                in the original documents list. Optionally, the results also contain the entire
+                document with its score (for use in chaining) and for convenience the query and
+                text used for comparison may be returned.
+
+        """
+
+        error.type_check(
+            "<NLP61983803E>",
+            int,
+            allow_none=True,
+            top_n=top_n,
+        )
+
+        error.type_check(
+            "<NLP05323654E>",
+            str,
+            query=query,
+        )
+
+        results = self.run_rerank_queries(
+            queries=[query],
+            documents=documents,
+            top_n=top_n,
+            truncate_input_tokens=truncate_input_tokens,
+            return_documents=return_documents,
+            return_queries=return_query,
+            return_text=return_text,
+        )
+
+        if results.results:
+            return RerankResult(
+                result=results.results[0],
+                producer_id=self.PRODUCER_ID,
+                input_token_count=results.input_token_count,
+            )
+
+        RerankResult(
+            result=RerankScore(
+                scores=[],
+                query=query if return_query else None,
+            ),
+            producer_id=self.PRODUCER_ID,
+            input_token_count=results.input_token_count,
+        )
+
+    @RerankTasks.taskmethod()
+    def run_rerank_queries(
+        self,
+        queries: List[str],
+        documents: List[JsonDict],
+        top_n: Optional[int] = None,
+        truncate_input_tokens: Optional[int] = 0,
+        return_documents: bool = True,
+        return_queries: bool = True,
+        return_text: bool = True,
+    ) -> RerankResults:
+        """Rerank the documents returning the most relevant top_n in order for each of the queries.
+        Args:
+            queries: List[str]
+                Each of the queries will be compared to the text of each of the documents.
+            documents:  List[JsonDict]
+                Each document is a dict. The text value is used for comparison to the query.
+                If there is no text key, then _text is used and finally default is "".
+            top_n:  Optional[int]
+                Results for the top n most relevant documents will be returned.
+                If top_n is not provided or (not > 0), then all are returned.
+            truncate_input_tokens: int
+                Truncation length for input tokens.
+                If less than zero, this is disabled (returns texts without processing).
+                If zero or greater than the model's maximum, then this is a test
+                to see if truncation is needed. If needed, an exception is thrown.
+                Otherwise, we take this usable truncation limit to truncate the tokens and then
+                decode them to return truncated strings that can be used with this model.
+            return_documents:  bool
+                Default True
+                Setting to False will disable returning of the input document (index is returned).
+            return_queries:  bool
+                Default True
+                Setting to False will disable returning of the query (results are in query order)
+            return_text:  bool
+                Default True
+                Setting to False will disable returning of document text string that was used.
+        Returns:
+            RerankResults
+                For each query in queries (in the original order)...
+                Returns the (top_n) scores in relevance order (most relevant first).
+                The results always include a score and index which may be used to find the document
+                in the original documents list. Optionally, the results also contain the entire
+                document with its score (for use in chaining) and for convenience the query and
+                text used for comparison may be returned.
+        """
+
+        error.type_check(
+            "<NLP09038249E>",
+            list,
+            queries=queries,
+            documents=documents,
+        )
+
+        error.value_check(
+            "<NLP24788937E>",
+            queries and documents,
+            "Cannot rerank without a query and at least one document",
+        )
+
+        if top_n is None or top_n < 1:
+            top_n = len(documents)
+
+        # Using input document dicts so get "text" else "_text" else default to ""
+        def get_text(doc):
+            return doc.get("text") or doc.get("_text", "")
+
+        doc_texts = [get_text(doc) for doc in documents]
+
+        input_token_count = 0
+        results = []
+        for query in queries:
+            scores, token_count = self.model.rank(
+                query=query,
+                documents=doc_texts,
+                top_k=top_n,
+                return_documents=False,
+                batch_size=32,
+                truncate_input_tokens=truncate_input_tokens,
+            )
+            results.append(scores)
+            input_token_count += token_count
+
+        # Fixup result dicts
+        for r in results:
+            for x in r:
+                x["score"] = float(x["score"].item())
+                # Renaming corpus_id to index
+                corpus_id = x.pop("corpus_id")
+                x["index"] = corpus_id
+                # Optionally adding the original document and/or just the text that was used
+                if return_documents:
+                    x["document"] = documents[corpus_id]
+                if return_text:
+                    x["text"] = get_text(documents[corpus_id])
+
+        def add_query(q):
+            return queries[q] if return_queries else None
+
+        results = [
+            RerankScores(
+                query=add_query(q),
+                scores=[RerankScore(**x) for x in r],
+            )
+            for q, r in enumerate(results)
+        ]
+
+        return RerankResults(
+            results=results,
+            producer_id=self.PRODUCER_ID,
+            input_token_count=input_token_count,
+        )
+
+    @classmethod
+    def bootstrap(cls, *args, **kwargs) -> "CrossEncoderModule":
+        """Bootstrap a cross-encoder model
+
+        Args:
+            args/kwargs are passed to CrossEncoder
+        """
+
+        # Add ability to bootstrap with trust_remote_code using env var.
+        if "trust_remote_code" not in kwargs:
+            # Read config/env settings that are needed at bootstrap time.
+            embedding_cfg = get_config().get("embedding", {})
+            kwargs["trust_remote_code"] = env_val_to_bool(
+                embedding_cfg.get("trust_remote_code")
+            )
+
+        return cls(model=CrossEncoder(*args, **kwargs))
+
+    def save(self, model_path: str, *args, **kwargs):
+        """Save model using config in model_path
+
+        Args:
+            model_path: str
+                Path to model config
+        """
+
+        error.type_check("<NLP82314992E>", str, model_path=model_path)
+        model_config_path = model_path.strip()
+        error.value_check(
+            "<NLP40145207E>",
+            model_config_path,
+            f"model_path '{model_config_path}' is invalid",
+        )
+
+        model_config_path = os.path.abspath(
+            model_config_path.strip()
+        )  # No leading/trailing spaces sneaky weirdness
+
+        # Only allow new dirs because there are not enough controls to safely update in-place
+        os.makedirs(model_config_path, exist_ok=False)
+
+        saver = ModuleSaver(
+            module=self,
+            model_path=model_config_path,
+        )
+        artifacts_path = self._ARTIFACTS_PATH_DEFAULT
+        saver.update_config({self._ARTIFACTS_PATH_KEY: artifacts_path})
+
+        # Save the model
+        self.model.save(os.path.join(model_config_path, artifacts_path))
+
+        # Save the config
+        ModuleConfig(saver.config).save(model_config_path)
+
+
+class CrossEncoderWithTruncate(CrossEncoder):
+    def __init__(
+        self,
+        model_name: str,
+        num_labels: int = None,
+        max_length: int = None,
+        device: str = None,
+        tokenizer_args: Dict = None,
+        automodel_args: Dict = None,
+        trust_remote_code: bool = False,
+        revision: Optional[str] = None,
+        local_files_only: bool = False,
+        default_activation_function=None,
+        classifier_dropout: float = None,
+    ):
+        super().__init__(
+            model_name,
+            num_labels,
+            max_length,
+            device,
+            tokenizer_args,
+            automodel_args,
+            trust_remote_code,
+            revision,
+            local_files_only,
+            default_activation_function,
+            classifier_dropout,
+        )
+        self.tokenizers = {}
+
+    def _get_tokenizer_per_thread(self):
+        """Use a copy of the tokenizer per-model (self) and per-thread (map by thread ID)."""
+
+        # Keep copies of tokenizer per thread (in each wrapped model instance)
+        thread_id = threading.get_ident()
+        tokenizer = (
+            self.tokenizers[thread_id]
+            if thread_id in self.tokenizers
+            else self.tokenizers.setdefault(thread_id, deepcopy(self.tokenizer))
+        )
+
+        return tokenizer
+
+    def get_tokenized(self, texts, **kwargs):
+        """Intentionally always call tokenizer the same way to avoid thread issues.
+
+        Use a copy of the tokenizer per-model (self) and per-thread (map by thread ID).
+
+        Avoid changing the max length, truncation, and padding to avoid the
+        "Already borrowed" errors that come with concurrent threads attempting to use
+        the fast tokenizer with different truncation settings.
+        """
+
+        max_len = kwargs.get("truncate_input_tokens", self.tokenizer.model_max_length)
+        max_len = min(max_len, self.tokenizer.model_max_length)
+        if max_len <= 0:
+            max_len = None
+
+        tokenizer = self._get_tokenizer_per_thread()
+        tokenized = tokenizer(
+            *texts,
+            return_attention_mask=True,  # Used for determining token count
+            return_token_type_ids=False,  # Needed for cross-encoders
+            return_overflowing_tokens=False,  # DO NOT USE overflow tokens break sentence batches
+            return_offsets_mapping=True,  # Used for truncation test
+            return_length=False,
+            return_tensors="pt",
+            truncation=True,
+            padding=True,
+            max_length=max_len,
+        )
+        return tokenized
+
+    def _truncation_needed(self, tokenized, max_length, texts):
+        """Check for truncation needed to meet max_length token limit
+        Returns:
+            List of indexes of the texts that need truncating ([] if none)
+        """
+
+        ret = []  # List of indexes for texts that need truncation
+
+        if max_length is None:
+            max_length = self.tokenizer.model_max_length
+
+        for i, encoding in enumerate(tokenized.encodings):
+            input_tokens = sum(encoding.attention_mask)
+            if input_tokens >= self.tokenizer.model_max_length:
+                # At model limit, including start/end...
+                # This may or may not have already been truncated at the model limit.
+                # Check the strlen and last offset.
+                # We need to know this, for "not okay_to_truncate" errors.
+                offsets = encoding.offsets
+                type_ids = encoding.type_ids
+                attn_mask = encoding.attention_mask
+                # Find the last offset by counting attn masks
+                # and keeping the last non-zero offset end.
+                token_count = 0
+                index = 0  # index of longest
+                type_id = 0  # track type_id of longest
+                for n, attn in enumerate(attn_mask):
+                    if attn == 1:
+                        token_count += 1
+                        end = offsets[n][1]  # Index to end character from offset
+                        if (
+                            end > index
+                        ):  # Grab last non-zero end index (ensures increasing too)
+                            type_id = type_ids[n]
+                            index = end
+                    if token_count >= max_length - 1:  # Stop with room for an end token
+                        break
+                end_index = index  # longest
+                end_typeid = type_id  # longest
+
+                # Get position in (queries * docs) for this query or doc
+                if end_typeid == 0:  # query
+                    text_pos = i // len(texts[0])
+                else:  # doc
+                    text_pos = i % len(texts[0])
+
+                if end_index < len(texts[end_typeid][text_pos]):
+                    ret.append(i)
+
+        return ret
+
+    def smart_batching_collate_text_only(
+        self, batch, truncate_input_tokens: Optional[int] = 0
+    ):
+        texts = [[] for _ in range(len(batch[0]))]
+
+        for example in batch:
+            for idx, text in enumerate(example):
+                texts[idx].append(text.strip())
+
+        tokenized = self.get_tokenized(
+            texts, truncate_input_tokens=truncate_input_tokens
+        )
+
+        max_len = self.tokenizer.model_max_length
+
+        if truncate_input_tokens == 0 or truncate_input_tokens > max_len:
+            # default (for zero or over max) is to error on truncation
+            truncated = self._truncation_needed(tokenized, max_len, texts)
+
+            if truncated:
+                indexes = f"{', '.join(str(i) for i in truncated)}."
+                index_hint = (
+                    " for text at "
+                    f"{'index' if len(truncated) == 1 else 'indexes'}: {indexes}"
+                )
+
+                error.log_raise(
+                    "<NLP08391926E>",
+                    ValueError(
+                        f"Token sequence length (+3 for separators) exceeds the "
+                        f"maximum sequence length for this model ({max_len})"
+                        f"{index_hint}"
+                    ),
+                )
+
+        # We cannot send offset_mapping to the model with features,
+        # but we needed offset_mapping for other uses.
+        if "offset_mapping" in tokenized:
+            del tokenized["offset_mapping"]
+
+        for name in tokenized:
+            tokenized[name] = tokenized[name].to(self._target_device)
+
+        return tokenized
+
+    def predict(
+        self,
+        sentences: List[List[str]],
+        batch_size: int = 32,
+        show_progress_bar: bool = None,
+        num_workers: int = 0,
+        activation_fct=None,
+        apply_softmax=False,
+        convert_to_numpy: bool = True,
+        convert_to_tensor: bool = False,
+        truncate_input_tokens: Optional[int] = 0,
+    ) -> Union[PredictResultTuple, List[float], np.ndarray, torch.Tensor]:
+        """
+        Performs predictions with the CrossEncoder on the given sentence pairs.
+
+        Args:
+            See overriden method for details.
+            truncate_input_tokens: Optional[int] = 0 added for truncation
+
+        Returns:
+            Uses PredictResultTuple to add input_token_count
+            Union[List[float], np.ndarray, torch.Tensor]: Predictions for the passed sentence pairs.
+            The return type depends on the `convert_to_numpy` and `convert_to_tensor` parameters.
+            If `convert_to_tensor` is True, the output will be a torch.Tensor.
+            If `convert_to_numpy` is True, the output will be a numpy.ndarray.
+            Otherwise, the output will be a list of float values.
+        """
+        input_was_string = False
+        if isinstance(
+            sentences[0], str
+        ):  # Cast an individual sentence to a list with length 1
+            sentences = [sentences]
+            input_was_string = True
+
+        collate_fn = partial(
+            self.smart_batching_collate_text_only,
+            truncate_input_tokens=truncate_input_tokens,
+        )
+        inp_dataloader = DataLoader(
+            sentences,
+            batch_size=batch_size,
+            collate_fn=collate_fn,
+            num_workers=num_workers,
+            shuffle=False,
+        )
+
+        iterator = inp_dataloader
+
+        if activation_fct is None:
+            activation_fct = self.default_activation_function
+
+        pred_scores = []
+        input_token_count = 0
+        self.model.eval()
+        self.model.to(self._target_device)
+        with torch.no_grad():
+            for features in iterator:
+
+                model_predictions = self.model(**features, return_dict=True)
+                logits = activation_fct(model_predictions.logits)
+
+                if apply_softmax and len(logits[0]) > 1:
+                    logits = torch.nn.functional.softmax(logits, dim=1)
+                pred_scores.extend(logits)
+
+                # Sum the length of all encodings for all samples
+                for encoding in features.encodings:
+                    # for mask in encoding.attention_mask:
+                    input_token_count += sum(encoding.attention_mask)
+
+        if self.config.num_labels == 1:
+            pred_scores = [score[0] for score in pred_scores]
+
+        if convert_to_tensor:
+            pred_scores = torch.stack(pred_scores)
+        elif convert_to_numpy:
+            pred_scores = np.asarray(
+                [score.cpu().detach().numpy() for score in pred_scores]
+            )
+
+        if input_was_string:
+            pred_scores = pred_scores[0]
+
+        return PredictResultTuple(pred_scores, input_token_count)
+
+    def rank(
+        self,
+        query: str,
+        documents: List[str],
+        top_k: Optional[int] = None,
+        return_documents: bool = False,
+        batch_size: int = 32,
+        show_progress_bar: bool = None,
+        num_workers: int = 0,
+        activation_fct=None,
+        apply_softmax=False,
+        convert_to_numpy: bool = True,
+        convert_to_tensor: bool = False,
+        truncate_input_tokens: Optional[int] = 0,
+    ) -> Union[RerankResultTuple, List[Dict]]:
+        """
+        Performs ranking with the CrossEncoder on the given query and documents.
+
+        Returns a sorted list with the document indices and scores.
+
+        Args:
+            See overridden method for argument description.
+            truncate_input_tokens (int, optional): Added to support truncation.
+        Returns:
+            RerankResultTuple: Adds input_token_count to result
+        """
+        query_doc_pairs = [[query, doc] for doc in documents]
+        scores, input_token_count = self.predict(
+            query_doc_pairs,
+            batch_size=batch_size,
+            show_progress_bar=show_progress_bar,
+            num_workers=num_workers,
+            activation_fct=activation_fct,
+            apply_softmax=apply_softmax,
+            convert_to_numpy=convert_to_numpy,
+            convert_to_tensor=convert_to_tensor,
+            truncate_input_tokens=truncate_input_tokens,
+        )
+        results = []
+        for i, score in enumerate(scores):
+            if return_documents:
+                results.append({"corpus_id": i, "score": score, "text": documents[i]})
+            else:
+                results.append({"corpus_id": i, "score": score})
+
+        results = sorted(results, key=lambda x: x["score"], reverse=True)
+        return RerankResultTuple(results[:top_k], input_token_count)
