@@ -178,8 +178,9 @@ class EmbeddingModule(ModuleBase):
         """
 
         config = ModuleConfig.load(model_path)
-        artifacts_path = config.get(cls._ARTIFACTS_PATH_KEY)
+        error.dir_check("<NLP19403057E>", config.model_path)
 
+        artifacts_path = config.get(cls._ARTIFACTS_PATH_KEY)
         error.value_check(
             "<NLP07391618E>",
             artifacts_path,

@@ -250,10 +250,22 @@ def test_save_type_checks(model_path):
         BOOTSTRAPPED_MODEL.save(model_path)
 
 
+def test_load_without_model_path():
+    """Test coverage for the error message when config has no model_path"""
+    match = "stat: path should be string, bytes, os.PathLike or integer, not NoneType"
+    with pytest.raises(TypeError, match=match):
+        EmbeddingModule.load(ModuleConfig({}))
+
+
 def test_load_without_artifacts():
     """Test coverage for the error message when config has no artifacts to load"""
-    with pytest.raises(ValueError):
-        EmbeddingModule.load(ModuleConfig({}))
+    with tempfile.TemporaryDirectory(suffix="-load") as model_dir:
+        config_yml_path = os.path.join(model_dir, "config.yml")
+        with open(config_yml_path, "a") as f:
+            f.write("module_id: foo")
+        match = "value check failed: Model config missing 'artifacts_path'"
+        with pytest.raises(ValueError, match=match):
+            EmbeddingModule.load(ModuleConfig({}).load(model_dir))
 
 
 def test_run_embedding_type_check(loaded_model):
