@@ -185,7 +185,7 @@ class SequenceClassification(ModuleBase):
 
         softmax = torch.nn.Softmax(dim=1)
         raw_scores = softmax(logits)
-        scores = raw_scores.numpy()
+        scores = raw_scores.double().numpy()
         num_labels = self.model.num_labels
         num_texts = 1  # str
         if isinstance(text, List):
