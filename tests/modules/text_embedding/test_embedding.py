@@ -937,7 +937,7 @@ def test_config_val_to_int():
             "number_str": "456",
             "number_str2": " 456 ",
             "true": True,
-            "non_int": "oh-oh",
+            "non_int_str": "non int str",
         }
     )
     expected_default = 12345
@@ -951,10 +951,10 @@ def test_config_val_to_int():
     assert 1 == conf.get("true", expected_default)
     assert 1 == int(conf.get("true", expected_default))
 
-    assert "oh-oh" == conf.get("non_int", 123)  # default not used (got "uh-oh")
+    assert "non int str" == conf.get("non_int_str", 123)  # default not used
     # Using a bad config (e.g., some non-integer string) with int() will raise ValueError
     with pytest.raises(ValueError):
-        int(conf.get("non_int", 123))  # default not used, int("uh-oh") raises
+        int(conf.get("non_int_str", 123))  # default not used, int("non int str") raises
 
 
 @pytest.mark.parametrize(
