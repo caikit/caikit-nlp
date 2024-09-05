@@ -71,7 +71,7 @@ from caikit.interfaces.nlp.tasks import (
 import alog
 
 # Local
-from caikit_nlp.modules.text_embedding.utils import env_val_to_bool, env_val_to_int
+from caikit_nlp.modules.text_embedding.utils import env_val_to_bool
 
 logger = alog.use_channel("TXT_EMB")
 error = error_handler.get(logger)
@@ -98,19 +98,6 @@ except ModuleNotFoundError:
             importlib.import_module("sentence_transformers")
 
     SentenceTransformer = SentenceTransformerNotAvailable
-
-embedding_cfg = get_config().get("embedding", {})
-
-AUTOCAST = env_val_to_bool(val=embedding_cfg.get("autocast"))
-IPEX = env_val_to_bool(val=embedding_cfg.get("ipex"))
-PT2_COMPILE = env_val_to_bool(val=embedding_cfg.get("pt2_compile"))
-RETRIES = env_val_to_int(val=embedding_cfg.get("retries"), default=0)
-BATCH_SIZE = env_val_to_int(val=embedding_cfg.get("batch_size"), default=0)
-NO_IMPLICIT_TRUNCATION = env_val_to_bool(
-    val=embedding_cfg.get("implicit_truncation_errors", True)
-)
-DEVICE = embedding_cfg.get("device", "")
-TRUST_REMOTE_CODE = embedding_cfg.get("trust_remote_code")
 
 RT = TypeVar("RT")  # return type
 
@@ -146,8 +133,6 @@ class TruncatedTokensTuple(NamedTuple):
     ],
 )
 class EmbeddingModule(ModuleBase):
-    # Retry count if enabled to try again (was for thread contention errors)
-    RETRY_COUNT = max(RETRIES, 0)  # Ensure non-negative, before using in loop!
 
     _ARTIFACTS_PATH_KEY = "artifacts_path"
     _ARTIFACTS_PATH_DEFAULT = "artifacts"
@@ -159,13 +144,33 @@ class EmbeddingModule(ModuleBase):
         super().__init__()
         self.model = model
 
+        # Read config/env settings that are needed at run_* time.
+        embedding_cfg = get_config().get("embedding", {})
+
+        self.autocast = env_val_to_bool(embedding_cfg.get("autocast"))
+        self.no_implicit_truncation = env_val_to_bool(
+            embedding_cfg.get("implicit_truncation_errors", True)
+        )
+
+        self.batch_size = embedding_cfg.get("batch_size", 0)
+        error.type_check("<NLP83816537E>", int, EMBEDDING_BATCH_SIZE=self.batch_size)
+
+        # Retry count if enabled to try again (was for thread contention errors)
+        retries = embedding_cfg.get("retries", 0)
+        error.type_check("<NLP41910524E>", int, EMBEDDING_RETRIES=retries)
+        self.retry_count = max(
+            retries, 0
+        )  # Ensure non-negative, before using in loop! (treat <0 as zero)
+
     @classmethod
-    def load(cls, model_path: str, *args, **kwargs) -> "EmbeddingModule":
+    def load(
+        cls, model_path: Union[str, ModuleConfig], *args, **kwargs
+    ) -> "EmbeddingModule":
         """Load model
 
         Args:
-            model_path: str
-                Path to the config dir under the model_id (where the config.yml lives)
+            model_path (Union[str, ModuleConfig]): Path to saved model or
+                in-memory ModuleConfig
 
         Returns:
             EmbeddingModule
@@ -173,28 +178,38 @@ class EmbeddingModule(ModuleBase):
         """
 
         config = ModuleConfig.load(model_path)
-        artifacts_path = config.get(cls._ARTIFACTS_PATH_KEY)
+        error.dir_check("<NLP19403057E>", config.model_path)
 
+        artifacts_path = config.get(cls._ARTIFACTS_PATH_KEY)
         error.value_check(
             "<NLP07391618E>",
             artifacts_path,
             ValueError(f"Model config missing '{cls._ARTIFACTS_PATH_KEY}'"),
         )
 
-        artifacts_path = os.path.abspath(os.path.join(model_path, artifacts_path))
+        artifacts_path = os.path.abspath(
+            os.path.join(config.model_path, artifacts_path)
+        )
         error.dir_check("<NLP34197772E>", artifacts_path)
 
-        ipex = cls._get_ipex(IPEX)
-        device = cls._select_device(ipex, DEVICE)
+        # Read config/env settings that are needed at load time.
+        embedding_cfg = get_config().get("embedding", {})
+
+        autocast = env_val_to_bool(embedding_cfg.get("autocast"))
+        pt2_compile = env_val_to_bool(embedding_cfg.get("pt2_compile"))
+        trust_remote_code = env_val_to_bool(embedding_cfg.get("trust_remote_code"))
+        ipex = cls._get_ipex(env_val_to_bool(embedding_cfg.get("ipex")))
+        device = cls._select_device(ipex, embedding_cfg.get("device", ""))
+
         model = SentenceTransformerWithTruncate(
             model_name_or_path=artifacts_path,
             device=device,
-            trust_remote_code=TRUST_REMOTE_CODE,
+            trust_remote_code=trust_remote_code,
         )
         model.eval()  # required for IPEX at least
         if device is not None:
             model.to(torch.device(device))
-        model = EmbeddingModule._optimize(model, ipex, device, AUTOCAST, PT2_COMPILE)
+        model = EmbeddingModule._optimize(model, ipex, device, autocast, pt2_compile)
         return cls(model)
 
     @property
@@ -310,16 +325,16 @@ class EmbeddingModule(ModuleBase):
 
     def _with_retry(self, fn: Callable[..., RT], *args, **kwargs) -> RT:
         first_exception = None
-        for count in range(1 + self.RETRY_COUNT):  # try once plus retries (if needed)
+        for count in range(1 + self.retry_count):  # try once plus retries (if needed)
             try:
                 return fn(*args, **kwargs)
             except Exception as e:  # pylint: disable=broad-exception-caught
                 if first_exception is None:
                     first_exception = e
-                if self.RETRY_COUNT > 0:
+                if self.retry_count > 0:
                     warn_msg = f"Try {count + 1}: {fn} failed due to: {e}"
                     logger.warning("<NLP54902271W>", warn_msg, exc_info=True)
-                    if count + 1 < self.RETRY_COUNT:
+                    if count + 1 < self.retry_count:
                         time.sleep(0.1 * (count * 2))
 
         # If above return did not happen, raise the first exception
@@ -334,16 +349,17 @@ class EmbeddingModule(ModuleBase):
         """All encode calls should use this for consistent param adding and retry loop"""
 
         # Add the batch_size kwarg if not passed in and given a usable BATCH_SIZE
-        if BATCH_SIZE > 0:
+        if self.batch_size > 0:
             if kwargs is None:
                 kwargs = {}
             if "batch_size" not in kwargs:
-                kwargs["batch_size"] = BATCH_SIZE
+                kwargs["batch_size"] = self.batch_size
 
         if isinstance(self.model, SentenceTransformerWithTruncate):
             kwargs[
                 "implicit_truncation_errors"
-            ] = NO_IMPLICIT_TRUNCATION  # config/env overrides default
+            ] = self.no_implicit_truncation  # config/env overrides default
+            kwargs["autocast"] = self.autocast  # config/env overrides default
             return self._with_retry(self.model.encode, *args, **kwargs)
 
         # Else...
@@ -357,6 +373,8 @@ class EmbeddingModule(ModuleBase):
             del kwargs["return_token_count"]
         if "implicit_truncation_errors" in kwargs:
             del kwargs["implicit_truncation_errors"]
+        if "autocast" in kwargs:
+            del kwargs["autocast"]
         return self._with_retry(self.model.encode, *args, **kwargs)
 
     @EmbeddingTask.taskmethod()
@@ -718,19 +736,21 @@ class EmbeddingModule(ModuleBase):
         )
 
     @classmethod
-    def bootstrap(cls, model_name_or_path: str) -> "EmbeddingModule":
+    def bootstrap(cls, *args, **kwargs) -> "EmbeddingModule":
         """Bootstrap a sentence-transformers model
 
         Args:
-            model_name_or_path: str
-                Model name (Hugging Face hub) or path to model to load.
+            kwargs are passed to SentenceTransformer(**kwargs)
         """
-        return cls(
-            model=SentenceTransformer(
-                model_name_or_path=model_name_or_path,
-                trust_remote_code=TRUST_REMOTE_CODE,
+
+        if "trust_remote_code" not in kwargs:
+            # Read config/env settings that are needed at bootstrap time.
+            embedding_cfg = get_config().get("embedding", {})
+            kwargs["trust_remote_code"] = env_val_to_bool(
+                embedding_cfg.get("trust_remote_code")
             )
-        )
+
+        return cls(model=SentenceTransformer(*args, **kwargs))
 
     def save(self, model_path: str, *args, **kwargs):
         """Save model using config in model_path
@@ -1056,6 +1076,7 @@ class SentenceTransformerWithTruncate(SentenceTransformer):
         truncate_input_tokens: int = 0,
         return_token_count: bool = False,
         implicit_truncation_errors: bool = True,
+        autocast: bool = False,
     ) -> Union[EmbeddingResultTuple, List[torch.Tensor], np.ndarray, torch.Tensor]:
         """
         Computes sentence embeddings
@@ -1083,6 +1104,7 @@ class SentenceTransformerWithTruncate(SentenceTransformer):
         :param return_token_count: If true, a tuple is returned to add the input token count.
         :param implicit_truncation_errors: If true (default) implicit truncation throws an error.
                 If false, the model default behavior or used.
+        :param autocast: If true (not default) run with torch.cpu.amp.autocast()
 
         :return:
            If return_token_count is False, the embedding is returned as a numpy matrix.
@@ -1171,7 +1193,7 @@ class SentenceTransformerWithTruncate(SentenceTransformer):
 
             features = batch_to_device(features, device)
 
-            if AUTOCAST:
+            if autocast:
                 with torch.no_grad(), torch.cpu.amp.autocast():
                     out_features = self.forward(features)
                     embeddings = out_features["sentence_embedding"]
