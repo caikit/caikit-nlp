@@ -15,14 +15,12 @@
 # Standard
 from copy import deepcopy
 from functools import partial
-from typing import Any, Dict, List, NamedTuple, Optional, TypeVar, Union
-import importlib
+from typing import Any, Dict, List, NamedTuple, Optional, Union
 import os
 import threading
 
 # Third Party
 from sentence_transformers import CrossEncoder
-from torch.backends import mps
 from torch.utils.data import DataLoader
 import numpy as np
 import torch
@@ -46,15 +44,12 @@ import alog
 # Local
 from caikit_nlp.modules.text_embedding.utils import env_val_to_bool
 
-logger = alog.use_channel("TXT_EMB")
+logger = alog.use_channel("CROSS_ENCODER")
 error = error_handler.get(logger)
 
 
-RT = TypeVar("RT")  # return type
-
-
 class RerankResultTuple(NamedTuple):
-    """Output of modified predict()"""
+    """Output of modified rank()"""
 
     scores: list
     input_token_count: int
@@ -115,7 +110,7 @@ class CrossEncoderModule(ModuleBase):
         error.value_check(
             "<NLP20896115E>",
             artifacts_path,
-            ValueError(f"Model config missing '{cls._ARTIFACTS_PATH_KEY}'"),
+            f"Model config missing '{cls._ARTIFACTS_PATH_KEY}'",
         )
 
         artifacts_path = os.path.abspath(
@@ -127,13 +122,13 @@ class CrossEncoderModule(ModuleBase):
         embedding_cfg = get_config().get("embedding", {})
 
         trust_remote_code = env_val_to_bool(embedding_cfg.get("trust_remote_code"))
-        device = cls._select_device(False, embedding_cfg.get("device", ""))
 
         model = CrossEncoderWithTruncate(
             model_name=artifacts_path,
-            device=device,
             trust_remote_code=trust_remote_code,
         )
+        model.model.eval()
+        model.model.to(model._target_device)
 
         return cls(model)
 
@@ -175,80 +170,6 @@ class CrossEncoderModule(ModuleBase):
         tokens = [Token(start=i[0], end=i[1], text=text[i[0] : i[1]]) for i in mapping]
 
         return TokenizationResults(token_count=len(result.input_ids[0]), results=tokens)
-
-    @classmethod
-    def _get_ipex(cls, ipex_flag):
-        """Get IPEX optimization library if enabled and available, else return False
-
-        Returns ipex library or False
-        """
-        ret = False
-
-        # Enabled by environment variable
-        # When IPEX is not false, attempt to import the library and use it.
-        if ipex_flag:
-            try:
-                ret = importlib.import_module("intel_extension_for_pytorch")
-            except Exception as ie:  # pylint: disable=broad-exception-caught
-                # We don't require the module so catch, log, proceed to return False
-                msg = (
-                    f"IPEX enabled in env, but skipping ipex.optimize() because "
-                    f"import intel_extension_for_pytorch failed with exception: {ie}"
-                )
-                logger.warning(msg, exc_info=True)
-
-        return ret
-
-    @staticmethod
-    def _select_device(use_ipex, device):
-        """Use environment variables and availability to determine the device to use"""
-        if use_ipex:
-            # If enabled, use "xpu" (IPEX on GPU instead of IPEX on CPU)
-            if device == "xpu":
-                return "xpu"
-        elif device == "mps" and mps.is_built() and mps.is_available():
-            # Never use on ipex, but otherwise use mps if enabled and available
-            return "mps"
-
-        return "cuda" if torch.cuda.is_available() else None
-
-    @staticmethod
-    def _get_backend(use_ipex, use_device):
-        """Determine the backend to use for torch compile.
-
-        Considers global ipex if enabled first, next mps device, finally defaults.
-
-        Returns the backend for torch.compile()
-        """
-        if use_ipex:
-            return "ipex"
-        if use_device == "mps":
-            return mps
-        return "inductor"  # default backend
-
-    @staticmethod
-    def _optimize(model, ipex, device, autocast, pt2_compile):
-        if ipex:
-            if autocast:  # IPEX performs best with autocast using bfloat16
-                model = ipex.optimize(
-                    model, dtype=torch.bfloat16, weights_prepack=False
-                )
-            else:
-                model = ipex.optimize(model, weights_prepack=False)
-
-        # torch.compile won't work everywhere, but when set we'll try it
-        if pt2_compile:
-            backend = CrossEncoderModule._get_backend(ipex, device)
-            try:
-                model = torch.compile(model, backend=backend, mode="max-autotune")
-            except Exception as e:  # pylint: disable=broad-exception-caught
-                # Not always supported (e.g. in a python version) so catch, log, proceed.
-                warn_msg = (
-                    f"PT2_COMPILE enabled, but continuing without torch.compile() "
-                    f"because it failed with exception: {e}"
-                )
-                logger.warning(warn_msg, exc_info=True)
-        return model
 
     @RerankTask.taskmethod()
     def run_rerank_query(
@@ -320,18 +241,8 @@ class CrossEncoderModule(ModuleBase):
             return_text=return_text,
         )
 
-        if results.results:
-            return RerankResult(
-                result=results.results[0],
-                producer_id=self.PRODUCER_ID,
-                input_token_count=results.input_token_count,
-            )
-
-        RerankResult(
-            result=RerankScore(
-                scores=[],
-                query=query if return_query else None,
-            ),
+        return RerankResult(
+            result=results.results[0],
             producer_id=self.PRODUCER_ID,
             input_token_count=results.input_token_count,
         )
@@ -414,6 +325,7 @@ class CrossEncoderModule(ModuleBase):
                 top_k=top_n,
                 return_documents=False,
                 batch_size=32,
+                convert_to_numpy=True,
                 truncate_input_tokens=truncate_input_tokens,
             )
             results.append(scores)
@@ -684,7 +596,7 @@ class CrossEncoderWithTruncate(CrossEncoder):
         convert_to_numpy: bool = True,
         convert_to_tensor: bool = False,
         truncate_input_tokens: Optional[int] = 0,
-    ) -> Union[PredictResultTuple, List[float], np.ndarray, torch.Tensor]:
+    ) -> PredictResultTuple:
         """
         Performs predictions with the CrossEncoder on the given sentence pairs.
 
@@ -694,11 +606,6 @@ class CrossEncoderWithTruncate(CrossEncoder):
 
         Returns:
             Uses PredictResultTuple to add input_token_count
-            Union[List[float], np.ndarray, torch.Tensor]: Predictions for the passed sentence pairs.
-            The return type depends on the `convert_to_numpy` and `convert_to_tensor` parameters.
-            If `convert_to_tensor` is True, the output will be a torch.Tensor.
-            If `convert_to_numpy` is True, the output will be a numpy.ndarray.
-            Otherwise, the output will be a list of float values.
         """
         input_was_string = False
         if isinstance(
@@ -711,7 +618,7 @@ class CrossEncoderWithTruncate(CrossEncoder):
             self.smart_batching_collate_text_only,
             truncate_input_tokens=truncate_input_tokens,
         )
-        inp_dataloader = DataLoader(
+        iterator = DataLoader(
             sentences,
             batch_size=batch_size,
             collate_fn=collate_fn,
@@ -719,15 +626,11 @@ class CrossEncoderWithTruncate(CrossEncoder):
             shuffle=False,
         )
 
-        iterator = inp_dataloader
-
         if activation_fct is None:
             activation_fct = self.default_activation_function
 
         pred_scores = []
         input_token_count = 0
-        self.model.eval()
-        self.model.to(self._target_device)
         with torch.no_grad():
             for features in iterator:
 
@@ -750,7 +653,7 @@ class CrossEncoderWithTruncate(CrossEncoder):
             pred_scores = torch.stack(pred_scores)
         elif convert_to_numpy:
             pred_scores = np.asarray(
-                [score.cpu().detach().numpy() for score in pred_scores]
+                [score.cpu().detach().float().item() for score in pred_scores]
             )
 
         if input_was_string:
@@ -772,7 +675,7 @@ class CrossEncoderWithTruncate(CrossEncoder):
         convert_to_numpy: bool = True,
         convert_to_tensor: bool = False,
         truncate_input_tokens: Optional[int] = 0,
-    ) -> Union[RerankResultTuple, List[Dict]]:
+    ) -> RerankResultTuple:
         """
         Performs ranking with the CrossEncoder on the given query and documents.
 
