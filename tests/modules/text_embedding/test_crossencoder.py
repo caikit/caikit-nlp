@@ -7,6 +7,7 @@ import tempfile
 
 # Third Party
 from pytest import approx
+import numpy as np
 import pytest
 
 # First Party
@@ -392,12 +393,17 @@ def test_truncate_input_tokens_errors(truncate_input_tokens, loaded_model):
     """
     model_max = loaded_model.model.tokenizer.model_max_length
 
-    too_long = "x " * (model_max - 3)  # 3 for tokens (no room for a query token)
-    just_barely = "x " * (model_max - 4)  # 3 for tokens plus room for a query token
-    queries = ["x"]
-    docs = [{"text": t} for t in ["x", too_long, just_barely, too_long, just_barely]]
+    too_long = "a " * (model_max - 3)  # 3 for tokens (no room for a query token)
+    just_barely = "a " * (model_max - 4)  # 3 for tokens plus room for a query token
+    queries = ["q"]
 
-    match1 = rf"exceeds the maximum sequence length for this model \({model_max}\) for text at indexes: 1, 3."
+    # Add 50 of these little ones to get past the first batch(es)
+    # to verify that this error message index is for the input
+    # position and not just an index into some internal batch.
+    docs = [{"text": "a"}] * 50
+    docs.extend([{"text": t} for t in [too_long, just_barely, too_long, just_barely]])
+
+    match1 = rf"exceeds the maximum sequence length for this model \({model_max}\) for text at indexes: 50, 52."
     with pytest.raises(ValueError, match=match1):
         loaded_model.run_rerank_queries(
             queries=queries, documents=docs, truncate_input_tokens=truncate_input_tokens
@@ -441,3 +447,68 @@ def test_too_many_tokens_with_truncation_working(truncate_input_tokens, loaded_m
         documents=[{"text": too_long}],
         truncate_input_tokens=truncate_input_tokens,
     )
+
+
+@pytest.mark.parametrize(
+    "truncate_input_tokens", [1, 2, 3, 4, 5, 6, 99, 100, 101, 510, 511, 512, -1]
+)
+def test_truncation(truncate_input_tokens, loaded_model):
+    """verify that results are as expected with truncation"""
+
+    max_len = loaded_model.model.tokenizer.model_max_length
+
+    if truncate_input_tokens is None or truncate_input_tokens < 0:
+        # For -1 we don't truncate, but model will
+        repeat = max_len
+    else:
+        repeat = min(
+            truncate_input_tokens, max_len
+        )  # max_len is used when we need -4 for begin/"q"/sep/end
+
+    # Build a text like "x x x.. x " with room for one more token
+    repeat = repeat - 4  # room for separators and a single-token query
+    repeat = repeat - 1  # space for the final x or y token to show difference
+
+    base = ""
+    if repeat > 0:
+        base = "x " * repeat  # A bunch of "x" tokens
+    x = base + "x"  # One last "x" that will not get truncated
+    y = base + "y"  # A different last character "y" not truncated
+    z = y + " z"  # Add token "z" after "y". This should get truncated.
+
+    # Multiple queries to test query-loop vs queries
+    # Query for the significant added chars to affect score.
+    queries = ["y", "z"]
+    docs = [{"text": t} for t in [x, y, z]]
+    res = loaded_model.run_rerank_queries(
+        queries=queries,
+        documents=docs,
+        truncate_input_tokens=truncate_input_tokens,
+    )
+    queries_results = res.results
+
+    # Compare with results from individual embedding calls in a loop
+    query_results = []
+    for query in queries:
+        r = loaded_model.run_rerank_query(
+            query=query,
+            documents=docs,
+            truncate_input_tokens=truncate_input_tokens,
+        )
+        query_results.append(r.result)
+
+    assert len(queries_results) == len(
+        query_results
+    ), "expected the same length results"
+
+    # compare the scores (queries call vs query call in a loop)
+    for i, r in enumerate(queries_results):
+        queries_scores = [x.score for x in r.scores]
+        query_scores = [x.score for x in query_results[i].scores]
+        assert np.array_equal(queries_scores, query_scores)
+
+        # x...xyz is the same as x...xy because that is exactly where truncation worked
+        assert query_scores[0] == query_scores[1]
+
+        # Make sure the base, x, y are not a match (we kept the significant last char)
+        assert query_scores[1] != query_scores[2]

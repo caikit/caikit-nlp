@@ -473,7 +473,11 @@ class CrossEncoderWithTruncate(CrossEncoder):
         max_len = kwargs.get("truncate_input_tokens", self.tokenizer.model_max_length)
         max_len = min(max_len, self.tokenizer.model_max_length)
         if max_len <= 0:
-            max_len = None
+            max_len = None  # Use the default
+        elif max_len < 5:
+            # 1, 2, 3 don't really work (4 might but...)
+            # Bare minimum is [CLS] token [SEP] token [SEP]
+            max_len = 5
 
         tokenizer = self._get_tokenizer_per_thread()
         tokenized = tokenizer(
@@ -490,56 +494,42 @@ class CrossEncoderWithTruncate(CrossEncoder):
         )
         return tokenized
 
-    def _truncation_needed(self, tokenized, max_length, texts):
+    def _truncation_needed(self, encoding, texts):
         """Check for truncation needed to meet max_length token limit
         Returns:
-            List of indexes of the texts that need truncating ([] if none)
+            True if was truncated, False otherwise
         """
 
-        ret = []  # List of indexes for texts that need truncation
+        input_tokens = sum(encoding.attention_mask)
+        if input_tokens < self.tokenizer.model_max_length:
+            return False
 
-        if max_length is None:
-            max_length = self.tokenizer.model_max_length
+        # At model limit, including start/end...
+        # This may or may not have already been truncated at the model limit.
+        # Check the strlen and last offset.
+        # We need to know this, for default implementation of throwing error.
+        offsets = encoding.offsets
+        type_ids = encoding.type_ids
+        attn_mask = encoding.attention_mask
 
-        for i, encoding in enumerate(tokenized.encodings):
-            input_tokens = sum(encoding.attention_mask)
-            if input_tokens >= self.tokenizer.model_max_length:
-                # At model limit, including start/end...
-                # This may or may not have already been truncated at the model limit.
-                # Check the strlen and last offset.
-                # We need to know this, for "not okay_to_truncate" errors.
-                offsets = encoding.offsets
-                type_ids = encoding.type_ids
-                attn_mask = encoding.attention_mask
-                # Find the last offset by counting attn masks
-                # and keeping the last non-zero offset end.
-                token_count = 0
-                index = 0  # index of longest
-                type_id = 0  # track type_id of longest
-                for n, attn in enumerate(attn_mask):
-                    if attn == 1:
-                        token_count += 1
-                        end = offsets[n][1]  # Index to end character from offset
-                        if (
-                            end > index
-                        ):  # Grab last non-zero end index (ensures increasing too)
-                            type_id = type_ids[n]
-                            index = end
-                    if token_count >= max_length - 1:  # Stop with room for an end token
-                        break
-                end_index = index  # longest
-                end_typeid = type_id  # longest
+        # Find the last offset by counting attn masks
+        # and keeping the last non-zero offset end.
+        token_count = 0
+        index = 0  # index of longest
+        type_id = 0  # track type_id of longest
 
-                # Get position in (queries * docs) for this query or doc
-                if end_typeid == 0:  # query
-                    text_pos = i // len(texts[0])
-                else:  # doc
-                    text_pos = i % len(texts[0])
+        for n, attn in enumerate(attn_mask):
+            if attn == 1:
+                token_count += 1
+                end = offsets[n][1]  # Index to end character from offset
+                if end > index:  # Grab last non-zero end index (ensures increasing too)
+                    type_id = type_ids[n]
+                    index = end
+        end_index = index  # longest
+        end_typeid = type_id  # longest
 
-                if end_index < len(texts[end_typeid][text_pos]):
-                    ret.append(i)
-
-        return ret
+        # If last token offset is before the last char, then it was truncated
+        return end_index < len(texts[end_typeid].strip())
 
     def smart_batching_collate_text_only(
         self, batch, truncate_input_tokens: Optional[int] = 0
@@ -554,37 +544,24 @@ class CrossEncoderWithTruncate(CrossEncoder):
             texts, truncate_input_tokens=truncate_input_tokens
         )
 
-        max_len = self.tokenizer.model_max_length
-
-        if truncate_input_tokens == 0 or truncate_input_tokens > max_len:
-            # default (for zero or over max) is to error on truncation
-            truncated = self._truncation_needed(tokenized, max_len, texts)
-
-            if truncated:
-                indexes = f"{', '.join(str(i) for i in truncated)}."
-                index_hint = (
-                    " for text at "
-                    f"{'index' if len(truncated) == 1 else 'indexes'}: {indexes}"
-                )
-
-                error.log_raise(
-                    "<NLP08391926E>",
-                    ValueError(
-                        f"Token sequence length (+3 for separators) exceeds the "
-                        f"maximum sequence length for this model ({max_len})"
-                        f"{index_hint}"
-                    ),
-                )
-
-        # We cannot send offset_mapping to the model with features,
-        # but we needed offset_mapping for other uses.
-        if "offset_mapping" in tokenized:
-            del tokenized["offset_mapping"]
-
-        for name in tokenized:
-            tokenized[name] = tokenized[name].to(self._target_device)
-
         return tokenized
+
+    @staticmethod
+    def raise_truncation_error(max_len, truncation_needed_indexes):
+
+        indexes = f"{', '.join(str(i) for i in truncation_needed_indexes)}."
+        index_hint = (
+            " for text at "
+            f"{'index' if len(truncation_needed_indexes) == 1 else 'indexes'}: {indexes}"
+        )
+        error.log_raise(
+            "<NLP08391926E>",
+            ValueError(
+                f"Token sequence length (+3 for separators) exceeds the "
+                f"maximum sequence length for this model ({max_len})"
+                f"{index_hint}"
+            ),
+        )
 
     def predict(
         self,
@@ -630,10 +607,35 @@ class CrossEncoderWithTruncate(CrossEncoder):
         if activation_fct is None:
             activation_fct = self.default_activation_function
 
+        max_len = self.tokenizer.model_max_length
         pred_scores = []
         input_token_count = 0
+        row = -1
+        truncation_needed_indexes = []
         with torch.no_grad():
             for features in iterator:
+                # Sum the length of all encodings for all samples
+                for encoding in features.encodings:
+                    row += 1
+
+                    # for mask in encoding.attention_mask:
+                    input_token_count += sum(encoding.attention_mask)
+
+                    if truncate_input_tokens == 0 or truncate_input_tokens > max_len:
+                        # default (for zero or over max) is to error on truncation
+                        if self._truncation_needed(encoding, sentences[row]):
+                            truncation_needed_indexes.append(row)
+
+                if truncation_needed_indexes:
+                    self.raise_truncation_error(max_len, truncation_needed_indexes)
+
+                # # We cannot send offset_mapping to the model with features,
+                # # but we needed offset_mapping for other uses.
+                if "offset_mapping" in features:
+                    del features["offset_mapping"]
+
+                for name in features:
+                    features[name] = features[name].to(self._target_device)
 
                 model_predictions = self.model(**features, return_dict=True)
                 logits = activation_fct(model_predictions.logits)
@@ -641,11 +643,6 @@ class CrossEncoderWithTruncate(CrossEncoder):
                 if apply_softmax and len(logits[0]) > 1:
                     logits = torch.nn.functional.softmax(logits, dim=1)
                 pred_scores.extend(logits)
-
-                # Sum the length of all encodings for all samples
-                for encoding in features.encodings:
-                    # for mask in encoding.attention_mask:
-                    input_token_count += sum(encoding.attention_mask)
 
         if self.config.num_labels == 1:
             pred_scores = [score[0] for score in pred_scores]
