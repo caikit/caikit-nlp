@@ -88,6 +88,14 @@ class CrossEncoderModule(ModuleBase):
         # model_max_length attribute availability might(?) vary by model/tokenizer
         self.model_max_length = getattr(model.tokenizer, "model_max_length", None)
 
+        # Read config/env settings that are needed at run_* time.
+        embedding_cfg = get_config().get("embedding", {})
+
+        self.batch_size = embedding_cfg.get("batch_size", 32)
+        error.type_check("<NLP83501588E>", int, EMBEDDING_BATCH_SIZE=self.batch_size)
+        if self.batch_size <= 0:
+            self.batch_size = 32  # 0 or negative, use the default.
+
     @classmethod
     def load(
         cls, model_path: Union[str, ModuleConfig], *args, **kwargs
@@ -324,7 +332,7 @@ class CrossEncoderModule(ModuleBase):
                 documents=doc_texts,
                 top_k=top_n,
                 return_documents=False,
-                batch_size=32,
+                batch_size=self.batch_size,
                 convert_to_numpy=True,
                 truncate_input_tokens=truncate_input_tokens,
             )
