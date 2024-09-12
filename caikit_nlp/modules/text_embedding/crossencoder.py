@@ -460,14 +460,7 @@ class CrossEncoderWithTruncate(CrossEncoder):
         return tokenizer
 
     def get_tokenized(self, texts, **kwargs):
-        """Intentionally always call tokenizer the same way to avoid thread issues.
-
-        Use a copy of the tokenizer per-model (self) and per-thread (map by thread ID).
-
-        Avoid changing the max length, truncation, and padding to avoid the
-        "Already borrowed" errors that come with concurrent threads attempting to use
-        the fast tokenizer with different truncation settings.
-        """
+        """Use a copy of the tokenizer per-model (self) and per-thread (map by thread ID)"""
 
         max_len = kwargs.get("truncate_input_tokens", self.tokenizer.model_max_length)
         max_len = min(max_len, self.tokenizer.model_max_length)
@@ -480,7 +473,7 @@ class CrossEncoderWithTruncate(CrossEncoder):
             return_attention_mask=True,  # Used for determining token count
             return_token_type_ids=False,  # Needed for cross-encoders
             return_overflowing_tokens=False,  # DO NOT USE overflow tokens break sentence batches
-            return_offsets_mapping=True,  # Used for truncation test
+            return_offsets_mapping=True,  # Used for truncation needed error
             return_length=False,
             return_tensors="pt",
             truncation=True,
