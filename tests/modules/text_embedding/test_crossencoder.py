@@ -502,13 +502,17 @@ def test_truncation(truncate_input_tokens, loaded_model):
     ), "expected the same length results"
 
     # compare the scores (queries call vs query call in a loop)
+    # order is the same
     for i, r in enumerate(queries_results):
         queries_scores = [x.score for x in r.scores]
         query_scores = [x.score for x in query_results[i].scores]
         assert np.array_equal(queries_scores, query_scores)
 
-        # x...xyz is the same as x...xy because that is exactly where truncation worked
-        assert query_scores[0] == query_scores[1]
+        # To compare scores based on the inputs, we need to use the index too
+        indexed_query_scores = {s.index: s.score for s in query_results[i].scores}
 
-        # Make sure the base, x, y are not a match (we kept the significant last char)
-        assert query_scores[1] != query_scores[2]
+        # Make sure the x...xx, x...xy are not a match (we kept the significant last token)
+        assert indexed_query_scores[0] != indexed_query_scores[1]
+
+        # x...xy is the same as x...xyz because we truncated the z token -- it worked!
+        assert indexed_query_scores[1] == indexed_query_scores[2]
