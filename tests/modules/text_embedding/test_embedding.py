@@ -1143,3 +1143,22 @@ def test_same_same(loaded_model: EmbeddingModule, truncate_input_tokens):
     assert not np.allclose(
         separate_vectors[1], separate_vectors[2], rtol=1e-05, atol=1e-08
     )
+
+@pytest.mark.parametrize("pad_to_max_length", [None, False, True, 0, 1])
+def test_pad_to_max_length(pad_to_max_length, loaded_model):
+    """Tests for tokenization kwargs pad_to_max_length will modify tokenizer and give same result"""
+    model_max = loaded_model.model.max_seq_length
+
+    tokenizer_kwargs = {'pad_to_max_length': pad_to_max_length}
+    max_seq = "x " * (model_max - 2) # Subtract 2 for begin/end tokens
+    max_seq_minus_one = "x " * (model_max - 3) # 1 token length shorter than max_seq_length
+    short = "x "
+
+    normal_result = loaded_model._encode_with_retry(
+        [max_seq_minus_one, max_seq, short], return_token_count=True
+    )
+    padded_result = loaded_model._encode_with_retry(
+        [max_seq_minus_one, max_seq, short], return_token_count=True, tokenizer_kwargs=tokenizer_kwargs
+    )
+
+    assert np.all(normal_result.embedding == padded_result.embedding)
