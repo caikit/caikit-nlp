@@ -32,7 +32,7 @@ dependencies = [
     "torch>=2.3.1,<2.5.0",
     "tqdm>=4.65.0",
     "transformers>=4.38.0,<4.44.0",
-    "peft==0.6.0",
+    "peft==0.13.1",
 ]
 
 [tool.setuptools.packages.find]
