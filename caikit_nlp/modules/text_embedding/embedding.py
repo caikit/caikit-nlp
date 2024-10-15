@@ -37,7 +37,6 @@ import time
 from torch import nn
 from torch.backends import mps
 from transformers import BatchEncoding
-from transformers.tokenization_utils import PaddingStrategy
 import numpy as np
 import torch
 
@@ -1041,7 +1040,7 @@ class SentenceTransformerWithTruncate(SentenceTransformer):
         the fast tokenizer with different truncation settings.
         """
 
-        pad_to_max_length = kwargs.pop("pad_to_max_length", None)
+        padding_strategy = kwargs.pop("padding_strategy", True)
 
         # Keep copies of tokenizer per thread (in each wrapped model instance)
         thread_id = threading.get_ident()
@@ -1051,32 +1050,18 @@ class SentenceTransformerWithTruncate(SentenceTransformer):
             else self.tokenizers.setdefault(thread_id, deepcopy(self.tokenizer))
         )
 
-        if pad_to_max_length:
-            return tokenizer(
-                texts,
-                return_attention_mask=True,  # Used for determining token count
-                return_token_type_ids=False,
-                return_overflowing_tokens=False,  # DO NOT USE overflow tokens break sentence batches
-                return_offsets_mapping=True,  # Used for truncation
-                return_length=False,
-                return_tensors="pt",
-                truncation=True,  # DO NOT CHANGE else "Already borrowed" errors
-                padding=PaddingStrategy.MAX_LENGTH,  # DO NOT CHANGE else "Already borrowed" errors
-                max_length=self.max_seq_length,  # DO NOT CHANGE else "Already borrowed" errors
-            )
-        else:
-            return tokenizer(
-                texts,
-                return_attention_mask=True,  # Used for determining token count
-                return_token_type_ids=False,
-                return_overflowing_tokens=False,  # DO NOT USE overflow tokens break sentence batches
-                return_offsets_mapping=True,  # Used for truncation
-                return_length=False,
-                return_tensors="pt",
-                truncation=True,  # DO NOT CHANGE else "Already borrowed" errors
-                padding=True,  # DO NOT CHANGE else "Already borrowed" errors
-                max_length=self.max_seq_length,  # DO NOT CHANGE else "Already borrowed" errors
-            )
+        return tokenizer(
+            texts,
+            return_attention_mask=True,  # Used for determining token count
+            return_token_type_ids=False,
+            return_overflowing_tokens=False,  # DO NOT USE overflow tokens break sentence batches
+            return_offsets_mapping=True,  # Used for truncation
+            return_length=False,
+            return_tensors="pt",
+            truncation=True,  # DO NOT CHANGE else "Already borrowed" errors
+            padding=padding_strategy,  # DO NOT CHANGE else "Already borrowed" errors
+            max_length=self.max_seq_length,  # DO NOT CHANGE else "Already borrowed" errors
+        )
 
     def encode(
         self,
@@ -1095,7 +1080,7 @@ class SentenceTransformerWithTruncate(SentenceTransformer):
         return_token_count: bool = False,
         implicit_truncation_errors: bool = True,
         autocast: bool = False,
-        tokenizer_kwargs: Dict[str, Any] = {},
+        **kwargs,
     ) -> Union[EmbeddingResultTuple, List[torch.Tensor], np.ndarray, torch.Tensor]:
         """
         Computes sentence embeddings
@@ -1180,7 +1165,7 @@ class SentenceTransformerWithTruncate(SentenceTransformer):
                 truncate_input_tokens,
                 sentences_batch,
                 implicit_truncation_errors=implicit_truncation_errors,
-                **tokenizer_kwargs
+                **kwargs,
             )
 
             if truncation_needed:  # truncation was needed and was not done/not allowed
