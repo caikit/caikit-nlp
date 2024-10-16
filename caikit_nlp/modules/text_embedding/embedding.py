@@ -976,6 +976,7 @@ class SentenceTransformerWithTruncate(SentenceTransformer):
         truncate_input_tokens: int,
         texts: List[str],
         implicit_truncation_errors: bool = True,
+        **kwargs,
     ) -> TruncatedTokensTuple:
         """Tokenize with support for truncation handling and returning the token count
         Args:
@@ -1015,7 +1016,7 @@ class SentenceTransformerWithTruncate(SentenceTransformer):
         texts = [str(s).strip() for s in texts]
 
         # Call tokenizer with the same truncation parameters every time
-        tokenized = self._get_tokenized(texts)
+        tokenized = self._get_tokenized(texts, **kwargs)
 
         # Custom truncation and/or error raise if needed
         truncation_needed = self._truncation_needed(tokenized, max_length, texts)
@@ -1023,13 +1024,13 @@ class SentenceTransformerWithTruncate(SentenceTransformer):
             # Truncate texts in place
             _truncate_texts(texts, tokenized, max_length, truncation_needed)
             # Re-tokenize the truncated texts
-            tokenized = self._get_tokenized(texts)
+            tokenized = self._get_tokenized(texts, **kwargs)
             truncation_needed = []  # truncation accomplished
 
         input_token_count = sum_token_count(tokenized)
         return TruncatedTokensTuple(tokenized, input_token_count, truncation_needed)
 
-    def _get_tokenized(self, texts):
+    def _get_tokenized(self, texts, **kwargs):
         """Intentionally always call tokenizer the same way to avoid thread issues.
 
         Use a copy of the tokenizer per-model (self) and per-thread (map by thread ID).
@@ -1038,6 +1039,8 @@ class SentenceTransformerWithTruncate(SentenceTransformer):
         "Already borrowed" errors that come with concurrent threads attempting to use
         the fast tokenizer with different truncation settings.
         """
+
+        padding_strategy = kwargs.pop("padding_strategy", True)
 
         # Keep copies of tokenizer per thread (in each wrapped model instance)
         thread_id = threading.get_ident()
@@ -1056,7 +1059,7 @@ class SentenceTransformerWithTruncate(SentenceTransformer):
             return_length=False,
             return_tensors="pt",
             truncation=True,  # DO NOT CHANGE else "Already borrowed" errors
-            padding=True,  # DO NOT CHANGE else "Already borrowed" errors
+            padding=padding_strategy,  # DO NOT CHANGE else "Already borrowed" errors
             max_length=self.max_seq_length,  # DO NOT CHANGE else "Already borrowed" errors
         )
 
@@ -1077,6 +1080,7 @@ class SentenceTransformerWithTruncate(SentenceTransformer):
         return_token_count: bool = False,
         implicit_truncation_errors: bool = True,
         autocast: bool = False,
+        **kwargs,
     ) -> Union[EmbeddingResultTuple, List[torch.Tensor], np.ndarray, torch.Tensor]:
         """
         Computes sentence embeddings
@@ -1161,6 +1165,7 @@ class SentenceTransformerWithTruncate(SentenceTransformer):
                 truncate_input_tokens,
                 sentences_batch,
                 implicit_truncation_errors=implicit_truncation_errors,
+                **kwargs,
             )
 
             if truncation_needed:  # truncation was needed and was not done/not allowed

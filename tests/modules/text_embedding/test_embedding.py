@@ -2,12 +2,14 @@
 
 # Standard
 from typing import List, Tuple
+from unittest.mock import patch
 import os
 import tempfile
 
 # Third Party
 from pytest import approx
 from torch.backends import mps
+from transformers import BatchEncoding
 import numpy as np
 import pytest
 import torch
@@ -1143,3 +1145,71 @@ def test_same_same(loaded_model: EmbeddingModule, truncate_input_tokens):
     assert not np.allclose(
         separate_vectors[1], separate_vectors[2], rtol=1e-05, atol=1e-08
     )
+
+
+def custom_sum_token_count(
+    tokenized: BatchEncoding,
+) -> int:
+    """Returns total number of tokens regardless of attention_mask value"""
+
+    token_count = 0
+    for encoding in tokenized.encodings:
+        token_count += len(encoding.attention_mask)
+
+    return token_count
+
+
+@pytest.mark.parametrize("padding_strategy", [True, "max_length"])
+def test_pad_to_max_length(padding_strategy, loaded_model):
+    """Tests for tokenization kwargs max_length will modify tokenizer"""
+    model_max = loaded_model.model.max_seq_length
+
+    tokenizer_kwargs = {"padding_strategy": padding_strategy}
+    max_seq = "x " * (model_max - 2)  # Subtract 2 for begin/end tokens
+    max_seq_minus_one = "x " * (
+        model_max - 3
+    )  # 1 token length shorter than max_seq_length
+    single = "x "
+
+    if padding_strategy is True:
+        normal_result = loaded_model._encode_with_retry(
+            [max_seq_minus_one], return_token_count=True
+        )
+        padded_result = loaded_model._encode_with_retry(
+            [max_seq_minus_one],
+            return_token_count=True,
+            **tokenizer_kwargs,
+        )
+        assert np.all(normal_result.embedding == padded_result.embedding)
+    elif padding_strategy == "max_length":
+        with patch(
+            "caikit_nlp.modules.text_embedding.embedding.sum_token_count"
+        ) as mock_sum_token_count:
+            mock_sum_token_count.side_effect = custom_sum_token_count
+            normal_result = loaded_model._encode_with_retry(
+                [max_seq_minus_one], return_token_count=True
+            )
+            padded_result = loaded_model._encode_with_retry(
+                [max_seq_minus_one],
+                return_token_count=True,
+                **tokenizer_kwargs,
+            )
+            assert normal_result.input_token_count != padded_result.input_token_count
+            assert padded_result.input_token_count == model_max
+            assert not np.all(normal_result.embedding == padded_result.embedding)
+            normal_result = loaded_model._encode_with_retry(
+                [max_seq], return_token_count=True
+            )
+            padded_result = loaded_model._encode_with_retry(
+                [max_seq], return_token_count=True, **tokenizer_kwargs
+            )
+            assert normal_result.input_token_count == padded_result.input_token_count
+            assert np.all(normal_result.embedding == padded_result.embedding)
+            normal_result = loaded_model._encode_with_retry(
+                [single], return_token_count=True
+            )
+            padded_result = loaded_model._encode_with_retry(
+                [single], return_token_count=True, **tokenizer_kwargs
+            )
+            assert normal_result.input_token_count != padded_result.input_token_count
+            assert not np.all(normal_result.embedding == padded_result.embedding)
