@@ -412,9 +412,7 @@ class EmbeddingModule(ModuleBase):
 
     @EmbeddingTasks.taskmethod()
     def run_embeddings(
-        self,
-        texts: List[str],
-        truncate_input_tokens: Optional[int] = 0,
+        self, texts: List[str], truncate_input_tokens: Optional[int] = 0, **kwargs
     ) -> EmbeddingResults:
         """Get embedding vectors for texts.
         Args:
@@ -440,6 +438,7 @@ class EmbeddingModule(ModuleBase):
             texts,
             truncate_input_tokens=truncate_input_tokens,
             return_token_count=True,
+            **kwargs,
         )
         vectors = [Vector1D.from_vector(e) for e in embeddings]
 
@@ -455,6 +454,7 @@ class EmbeddingModule(ModuleBase):
         source_sentence: str,
         sentences: List[str],
         truncate_input_tokens: Optional[int] = 0,
+        **kwargs,
     ) -> SentenceSimilarityResult:
         """Get similarity scores for each of sentences compared to the source_sentence.
         Args:
@@ -476,11 +476,13 @@ class EmbeddingModule(ModuleBase):
             source_sentence,
             truncate_input_tokens=truncate_input_tokens,
             return_token_count=True,
+            **kwargs,
         )
         embeddings, sentences_token_count = self._encode_with_retry(
             sentences,
             truncate_input_tokens=truncate_input_tokens,
             return_token_count=True,
+            **kwargs,
         )
 
         input_token_count = source_token_count + sentences_token_count
@@ -547,6 +549,7 @@ class EmbeddingModule(ModuleBase):
         return_documents: bool = True,
         return_query: bool = True,
         return_text: bool = True,
+        **kwargs,
     ) -> RerankResult:
         """Rerank the documents returning the most relevant top_n in order for this query.
         Args:
@@ -598,6 +601,7 @@ class EmbeddingModule(ModuleBase):
             return_documents=return_documents,
             return_queries=return_query,
             return_text=return_text,
+            **kwargs,
         )
 
         if results.results:
@@ -626,6 +630,7 @@ class EmbeddingModule(ModuleBase):
         return_documents: bool = True,
         return_queries: bool = True,
         return_text: bool = True,
+        **kwargs,
     ) -> RerankResults:
         """Rerank the documents returning the most relevant top_n in order for each of the queries.
         Args:
@@ -690,6 +695,7 @@ class EmbeddingModule(ModuleBase):
             truncate_input_tokens=truncate_input_tokens,
             return_token_count=True,
             convert_to_tensor=True,
+            **kwargs,
         )
         doc_embeddings = normalize(doc_embeddings.to(self.model.device))
 
@@ -698,6 +704,7 @@ class EmbeddingModule(ModuleBase):
             truncate_input_tokens=truncate_input_tokens,
             return_token_count=True,
             convert_to_tensor=True,
+            **kwargs,
         )
         query_embeddings = normalize(query_embeddings.to(self.model.device))
 
