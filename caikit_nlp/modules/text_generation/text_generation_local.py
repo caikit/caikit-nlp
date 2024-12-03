@@ -55,6 +55,7 @@ error = error_handler.get(log)
 
 TRAINING_LOSS_LOG_FILENAME = "training_logs.jsonl"
 
+
 # pylint: disable=too-many-lines,too-many-instance-attributes
 @module(
     id="f9181353-4ccf-4572-bd1e-f12bcda26792",
@@ -590,7 +591,11 @@ class TextGeneration(ModuleBase):
             TokenizationResults
                 The token count
         """
-        raise NotImplementedError("Tokenization not implemented for local")
+        error.type_check("<NLP48137045E>", str, text=text)
+        tokenized_output = self.model.tokenizer(text)
+        return TokenizationResults(
+            token_count=len(tokenized_output["input_ids"]),
+        )
 
     ################################## Private Functions ######################################
 
