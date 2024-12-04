@@ -592,7 +592,7 @@ class TextGeneration(ModuleBase):
                 The token count
         """
         error.type_check("<NLP48137045E>", str, text=text)
-        tokenized_output = self.model.tokenizer(text)
+        tokenized_output = self.model.tokenizer(text, return_attention_mask=True)
         return TokenizationResults(
             token_count=len(tokenized_output["input_ids"]),
         )

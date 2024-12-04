@@ -228,10 +228,10 @@ def test_run_tokenizer_edge_cases(disable_wip, set_cpu_device):
     short_text = "This is a test sentence."
     short_result = model.run_tokenizer(short_text)
     assert isinstance(short_result, TokenizationResults)
-    assert short_result.token_count > 0
+    assert short_result.token_count == len(model.model.tokenizer.encode(short_text))
 
     # Edge case: Long input
     long_text = "This is a test sentence. " * 1000
     long_result = model.run_tokenizer(long_text)
     assert isinstance(long_result, TokenizationResults)
-    assert long_result.token_count > 0
+    assert long_result.token_count == len(model.model.tokenizer.encode(long_text))
