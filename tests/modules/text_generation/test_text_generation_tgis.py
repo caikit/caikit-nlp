@@ -52,14 +52,14 @@ def test_bootstrap_and_run_causallm():
 #     StubTGISClient.validate_unary_generate_response(result)
 
 
-# def test_bootstrap_and_tokenize_casualllm():
-#     """Check if we can bootstrap and tokenize text"""
-#     model = TextGenerationTGIS.bootstrap(
-#         CAUSAL_LM_MODEL, load_backend=StubTGISBackend()
-#     )
+def test_bootstrap_and_tokenize_casualllm():
+    """Check if we can bootstrap and tokenize text"""
+    model = TextGenerationTGIS.bootstrap(
+        CAUSAL_LM_MODEL, load_backend=StubTGISBackend()
+    )
 
-#     result = model.run_tokenizer(SAMPLE_TEXT)
-#     StubTGISClient.validate_tokenize_response(result)
+    result = model.run_tokenizer(SAMPLE_TEXT)
+    StubTGISClient.validate_tokenize_response(result)
 
 
 # def test_bootstrap_and_tokenize_seq2seq():
@@ -204,26 +204,26 @@ def test_bootstrap_and_run_causallm():
 # ######################## Test run with optional params #####################
 
 
-# def test_bootstrap_and_run_causallm_with_optional_params():
-#     """Check if we can bootstrap and run causallm models with optional dependencies"""
+def test_bootstrap_and_run_causallm_with_optional_params():
+    """Check if we can bootstrap and run causallm models with optional dependencies"""
 
-#     model = TextGenerationTGIS.bootstrap(
-#         CAUSAL_LM_MODEL, load_backend=StubTGISBackend()
-#     )
+    model = TextGenerationTGIS.bootstrap(
+        CAUSAL_LM_MODEL, load_backend=StubTGISBackend()
+    )
 
-#     result = model.run(
-#         SAMPLE_TEXT,
-#         preserve_input_text=True,
-#         max_new_tokens=200,
-#         min_new_tokens=50,
-#         truncate_input_tokens=10,
-#         decoding_method="GREEDY",
-#         repetition_penalty=0.3,
-#         max_time=10.5,
-#         exponential_decay_length_penalty=(2, 8),
-#         stop_sequences=["This is a test"],
-#     )
-#     StubTGISClient.validate_unary_generate_response(result)
+    result = model.run(
+        SAMPLE_TEXT,
+        preserve_input_text=True,
+        max_new_tokens=200,
+        min_new_tokens=50,
+        truncate_input_tokens=10,
+        decoding_method="GREEDY",
+        repetition_penalty=0.3,
+        max_time=10.5,
+        exponential_decay_length_penalty=(2, 8),
+        stop_sequences=["This is a test"],
+    )
+    StubTGISClient.validate_unary_generate_response(result)
 
 
 # def test_bootstrap_and_run_stream_out_with_optional_dependencies():
@@ -253,23 +253,23 @@ def test_bootstrap_and_run_causallm():
 #     StubTGISClient.validate_stream_generate_response(stream_result)
 
 
-# def test_invalid_optional_params():
-#     """Check if we an error is thrown when invalid inference params are used to run causallm models"""
+def test_invalid_optional_params():
+    """Check if we an error is thrown when invalid inference params are used to run causallm models"""
 
-#     model = TextGenerationTGIS.bootstrap(
-#         CAUSAL_LM_MODEL, load_backend=StubTGISBackend()
-#     )
+    model = TextGenerationTGIS.bootstrap(
+        CAUSAL_LM_MODEL, load_backend=StubTGISBackend()
+    )
 
-#     with pytest.raises(ValueError):
-#         _ = model.run(
-#             SAMPLE_TEXT, preserve_input_text=True, max_new_tokens=20, min_new_tokens=50
-#         )
+    with pytest.raises(ValueError):
+        _ = model.run(
+            SAMPLE_TEXT, preserve_input_text=True, max_new_tokens=20, min_new_tokens=50
+        )
 
-#     with pytest.raises(TypeError):
-#         _ = model.run(SAMPLE_TEXT, preserve_input_text=True, top_k=0.2)
+    with pytest.raises(TypeError):
+        _ = model.run(SAMPLE_TEXT, preserve_input_text=True, top_k=0.2)
 
-#     with pytest.raises(TypeError):
-#         _ = model.run(SAMPLE_TEXT, exponential_decay_length_penalty=[2, 2])
+    with pytest.raises(TypeError):
+        _ = model.run(SAMPLE_TEXT, exponential_decay_length_penalty=[2, 2])
 
-#     with pytest.raises(ValueError):
-#         _ = model.run(SAMPLE_TEXT, decoding_method="GREEDY", seed=5)
+    with pytest.raises(ValueError):
+        _ = model.run(SAMPLE_TEXT, decoding_method="GREEDY", seed=5)

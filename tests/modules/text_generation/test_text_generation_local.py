@@ -17,8 +17,9 @@ import caikit
 # Local
 from caikit_nlp.data_model import GenerationTrainRecord
 from caikit_nlp.modules.text_generation import TextGeneration
+from caikit_nlp.resources.pretrained_model import HFAutoCausalLM
 
-# from caikit_nlp.resources.pretrained_model import HFAutoCausalLM, HFAutoSeq2SeqLM
+# ,HFAutoSeq2SeqLM
 from tests.fixtures import (  # SEQ2SEQ_LM_MODEL,
     CAUSAL_LM_MODEL,
     disable_wip,
@@ -130,63 +131,63 @@ def test_bootstrap_and_run_causallm():
 #         assert isinstance(generated_text, GeneratedTextResult)
 
 
-# @pytest.mark.skipif(platform.processor() == "arm", reason="ARM training not supported")
-# def test_train_model_causallm(disable_wip, set_cpu_device):
-#     """Ensure that we can finetune a causal-lm model on some toy data for 1+
-#     steps & run inference."""
-#     train_kwargs = {
-#         "base_model": HFAutoCausalLM.bootstrap(
-#             model_name=CAUSAL_LM_MODEL, tokenizer_name=CAUSAL_LM_MODEL
-#         ),
-#         "num_epochs": 1,
-#         "train_stream": caikit.core.data_model.DataStream.from_iterable(
-#             [
-#                 GenerationTrainRecord(
-#                     input="@foo what a cute dog!", output="no complaint"
-#                 ),
-#             ]
-#         ),
-#         "torch_dtype": torch.float32,
-#     }
-#     model = TextGeneration.train(**train_kwargs)
-#     assert isinstance(model.model, HFAutoCausalLM)
+@pytest.mark.skipif(platform.processor() == "arm", reason="ARM training not supported")
+def test_train_model_causallm(disable_wip, set_cpu_device):
+    """Ensure that we can finetune a causal-lm model on some toy data for 1+
+    steps & run inference."""
+    train_kwargs = {
+        "base_model": HFAutoCausalLM.bootstrap(
+            model_name=CAUSAL_LM_MODEL, tokenizer_name=CAUSAL_LM_MODEL
+        ),
+        "num_epochs": 1,
+        "train_stream": caikit.core.data_model.DataStream.from_iterable(
+            [
+                GenerationTrainRecord(
+                    input="@foo what a cute dog!", output="no complaint"
+                ),
+            ]
+        ),
+        "torch_dtype": torch.float32,
+    }
+    model = TextGeneration.train(**train_kwargs)
+    assert isinstance(model.model, HFAutoCausalLM)
 
-#     # Ensure that we can get something out of it
-#     pred = model.run("@bar what a cute cat!")
-#     assert isinstance(pred, GeneratedTextResult)
-
-
-# ############################## Inferencing flags ################################
+    # Ensure that we can get something out of it
+    pred = model.run("@bar what a cute cat!")
+    assert isinstance(pred, GeneratedTextResult)
 
 
-# @pytest.mark.skipif(platform.processor() == "arm", reason="ARM training not supported")
-# def test_train_model_causallm(disable_wip, set_cpu_device):
-#     """Ensure that we can finetune a causal-lm model on some toy data for 1+
-#     steps & run inference."""
-#     train_kwargs = {
-#         "base_model": HFAutoCausalLM.bootstrap(
-#             model_name=CAUSAL_LM_MODEL, tokenizer_name=CAUSAL_LM_MODEL
-#         ),
-#         "num_epochs": 1,
-#         "train_stream": caikit.core.data_model.DataStream.from_iterable(
-#             [
-#                 GenerationTrainRecord(
-#                     input="@foo what a cute dog!", output="no complaint"
-#                 ),
-#             ]
-#         ),
-#         "torch_dtype": torch.float32,
-#     }
-#     model = TextGeneration.train(**train_kwargs)
-#     assert isinstance(model.model, HFAutoCausalLM)
+############################## Inferencing flags ################################
 
-#     # Ensure that preserve_input_text returns input in output
-#     pred = model.run("@bar what a cute cat!", preserve_input_text=True)
-#     assert "@bar what a cute cat!" in pred.generated_text
 
-#     # Ensure that preserve_input_text set to False, removes input from output
-#     pred = model.run("@bar what a cute cat!", preserve_input_text=False)
-#     assert "@bar what a cute cat!" not in pred.generated_text
+@pytest.mark.skipif(platform.processor() == "arm", reason="ARM training not supported")
+def test_train_model_causallm(disable_wip, set_cpu_device):
+    """Ensure that we can finetune a causal-lm model on some toy data for 1+
+    steps & run inference."""
+    train_kwargs = {
+        "base_model": HFAutoCausalLM.bootstrap(
+            model_name=CAUSAL_LM_MODEL, tokenizer_name=CAUSAL_LM_MODEL
+        ),
+        "num_epochs": 1,
+        "train_stream": caikit.core.data_model.DataStream.from_iterable(
+            [
+                GenerationTrainRecord(
+                    input="@foo what a cute dog!", output="no complaint"
+                ),
+            ]
+        ),
+        "torch_dtype": torch.float32,
+    }
+    model = TextGeneration.train(**train_kwargs)
+    assert isinstance(model.model, HFAutoCausalLM)
+
+    # Ensure that preserve_input_text returns input in output
+    pred = model.run("@bar what a cute cat!", preserve_input_text=True)
+    assert "@bar what a cute cat!" in pred.generated_text
+
+    # Ensure that preserve_input_text set to False, removes input from output
+    pred = model.run("@bar what a cute cat!", preserve_input_text=False)
+    assert "@bar what a cute cat!" not in pred.generated_text
 
 
 # ############################## Error Cases ################################
@@ -212,26 +213,26 @@ def test_bootstrap_and_run_causallm():
 #     assert isinstance(model.model, HFAutoSeq2SeqLM)
 
 
-# # ############################## Run Tokenizer ################################
+# ############################## Run Tokenizer ################################
 
 
-# def test_run_tokenizer_edge_cases(disable_wip, set_cpu_device):
-#     """Test tokenizer on edge cases like empty strings and long input."""
-#     model = TextGeneration.bootstrap(CAUSAL_LM_MODEL)
+def test_run_tokenizer_edge_cases(disable_wip, set_cpu_device):
+    """Test tokenizer on edge cases like empty strings and long input."""
+    model = TextGeneration.bootstrap(CAUSAL_LM_MODEL)
 
-#     # Edge case: Empty string
-#     empty_result = model.run_tokenizer("")
-#     assert isinstance(empty_result, TokenizationResults)
-#     assert empty_result.token_count == 0
+    # Edge case: Empty string
+    empty_result = model.run_tokenizer("")
+    assert isinstance(empty_result, TokenizationResults)
+    assert empty_result.token_count == 0
 
-#     # Normal case: short sentence
-#     short_text = "This is a test sentence."
-#     short_result = model.run_tokenizer(short_text)
-#     assert isinstance(short_result, TokenizationResults)
-#     assert short_result.token_count == len(model.model.tokenizer.encode(short_text))
+    # Normal case: short sentence
+    short_text = "This is a test sentence."
+    short_result = model.run_tokenizer(short_text)
+    assert isinstance(short_result, TokenizationResults)
+    assert short_result.token_count == len(model.model.tokenizer.encode(short_text))
 
-#     # Edge case: Long input
-#     long_text = "This is a test sentence. " * 1000
-#     long_result = model.run_tokenizer(long_text)
-#     assert isinstance(long_result, TokenizationResults)
-#     assert long_result.token_count == len(model.model.tokenizer.encode(long_text))
+    # Edge case: Long input
+    long_text = "This is a test sentence. " * 1000
+    long_result = model.run_tokenizer(long_text)
+    assert isinstance(long_result, TokenizationResults)
+    assert long_result.token_count == len(model.model.tokenizer.encode(long_text))
