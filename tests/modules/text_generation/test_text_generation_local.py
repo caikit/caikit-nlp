@@ -20,8 +20,9 @@ from caikit_nlp.modules.text_generation import TextGeneration
 from caikit_nlp.resources.pretrained_model import HFAutoCausalLM
 
 # ,HFAutoSeq2SeqLM
-from tests.fixtures import (  # SEQ2SEQ_LM_MODEL,
+from tests.fixtures import (
     CAUSAL_LM_MODEL,
+    SEQ2SEQ_LM_MODEL,
     disable_wip,
     set_cpu_device,
 )
@@ -39,14 +40,14 @@ def test_bootstrap_and_run_causallm():
     assert isinstance(generated_text, GeneratedTextResult)
 
 
-# def test_bootstrap_and_run_seq2seq():
-#     """Check if we can bootstrap and run seq2seq models"""
+def test_bootstrap_and_run_seq2seq():
+    """Check if we can bootstrap and run seq2seq models"""
 
-#     model = TextGeneration.bootstrap(SEQ2SEQ_LM_MODEL)
+    model = TextGeneration.bootstrap(SEQ2SEQ_LM_MODEL)
 
-#     sample_text = "Hello stub"
-#     generated_text = model.run(sample_text)
-#     assert isinstance(generated_text, GeneratedTextResult)
+    sample_text = "Hello stub"
+    generated_text = model.run(sample_text)
+    assert isinstance(generated_text, GeneratedTextResult)
 
 
 # def test_bootstrap_and_save_model():

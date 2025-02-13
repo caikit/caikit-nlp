@@ -21,8 +21,9 @@ from caikit_nlp.modules.text_generation import TextGeneration, TextGenerationTGI
 
 # from caikit_nlp.resources.pretrained_model.hf_auto_seq2seq_lm import HFAutoSeq2SeqLM
 from tests.fixtures import set_cpu_device  # noqa
-from tests.fixtures import (  # SEQ2SEQ_LM_MODEL,
+from tests.fixtures import (
     CAUSAL_LM_MODEL,
+    SEQ2SEQ_LM_MODEL,
     StubTGISBackend,
     StubTGISClient,
 )
@@ -41,15 +42,15 @@ def test_bootstrap_and_run_causallm():
     StubTGISClient.validate_unary_generate_response(result)
 
 
-# def test_bootstrap_and_run_seq2seq():
-#     """Check if we can bootstrap and run seq2seq models"""
+def test_bootstrap_and_run_seq2seq():
+    """Check if we can bootstrap and run seq2seq models"""
 
-#     model = TextGenerationTGIS.bootstrap(
-#         SEQ2SEQ_LM_MODEL, load_backend=StubTGISBackend()
-#     )
+    model = TextGenerationTGIS.bootstrap(
+        SEQ2SEQ_LM_MODEL, load_backend=StubTGISBackend()
+    )
 
-#     result = model.run(SAMPLE_TEXT, preserve_input_text=True)
-#     StubTGISClient.validate_unary_generate_response(result)
+    result = model.run(SAMPLE_TEXT, preserve_input_text=True)
+    StubTGISClient.validate_unary_generate_response(result)
 
 
 def test_bootstrap_and_tokenize_casualllm():
