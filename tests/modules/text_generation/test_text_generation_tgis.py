@@ -63,53 +63,53 @@ def test_bootstrap_and_tokenize_casualllm():
     StubTGISClient.validate_tokenize_response(result)
 
 
-# def test_bootstrap_and_tokenize_seq2seq():
-#     """Check if we can bootstrap and tokenize text"""
-#     model = TextGenerationTGIS.bootstrap(
-#         SEQ2SEQ_LM_MODEL, load_backend=StubTGISBackend()
-#     )
+def test_bootstrap_and_tokenize_seq2seq():
+    """Check if we can bootstrap and tokenize text"""
+    model = TextGenerationTGIS.bootstrap(
+        SEQ2SEQ_LM_MODEL, load_backend=StubTGISBackend()
+    )
 
-#     result = model.run_tokenizer(SAMPLE_TEXT)
-#     StubTGISClient.validate_tokenize_response(result)
-
-
-# def test_run_multi_response_errors():
-#     """Check if multiple responses errors"""
-#     with mock.patch.object(StubTGISClient, "Generate") as mock_gen_stream:
-#         fake_response = mock.Mock()
-#         fake_response.responses = [mock.Mock(), mock.Mock()]
-#         mock_gen_stream.return_value = fake_response
-
-#         model = TextGenerationTGIS.bootstrap(
-#             SEQ2SEQ_LM_MODEL, load_backend=StubTGISBackend()
-#         )
-#         with pytest.raises(ValueError):
-#             model.run(SAMPLE_TEXT, preserve_input_text=True)
+    result = model.run_tokenizer(SAMPLE_TEXT)
+    StubTGISClient.validate_tokenize_response(result)
 
 
-# def test_bootstrap_and_save_model():
-#     """Check if we can bootstrap and save the model successfully"""
+def test_run_multi_response_errors():
+    """Check if multiple responses errors"""
+    with mock.patch.object(StubTGISClient, "Generate") as mock_gen_stream:
+        fake_response = mock.Mock()
+        fake_response.responses = [mock.Mock(), mock.Mock()]
+        mock_gen_stream.return_value = fake_response
 
-#     model = TextGenerationTGIS.bootstrap(
-#         SEQ2SEQ_LM_MODEL, load_backend=StubTGISBackend()
-#     )
-
-#     with tempfile.TemporaryDirectory() as model_dir:
-#         model.save(model_dir)
-#         assert os.path.isfile(os.path.join(model_dir, "config.yml"))
+        model = TextGenerationTGIS.bootstrap(
+            SEQ2SEQ_LM_MODEL, load_backend=StubTGISBackend()
+        )
+        with pytest.raises(ValueError):
+            model.run(SAMPLE_TEXT, preserve_input_text=True)
 
 
-# def test_save_model_can_run():
-#     """Check if the model we bootstrap and save is able to load and run successfully"""
-#     model = TextGenerationTGIS.bootstrap(SEQ2SEQ_LM_MODEL)
-#     with tempfile.TemporaryDirectory() as model_dir:
-#         model.save(model_dir)
-#         del model
-#         new_model = TextGenerationTGIS.load(
-#             model_dir, load_backend=StubTGISBackend(mock_remote=True)
-#         )
-#         result = new_model.run(SAMPLE_TEXT, preserve_input_text=True)
-#         StubTGISClient.validate_unary_generate_response(result)
+def test_bootstrap_and_save_model():
+    """Check if we can bootstrap and save the model successfully"""
+
+    model = TextGenerationTGIS.bootstrap(
+        SEQ2SEQ_LM_MODEL, load_backend=StubTGISBackend()
+    )
+
+    with tempfile.TemporaryDirectory() as model_dir:
+        model.save(model_dir)
+        assert os.path.isfile(os.path.join(model_dir, "config.yml"))
+
+
+def test_save_model_can_run():
+    """Check if the model we bootstrap and save is able to load and run successfully"""
+    model = TextGenerationTGIS.bootstrap(SEQ2SEQ_LM_MODEL)
+    with tempfile.TemporaryDirectory() as model_dir:
+        model.save(model_dir)
+        del model
+        new_model = TextGenerationTGIS.load(
+            model_dir, load_backend=StubTGISBackend(mock_remote=True)
+        )
+        result = new_model.run(SAMPLE_TEXT, preserve_input_text=True)
+        StubTGISClient.validate_unary_generate_response(result)
 
 
 # @pytest.mark.skipif(platform.processor() == "arm", reason="ARM training not supported")
@@ -174,35 +174,35 @@ def test_client_lazy_load():
     assert client
 
 
-# ### Output streaming tests ##############################################################
+### Output streaming tests ##############################################################
 
 
-# def test_bootstrap_and_run_stream_out():
-#     """Check if we can bootstrap and run_stream_out"""
-#     model = TextGenerationTGIS.bootstrap(
-#         SEQ2SEQ_LM_MODEL, load_backend=StubTGISBackend()
-#     )
+def test_bootstrap_and_run_stream_out():
+    """Check if we can bootstrap and run_stream_out"""
+    model = TextGenerationTGIS.bootstrap(
+        SEQ2SEQ_LM_MODEL, load_backend=StubTGISBackend()
+    )
 
-#     stream_result = model.run_stream_out(SAMPLE_TEXT)
-#     StubTGISClient.validate_stream_generate_response(stream_result)
-
-
-# def test_run_stream_out_with_runtime_error():
-#     """Check if runtime error from client raises"""
-
-#     with mock.patch.object(StubTGISClient, "GenerateStream") as mock_gen_stream:
-#         mock_gen_stream.side_effect = RuntimeError("An error!")
-
-#         model = TextGenerationTGIS.bootstrap(
-#             SEQ2SEQ_LM_MODEL, load_backend=StubTGISBackend()
-#         )
-#         with pytest.raises(RuntimeError):
-#             response = model.run_stream_out(SAMPLE_TEXT, preserve_input_text=True)
-#             # Need to iterate over stream for error
-#             next(response)
+    stream_result = model.run_stream_out(SAMPLE_TEXT)
+    StubTGISClient.validate_stream_generate_response(stream_result)
 
 
-# ######################## Test run with optional params #####################
+def test_run_stream_out_with_runtime_error():
+    """Check if runtime error from client raises"""
+
+    with mock.patch.object(StubTGISClient, "GenerateStream") as mock_gen_stream:
+        mock_gen_stream.side_effect = RuntimeError("An error!")
+
+        model = TextGenerationTGIS.bootstrap(
+            SEQ2SEQ_LM_MODEL, load_backend=StubTGISBackend()
+        )
+        with pytest.raises(RuntimeError):
+            response = model.run_stream_out(SAMPLE_TEXT, preserve_input_text=True)
+            # Need to iterate over stream for error
+            next(response)
+
+
+######################## Test run with optional params #####################
 
 
 def test_bootstrap_and_run_causallm_with_optional_params():
@@ -227,31 +227,31 @@ def test_bootstrap_and_run_causallm_with_optional_params():
     StubTGISClient.validate_unary_generate_response(result)
 
 
-# def test_bootstrap_and_run_stream_out_with_optional_dependencies():
-#     """Check if we can bootstrap and run_stream_out with optional dependencies"""
-#     model = TextGenerationTGIS.bootstrap(
-#         SEQ2SEQ_LM_MODEL, load_backend=StubTGISBackend()
-#     )
+def test_bootstrap_and_run_stream_out_with_optional_dependencies():
+    """Check if we can bootstrap and run_stream_out with optional dependencies"""
+    model = TextGenerationTGIS.bootstrap(
+        SEQ2SEQ_LM_MODEL, load_backend=StubTGISBackend()
+    )
 
-#     stream_result = model.run_stream_out(
-#         SAMPLE_TEXT,
-#         max_new_tokens=200,
-#         min_new_tokens=50,
-#         truncate_input_tokens=10,
-#         decoding_method="SAMPLING",
-#         top_k=1,
-#         top_p=0.1,
-#         typical_p=0.5,
-#         temperature=0.75,
-#         seed=42,
-#         repetition_penalty=0.3,
-#         max_time=10.5,
-#         exponential_decay_length_penalty=ExponentialDecayLengthPenalty(
-#             start_index=2, decay_factor=1.5
-#         ),
-#         stop_sequences=["This is a test"],
-#     )
-#     StubTGISClient.validate_stream_generate_response(stream_result)
+    stream_result = model.run_stream_out(
+        SAMPLE_TEXT,
+        max_new_tokens=200,
+        min_new_tokens=50,
+        truncate_input_tokens=10,
+        decoding_method="SAMPLING",
+        top_k=1,
+        top_p=0.1,
+        typical_p=0.5,
+        temperature=0.75,
+        seed=42,
+        repetition_penalty=0.3,
+        max_time=10.5,
+        exponential_decay_length_penalty=ExponentialDecayLengthPenalty(
+            start_index=2, decay_factor=1.5
+        ),
+        stop_sequences=["This is a test"],
+    )
+    StubTGISClient.validate_stream_generate_response(stream_result)
 
 
 def test_invalid_optional_params():
