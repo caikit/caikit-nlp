@@ -1,41 +1,41 @@
-# """Tests for text-generation module
-# """
+"""Tests for text-generation module
+"""
 
-# # Standard
-# import os
-# import platform
-# import tempfile
+# Standard
+import os
+import platform
+import tempfile
 
-# # Third Party
-# import pytest
-# import torch
+# Third Party
+import pytest
+import torch
 
-# # First Party
-# from caikit.interfaces.nlp.data_model import GeneratedTextResult, TokenizationResults
-# import caikit
+# First Party
+from caikit.interfaces.nlp.data_model import GeneratedTextResult, TokenizationResults
+import caikit
 
-# # Local
-# from caikit_nlp.data_model import GenerationTrainRecord
-# from caikit_nlp.modules.text_generation import TextGeneration
+# Local
+from caikit_nlp.data_model import GenerationTrainRecord
+from caikit_nlp.modules.text_generation import TextGeneration
+
 # from caikit_nlp.resources.pretrained_model import HFAutoCausalLM, HFAutoSeq2SeqLM
-# from tests.fixtures import (
-#     CAUSAL_LM_MODEL,
-#     SEQ2SEQ_LM_MODEL,
-#     disable_wip,
-#     set_cpu_device,
-# )
+from tests.fixtures import (  # SEQ2SEQ_LM_MODEL,
+    CAUSAL_LM_MODEL,
+    disable_wip,
+    set_cpu_device,
+)
 
-# ### Stub Modules
+### Stub Modules
 
 
-# def test_bootstrap_and_run_causallm():
-#     """Check if we can bootstrap and run causallm models"""
+def test_bootstrap_and_run_causallm():
+    """Check if we can bootstrap and run causallm models"""
 
-#     model = TextGeneration.bootstrap(CAUSAL_LM_MODEL)
+    model = TextGeneration.bootstrap(CAUSAL_LM_MODEL)
 
-#     sample_text = "Hello stub"
-#     generated_text = model.run(sample_text)
-#     assert isinstance(generated_text, GeneratedTextResult)
+    sample_text = "Hello stub"
+    generated_text = model.run(sample_text)
+    assert isinstance(generated_text, GeneratedTextResult)
 
 
 # def test_bootstrap_and_run_seq2seq():
