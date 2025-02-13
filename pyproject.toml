@@ -31,7 +31,7 @@ dependencies = [
     "tokenizers>=0.13.3",
     "torch>=2.3.1,<2.6.0",
     "tqdm>=4.65.0",
-    "transformers>=4.44.0,<4.47.0",
+    "transformers>=4.44.0,<4.47.1",
     "peft>=0.13.0,<0.15.0",
 ]
 
