@@ -161,7 +161,7 @@ def test_train_model_causallm(disable_wip, set_cpu_device):
 
 
 @pytest.mark.skipif(platform.processor() == "arm", reason="ARM training not supported")
-def test_train_model_causallm(disable_wip, set_cpu_device):
+def test_train_and_infer_model_causallm(disable_wip, set_cpu_device):
     """Ensure that we can finetune a causal-lm model on some toy data for 1+
     steps & run inference."""
     train_kwargs = {
