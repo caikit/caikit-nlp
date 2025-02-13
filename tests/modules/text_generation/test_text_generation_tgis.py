@@ -18,8 +18,7 @@ import caikit
 # Local
 from caikit_nlp.data_model import ExponentialDecayLengthPenalty, GenerationTrainRecord
 from caikit_nlp.modules.text_generation import TextGeneration, TextGenerationTGIS
-
-# from caikit_nlp.resources.pretrained_model.hf_auto_seq2seq_lm import HFAutoSeq2SeqLM
+from caikit_nlp.resources.pretrained_model.hf_auto_seq2seq_lm import HFAutoSeq2SeqLM
 from tests.fixtures import set_cpu_device  # noqa
 from tests.fixtures import (
     CAUSAL_LM_MODEL,
@@ -112,34 +111,34 @@ def test_save_model_can_run():
         StubTGISClient.validate_unary_generate_response(result)
 
 
-# @pytest.mark.skipif(platform.processor() == "arm", reason="ARM training not supported")
-# def test_local_train_load_tgis(set_cpu_device):
-#     """Check if the model trained in local module is able to
-#     be loaded in TGIS module / backend
-#     """
-#     train_kwargs = {
-#         "base_model": HFAutoSeq2SeqLM.bootstrap(
-#             model_name=SEQ2SEQ_LM_MODEL, tokenizer_name=SEQ2SEQ_LM_MODEL
-#         ),
-#         "num_epochs": 1,
-#         "train_stream": caikit.core.data_model.DataStream.from_iterable(
-#             [
-#                 GenerationTrainRecord(
-#                     input="@foo what a cute dog!", output="no complaint"
-#                 )
-#             ]
-#         ),
-#         "torch_dtype": torch.float32,
-#     }
-#     model = TextGeneration.train(**train_kwargs)
-#     with tempfile.TemporaryDirectory() as model_dir:
-#         model.save(model_dir)
-#         new_model = TextGenerationTGIS.load(
-#             model_dir, load_backend=StubTGISBackend(mock_remote=True)
-#         )
-#         sample_text = "Hello stub"
-#         generated_text = new_model.run(sample_text)
-#         assert isinstance(generated_text, GeneratedTextResult)
+@pytest.mark.skipif(platform.processor() == "arm", reason="ARM training not supported")
+def test_local_train_load_tgis(set_cpu_device):
+    """Check if the model trained in local module is able to
+    be loaded in TGIS module / backend
+    """
+    train_kwargs = {
+        "base_model": HFAutoSeq2SeqLM.bootstrap(
+            model_name=SEQ2SEQ_LM_MODEL, tokenizer_name=SEQ2SEQ_LM_MODEL
+        ),
+        "num_epochs": 1,
+        "train_stream": caikit.core.data_model.DataStream.from_iterable(
+            [
+                GenerationTrainRecord(
+                    input="@foo what a cute dog!", output="no complaint"
+                )
+            ]
+        ),
+        "torch_dtype": torch.float32,
+    }
+    model = TextGeneration.train(**train_kwargs)
+    with tempfile.TemporaryDirectory() as model_dir:
+        model.save(model_dir)
+        new_model = TextGenerationTGIS.load(
+            model_dir, load_backend=StubTGISBackend(mock_remote=True)
+        )
+        sample_text = "Hello stub"
+        generated_text = new_model.run(sample_text)
+        assert isinstance(generated_text, GeneratedTextResult)
 
 
 def test_remote_tgis_only_model():
