@@ -89,7 +89,6 @@ def test_run_stream_out_model(causal_lm_dummy_model):
     pred_stream = causal_lm_dummy_model.run_stream_out("This text doesn't matter")
     assert isinstance(pred_stream, Iterable)
     for pred in pred_stream:
-        print(pred)
         assert isinstance(pred, GeneratedTextStreamResult)
 
 
