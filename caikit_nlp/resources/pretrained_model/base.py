@@ -48,7 +48,7 @@ error = error_handler.get(log)
 
 
 class LoggingTrainer(Trainer):
-    def log(self, logs: Dict[str, float]) -> None:
+    def log(self, logs: Dict[str, float], start_time: Optional[float] = None) -> None:
         """
         Log `logs` on the various objects watching training.
 

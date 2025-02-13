@@ -641,12 +641,9 @@ class TextGeneration(ModuleBase):
     ) -> None:
         """Utility function to wrap trainer and execute training"""
 
-        print("Training args!!", training_args)
         trainer = base_model.get_trainer(
             train_dataset=training_dataset, **training_args
         )
-        print("Dir trainer!", dir(trainer))
-        print("Trainer attributes", trainer.__dict__)
 
         # Start training via Trainer.train function
         trainer.train()
