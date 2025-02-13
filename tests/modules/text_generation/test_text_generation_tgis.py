@@ -141,36 +141,36 @@ def test_bootstrap_and_tokenize_casualllm():
 #         assert isinstance(generated_text, GeneratedTextResult)
 
 
-# def test_remote_tgis_only_model():
-#     """Make sure that a model can be created and used that will only work with a
-#     remote TGIS connection (i.e. it has no artifacts)
-#     """
-#     model_name = "model-name"
-#     tgis_backend = StubTGISBackend(mock_remote=True)
-#     model = TextGenerationTGIS(model_name, tgis_backend=tgis_backend)
-#     with tempfile.TemporaryDirectory() as model_dir:
-#         model.save(model_dir)
-#         TextGenerationTGIS.load(model_dir, load_backend=tgis_backend)
+def test_remote_tgis_only_model():
+    """Make sure that a model can be created and used that will only work with a
+    remote TGIS connection (i.e. it has no artifacts)
+    """
+    model_name = "model-name"
+    tgis_backend = StubTGISBackend(mock_remote=True)
+    model = TextGenerationTGIS(model_name, tgis_backend=tgis_backend)
+    with tempfile.TemporaryDirectory() as model_dir:
+        model.save(model_dir)
+        TextGenerationTGIS.load(model_dir, load_backend=tgis_backend)
 
 
-# def test_client_lazy_load():
-#     """
-#     Test that the TGISBackend client is lazy loaded
-#     """
-#     model_name = "model-name"
-#     tgis_backend = TGISBackend(
-#         {"connection": {"hostname": "{model_id}.localhost:1234"}}
-#     )
-#     model = TextGenerationTGIS(model_name, tgis_backend=tgis_backend)
+def test_client_lazy_load():
+    """
+    Test that the TGISBackend client is lazy loaded
+    """
+    model_name = "model-name"
+    tgis_backend = TGISBackend(
+        {"connection": {"hostname": "{model_id}.localhost:1234"}}
+    )
+    model = TextGenerationTGIS(model_name, tgis_backend=tgis_backend)
 
-#     # No tgis_backend client and _model_loaded still False
-#     assert "_client" not in model.__dict__
-#     assert not model.__dict__.get("_model_loaded", True)
+    # No tgis_backend client and _model_loaded still False
+    assert "_client" not in model.__dict__
+    assert not model.__dict__.get("_model_loaded", True)
 
-#     # Client gets created on accessing ._client
-#     client = model._client
-#     assert client is not None
-#     assert client
+    # Client gets created on accessing ._client
+    client = model._client
+    assert client is not None
+    assert client
 
 
 # ### Output streaming tests ##############################################################
