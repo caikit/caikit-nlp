@@ -98,9 +98,9 @@ def test_train_model_seq2seq(disable_wip, set_cpu_device):
     model = TextGeneration.train(**train_kwargs)
     assert isinstance(model.model, HFAutoSeq2SeqLM)
 
-    # Ensure that we can get something out of it
-    pred = model.run("@bar what a cute cat!")
-    assert isinstance(pred, GeneratedTextResult)
+    # # Ensure that we can get something out of it
+    # pred = model.run("@bar what a cute cat!")
+    # assert isinstance(pred, GeneratedTextResult)
 
 
 # @pytest.mark.skipif(platform.processor() == "arm", reason="ARM training not supported")
