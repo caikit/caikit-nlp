@@ -648,8 +648,8 @@ class TextGeneration(ModuleBase):
         print("Dir trainer!", dir(trainer))
         print("Trainer dict", trainer.__dict__)
 
-        # Confirmed stuck in training
-        assert False
+        # # Confirmed stuck in training
+        # assert False
 
         # Start training via Trainer.train function
         trainer.train()
