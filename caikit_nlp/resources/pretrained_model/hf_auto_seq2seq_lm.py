@@ -16,7 +16,7 @@ Huggingface auto causal LM resource type
 """
 # Standard
 from collections.abc import Mapping
-from typing import Dict, List, Union
+from typing import Dict, List, Optional, Union
 
 # Third Party
 from torch.utils.data import IterableDataset
@@ -46,7 +46,8 @@ IGNORE_ID = -100
 
 
 class LoggingTrainer(Seq2SeqTrainer):
-    def log(self, logs: Dict[str, float]) -> None:
+    # pylint: disable=unused-argument
+    def log(self, logs: Dict[str, float], start_time: Optional[float] = None) -> None:
         """
         Log `logs` on the various objects watching training.
 
@@ -56,6 +57,8 @@ class LoggingTrainer(Seq2SeqTrainer):
             logs (`Dict[str, float]`):
                 The values to log.
         """
+        # start_time was added in default trainer log
+        # https://github.com/huggingface/transformers/pull/34507
         self.state = log_step(self.state, logs)
         self.control = self.callback_handler.on_log(
             self.args, self.state, self.control, logs
