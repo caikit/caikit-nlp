@@ -645,11 +645,11 @@ class TextGeneration(ModuleBase):
             train_dataset=training_dataset, **training_args
         )
 
+        # Confirm if stuck in training
+        assert False
+
         # Start training via Trainer.train function
         trainer.train()
-
-        # Check if training starts
-        assert False
 
         # save the model temporarily and reload it
         # this is done, since otherwise the model might be distributed in different
