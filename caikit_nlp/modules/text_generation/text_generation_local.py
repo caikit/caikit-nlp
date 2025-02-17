@@ -641,6 +641,10 @@ class TextGeneration(ModuleBase):
     ) -> None:
         """Utility function to wrap trainer and execute training"""
 
+        # gradient_accumulation_steps seems to be causing hang atleast on CPU training
+        # so we are removing it for now here
+        del training_args["gradient_accumulation_steps"]
+
         trainer = base_model.get_trainer(
             train_dataset=training_dataset, **training_args
         )
