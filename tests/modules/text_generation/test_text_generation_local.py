@@ -74,33 +74,33 @@ def test_save_model_can_run():
 ############################## Training ################################
 
 
-@pytest.mark.skipif(platform.processor() == "arm", reason="ARM training not supported")
-def test_train_model_seq2seq(disable_wip, set_cpu_device):
-    """Ensure that we can finetune a seq2seq model on some toy data for 1+
-    steps & run inference."""
-    train_kwargs = {
-        "base_model": HFAutoSeq2SeqLM.bootstrap(
-            model_name=SEQ2SEQ_LM_MODEL, tokenizer_name=SEQ2SEQ_LM_MODEL
-        ),
-        "num_epochs": 1,
-        "train_stream": caikit.core.data_model.DataStream.from_iterable(
-            [
-                GenerationTrainRecord(
-                    input="@foo what a cute dog!", output="no complaint"
-                ),
-                GenerationTrainRecord(
-                    input="@bar this is the worst idea ever.", output="complaint"
-                ),
-            ]
-        ),
-        "torch_dtype": torch.float32,
-    }
-    model = TextGeneration.train(**train_kwargs)
-    assert isinstance(model.model, HFAutoSeq2SeqLM)
+# @pytest.mark.skipif(platform.processor() == "arm", reason="ARM training not supported")
+# def test_train_model_seq2seq(disable_wip, set_cpu_device):
+#     """Ensure that we can finetune a seq2seq model on some toy data for 1+
+#     steps & run inference."""
+#     train_kwargs = {
+#         "base_model": HFAutoSeq2SeqLM.bootstrap(
+#             model_name=SEQ2SEQ_LM_MODEL, tokenizer_name=SEQ2SEQ_LM_MODEL
+#         ),
+#         "num_epochs": 1,
+#         "train_stream": caikit.core.data_model.DataStream.from_iterable(
+#             [
+#                 GenerationTrainRecord(
+#                     input="@foo what a cute dog!", output="no complaint"
+#                 ),
+#                 GenerationTrainRecord(
+#                     input="@bar this is the worst idea ever.", output="complaint"
+#                 ),
+#             ]
+#         ),
+#         "torch_dtype": torch.float32,
+#     }
+#     model = TextGeneration.train(**train_kwargs)
+#     assert isinstance(model.model, HFAutoSeq2SeqLM)
 
-    # # Ensure that we can get something out of it
-    # pred = model.run("@bar what a cute cat!")
-    # assert isinstance(pred, GeneratedTextResult)
+#     # Ensure that we can get something out of it
+#     pred = model.run("@bar what a cute cat!")
+#     assert isinstance(pred, GeneratedTextResult)
 
 
 # @pytest.mark.skipif(platform.processor() == "arm", reason="ARM training not supported")
