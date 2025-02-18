@@ -88,7 +88,16 @@ def get_distributed_model(model_path):
                 "initializers": {
                     "default": {
                         "config": {
-                            "backend_priority": [{"type": TGISBackend.backend_type}]
+                            "backend_priority": [
+                                {
+                                    "type": TGISBackend.backend_type,
+                                    "config": {
+                                        "connection": {
+                                            "hostname": "localhost:8033",
+                                        }
+                                    },
+                                }
+                            ]
                         }
                     }
                 }

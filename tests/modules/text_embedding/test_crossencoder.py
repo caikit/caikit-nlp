@@ -507,7 +507,6 @@ def test_truncation(truncate_input_tokens, loaded_model):
         queries_scores = [x.score for x in r.scores]
         query_scores = [x.score for x in query_results[i].scores]
         assert np.array_equal(queries_scores, query_scores)
-
         # To compare scores based on the inputs, we need to use the index too
         indexed_query_scores = {s.index: s.score for s in query_results[i].scores}
 
