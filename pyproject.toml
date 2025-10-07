@@ -23,7 +23,7 @@ dependencies = [
     "accelerate>=1.3.0",
     "datasets>=3.3.0",
     "huggingface-hub",
-    "numpy>=1.23.0,<2",
+    "numpy>=1.23.0,<3",
     "pandas>=2.2.3",
     "scikit-learn>=1.6.1",
     "scipy>=1.10.0",
