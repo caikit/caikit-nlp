@@ -1,0 +1,2 @@
+caikit[runtime-grpc,runtime-http]
+caikit-nlp

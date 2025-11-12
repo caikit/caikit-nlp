@@ -1,0 +1,9 @@
+artifacts_path: artifacts
+caikit_nlp_version: 0.4.0
+created: "2024-01-23 13:01:58.022674"
+module_class: caikit_nlp.modules.text_embedding.embedding.EmbeddingModule
+module_id: eeb12558-b4fa-4f34-a9fd-3f5890e9cd3f
+name: EmbeddingModule
+saved: "2024-01-23 13:01:58.022692"
+tracking_id: 88a3a3de-da3d-4201-9220-274ad1540a82
+version: 0.0.1
